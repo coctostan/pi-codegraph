@@ -1,18 +1,62 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
-  "phaseHistory": [],
+  "activeIssue": "022-m1-resolve-edge-tool-pi-extension-wiring",
+  "workflow": "feature",
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1772743370455
+    },
+    {
+      "from": "spec",
+      "to": "plan",
+      "timestamp": 1772743469564
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1772746883473
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772748216213
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1772748239432
+    },
+    {
+      "from": "code-review",
+      "to": "done",
+      "timestamp": 1772748316579
+    }
+  ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 0,
-  "currentTaskIndex": 0,
-  "completedTasks": [],
+  "planIteration": 3,
+  "currentTaskIndex": 11,
+  "completedTasks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
   "tddTaskState": null,
   "doneActions": [],
   "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": null,
-  "baseBranch": null
+  "branchName": "feat/022-m1-resolve-edge-tool-pi-extension-wiring",
+  "baseBranch": "main"
 }

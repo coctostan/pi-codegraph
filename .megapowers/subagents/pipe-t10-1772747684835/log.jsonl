@@ -1,0 +1,8 @@
+{"step":"implement","status":"completed","durationMs":72944,"summary":"implement ok"}
+{"step":"verify","status":"failed","durationMs":155,"summary":"tests failed","error":"exit code 1"}
+{"step":"implement","status":"completed","durationMs":26183,"summary":"implement ok"}
+{"step":"verify","status":"failed","durationMs":132,"summary":"tests failed","error":"exit code 1"}
+{"step":"implement","status":"completed","durationMs":22352,"summary":"implement ok"}
+{"step":"verify","status":"failed","durationMs":136,"summary":"tests failed","error":"exit code 1"}
+{"step":"implement","status":"completed","durationMs":82736,"summary":"implement ok"}
+{"step":"verify","status":"failed","durationMs":128,"summary":"tests failed","error":"exit code 1"}
