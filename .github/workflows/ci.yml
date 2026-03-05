@@ -28,8 +28,12 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Compile tree-sitter native addon
-        run: npm rebuild tree-sitter
+      - name: Compile tree-sitter and place prebuilt
+        run: |
+          npm rebuild tree-sitter
+          mkdir -p node_modules/tree-sitter/prebuilds/linux-x64
+          cp node_modules/tree-sitter/build/Release/tree-sitter.node \
+             node_modules/tree-sitter/prebuilds/linux-x64/tree-sitter.node
 
       - name: Type-check
         run: bun run check
