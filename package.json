@@ -1,0 +1,21 @@
+{
+  "name": "pi-codegraph",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "build": "echo \"nothing to build\"",
+    "check": "tsc --noEmit"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.56.0",
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

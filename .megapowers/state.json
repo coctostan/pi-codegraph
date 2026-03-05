@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "activeIssue": "001-project-scaffolding-typescript-bun-test-",
+  "workflow": "feature",
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1772666330876
+    },
+    {
+      "from": "spec",
+      "to": "plan",
+      "timestamp": 1772666615975
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1772667482438
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772668565656
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1772668888433
+    },
+    {
+      "from": "code-review",
+      "to": "done",
+      "timestamp": 1772668960671
+    }
+  ],
+  "reviewApproved": false,
+  "planMode": null,
+  "planIteration": 3,
+  "currentTaskIndex": 6,
+  "completedTasks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "tddTaskState": null,
+  "doneActions": [
+    "generate-docs",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
+  "megaEnabled": true,
+  "branchName": null,
+  "baseBranch": null
+}
