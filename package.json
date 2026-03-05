@@ -13,6 +13,10 @@
       "./src/index.ts"
     ]
   },
+  "dependencies": {
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2"
+  },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "^0.56.0",
     "@types/bun": "latest",
