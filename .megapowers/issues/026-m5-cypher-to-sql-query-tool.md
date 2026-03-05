@@ -2,6 +2,8 @@
 id: 26
 type: feature
 status: open
+milestone: M5
+priority: 4
 created: 2026-03-05T00:48:16.735Z
 sources: [16]
 ---

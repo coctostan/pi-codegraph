@@ -2,6 +2,8 @@
 id: 22
 type: feature
 status: open
+milestone: M1
+priority: 2
 created: 2026-03-05T00:48:16.731Z
 sources: [8, 9]
 ---

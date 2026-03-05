@@ -1,40 +1,42 @@
 # pi-codegraph — Roadmap
 
-## M0: Foundation (Week 1-2)
+## M0: Foundation — ✅ COMPLETE
 
 **Goal:** Project scaffolding, graph store, and basic structure extraction. No tools yet — just the ability to index a TypeScript project into a symbol graph.
 
-- [ ] Project setup: TypeScript, bun, test framework
-- [ ] Graph store abstraction + SQLite implementation
-- [ ] Node and edge types with provenance model
-- [ ] Stage 1 indexer: tree-sitter → function/class/interface/module nodes
-- [ ] Stage 1 indexer: import extraction → `imports` edges
-- [ ] Stage 1 indexer: direct call extraction → `calls` edges (name-matched)
-- [ ] Incremental indexing: content hash per file, skip unchanged
-- [ ] Index a real TypeScript project (hashline-readmap itself), validate the graph makes sense
+- [x] Project setup: TypeScript, bun, test framework _(#001)_
+- [x] Graph store abstraction + SQLite implementation _(#002 via batch #019)_
+- [x] Node and edge types with provenance model _(#003 via batch #019)_
+- [x] Stage 1 indexer: tree-sitter → function/class/interface/module nodes _(#004 via batch #020)_
+- [x] Stage 1 indexer: import extraction → `imports` edges _(#004 via batch #020)_
+- [x] Stage 1 indexer: direct call extraction → `calls` edges (name-matched) _(#004 via batch #020)_
+- [x] Incremental indexing: content hash per file, skip unchanged _(#005 via batch #020)_
+- [x] Index a real TypeScript project, validate the graph makes sense _(verified in #020)_
 
-**Exit criteria:** Can index a project and query the SQLite database directly to see nodes and edges. The graph is structurally correct for direct calls and imports.
+**Exit criteria met:** ✅ Can index a project and query the SQLite database directly to see nodes and edges. The graph is structurally correct for direct calls and imports.
 
 ---
 
-## M1: `symbol_graph` + `resolve_edge` (Week 3-4)
+## M1: `symbol_graph` + `resolve_edge` — 🔶 IN PROGRESS (2/4 issues done)
 
 **Goal:** First two tools, usable by an agent. The core loop: query the graph, see holes, fill them.
 
-- [ ] `symbol_graph` tool: given a symbol name, return anchored neighborhood
-- [ ] Output layer: hashline anchoring for every node in results
-- [ ] Result ranking: top N callers/callees by confidence, omission counts
-- [ ] `resolve_edge` tool: agent writes an edge with evidence
-- [ ] Edge persistence and invalidation (content hash check)
-- [ ] Unresolved edge display: show candidates + hint for agent resolution
-- [ ] pi extension wiring: register tools, handle invocations
-- [ ] Test: agent uses `symbol_graph` on hashline-readmap, sees results, resolves an edge
+- [x] `symbol_graph` tool: given a symbol name, return anchored neighborhood _(#006 via batch #021)_
+- [x] Output layer: hashline anchoring for every node in results _(#007 via batch #021)_
+- [x] Result ranking: top N callers/callees by confidence, omission counts _(#007 via batch #021)_
+- [ ] `resolve_edge` tool: agent writes an edge with evidence _(#008 — stub only)_
+- [ ] Edge persistence and invalidation (content hash check) _(#008)_
+- [ ] Unresolved edge display: show candidates + hint for agent resolution _(#008)_
+- [ ] pi extension wiring: register tools, handle invocations _(#009 — stub only)_
+- [ ] Test: agent uses `symbol_graph` on a real project, sees results, resolves an edge
+
+**Remaining:** Batch #022 (resolve_edge + extension wiring)
 
 **Exit criteria:** An agent can explore a codebase through `symbol_graph`, encounter unresolved edges, and fill them with `resolve_edge`. The graph persists across sessions.
 
 ---
 
-## M2: LSP Integration (Week 5-6)
+## M2: LSP Integration (Week 5-6) — NOT STARTED
 
 **Goal:** Stage 2 indexing. The graph gets dramatically more accurate.
 
@@ -46,11 +48,13 @@
 - [ ] Lazy resolution: only query LSP for symbols that are actually queried by tools (not full upfront scan)
 - [ ] Cache LSP results in the graph store
 
+**Batch:** #023 (LSP integration)
+
 **Exit criteria:** `symbol_graph` returns significantly more complete results for TypeScript projects. Interface calls resolve to concrete implementations. Edge provenance correctly distinguishes `tree-sitter` vs `lsp` sources.
 
 ---
 
-## M3: `impact` + Framework Rules (Week 7-8)
+## M3: `impact` + Framework Rules (Week 7-8) — NOT STARTED
 
 **Goal:** Change impact analysis and framework-aware indexing.
 
@@ -63,11 +67,13 @@
 - [ ] User-defined rule loading from project-local config
 - [ ] Endpoint nodes derived from framework rules
 
+**Batch:** #024 (impact analysis + ast-grep rule engine)
+
 **Exit criteria:** `impact` gives symbol-level, classified impact analysis. Framework rules create endpoint and route nodes that connect handlers to HTTP methods.
 
 ---
 
-## M4: `trace` + Test Coverage (Week 9-10)
+## M4: `trace` + Test Coverage (Week 9-10) — NOT STARTED
 
 **Goal:** The killer feature. Real execution paths from test coverage.
 
@@ -79,11 +85,13 @@
 - [ ] Associate traces with endpoint nodes where possible
 - [ ] Fallback trace from static analysis when no coverage exists (with fork points at interfaces)
 
+**Batch:** #025 (V8 coverage + trace tool)
+
 **Exit criteria:** Agent runs tests with coverage, then `trace("POST /api/login")` returns the actual ordered execution path. `symbol_graph` shows `test-coverage` edges with highest confidence.
 
 ---
 
-## M5: `graph_query` + Co-Change + Polish (Week 11-12)
+## M5: `graph_query` + Co-Change + Polish (Week 11-12) — NOT STARTED
 
 **Goal:** Power query tool, git-based signals, and production readiness.
 
@@ -94,6 +102,8 @@
 - [ ] Performance profiling on large projects (1000+ files)
 - [ ] Documentation: tool usage guide, framework rule authoring guide
 - [ ] Edge case hardening: re-exports, barrel files, namespace imports, aliased imports
+
+**Batches:** #026 (Cypher-to-SQL query tool), #027 (git co-change + hardening)
 
 **Exit criteria:** All 5 tools working. Graph built from all 5 layers. Tested on multiple real TypeScript projects.
 
