@@ -14,12 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Install build tools
+        run: sudo apt-get install -y build-essential python3
+
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm install --legacy-peer-deps
+
+      - name: Compile tree-sitter native addon
+        run: |
+          npm --prefix node_modules/tree-sitter run rebuild
+          mkdir -p node_modules/tree-sitter/prebuilds/linux-x64
+          cp node_modules/tree-sitter/build/Release/tree_sitter_runtime_binding.node \
+             node_modules/tree-sitter/prebuilds/linux-x64/tree-sitter.node
 
       - name: Type-check
         run: bun run check

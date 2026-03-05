@@ -1,44 +1,54 @@
 {
   "version": 1,
-  "activeIssue": "001-project-scaffolding-typescript-bun-test-",
+  "activeIssue": "021-m1-output-layer-symbol-graph-tool",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1772666330876
+      "timestamp": 1772726950866
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1772666615975
+      "timestamp": 1772727211165
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772667482438
+      "timestamp": 1772727525573
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772668565656
+      "timestamp": 1772729334880
+    },
+    {
+      "from": "verify",
+      "to": "implement",
+      "timestamp": 1772729573467
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772729597736
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1772668888433
+      "timestamp": 1772729637915
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1772668960671
+      "timestamp": 1772730506595
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 3,
-  "currentTaskIndex": 6,
+  "planIteration": 1,
+  "currentTaskIndex": 0,
   "completedTasks": [
     1,
     2,
@@ -46,9 +56,23 @@
     4,
     5,
     6,
-    7
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 1,
+    "state": "impl-allowed",
+    "skipped": false
+  },
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -58,6 +82,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": null,
-  "baseBranch": null
+  "branchName": "feat/021-m1-output-layer-symbol-graph-tool",
+  "baseBranch": "feat/020-m0-tree-sitter-indexer-incremental-hashi"
 }
