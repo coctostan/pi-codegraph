@@ -147,6 +147,36 @@ export class SqliteGraphStore implements GraphStore {
     };
   }
 
+  findNodes(name: string, file?: string): GraphNode[] {
+    const sql = file
+      ? `SELECT id, kind, name, file, start_line, end_line, content_hash
+         FROM nodes WHERE name = ? AND file = ?`
+      : `SELECT id, kind, name, file, start_line, end_line, content_hash
+         FROM nodes WHERE name = ?`;
+
+    const rows = (file
+      ? this.db.query(sql).all(name, file)
+      : this.db.query(sql).all(name)) as Array<{
+      id: string;
+      kind: GraphNode["kind"];
+      name: string;
+      file: string;
+      start_line: number;
+      end_line: number | null;
+      content_hash: string;
+    }>;
+
+    return rows.map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      name: row.name,
+      file: row.file,
+      start_line: row.start_line,
+      end_line: row.end_line,
+      content_hash: row.content_hash,
+    }));
+  }
+
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[] {
     const direction = options?.direction ?? "both";
     const kind = options?.kind;

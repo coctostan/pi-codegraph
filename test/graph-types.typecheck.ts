@@ -62,13 +62,15 @@ const validStore: GraphStore = {
   getNode: () => null,
   getNeighbors: () => [],
   getNodesByFile: () => [],
+  findNodes: () => [],
+  listFiles: () => [],
   deleteFile: () => {},
   getFileHash: () => null,
   setFileHash: () => {},
   close: () => {},
 };
 
-// @ts-expect-error GraphStore must require all 9 methods
+// @ts-expect-error GraphStore must require all 11 methods
 const invalidStore: GraphStore = {};
 
 void [validStore, invalidStore];

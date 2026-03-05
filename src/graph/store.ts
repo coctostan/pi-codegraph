@@ -14,6 +14,7 @@ export interface GraphStore {
   addNode(node: GraphNode): void;
   addEdge(edge: GraphEdge): void;
   getNode(id: string): GraphNode | null;
+  findNodes(name: string, file?: string): GraphNode[];
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
   getNodesByFile(file: string): GraphNode[];
   deleteFile(file: string): void;
