@@ -32,7 +32,7 @@ jobs:
         run: |
           npm --prefix node_modules/tree-sitter run rebuild
           mkdir -p node_modules/tree-sitter/prebuilds/linux-x64
-          cp node_modules/tree-sitter/build/Release/tree-sitter.node \
+          cp node_modules/tree-sitter/build/Release/tree_sitter_runtime_binding.node \
              node_modules/tree-sitter/prebuilds/linux-x64/tree-sitter.node
 
       - name: Type-check
