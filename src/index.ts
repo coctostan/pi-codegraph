@@ -58,7 +58,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       ensureIndexed(projectRoot, store);
       const output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
-      return { content: [{ type: "text", text: output }] };
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 
@@ -81,7 +81,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         store,
         projectRoot,
       });
-      return { content: [{ type: "text", text: output }] };
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 }
