@@ -276,12 +276,13 @@ export class SqliteGraphStore implements GraphStore {
     this.db.exec("BEGIN");
 
     try {
-      // 1) delete edges touching nodes from the file (source OR target)
+      // 1) delete non-agent edges touching nodes from the file (source OR target)
       this.db
         .query(
           `DELETE FROM edges
-           WHERE source IN (SELECT id FROM nodes WHERE file = ?)
-              OR target IN (SELECT id FROM nodes WHERE file = ?)`
+           WHERE provenance_source != 'agent'
+             AND (source IN (SELECT id FROM nodes WHERE file = ?)
+               OR target IN (SELECT id FROM nodes WHERE file = ?))`
         )
         .run(file, file);
 

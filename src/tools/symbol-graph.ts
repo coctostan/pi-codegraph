@@ -15,10 +15,21 @@ export interface SymbolGraphParams {
   projectRoot: string;
 }
 
-function toAnchoredNeighbor(nr: NeighborResult, projectRoot: string): AnchoredNeighbor {
+function isAgentEdgeStale(nr: NeighborResult, store: GraphStore): boolean {
+  if (nr.edge.provenance.source !== "agent") return false;
+  const sourceNode = store.getNode(nr.edge.source);
+  if (!sourceNode) return true;
+  const currentFileHash = store.getFileHash(sourceNode.file);
+  if (!currentFileHash) return true;
+  return nr.edge.provenance.content_hash !== currentFileHash;
+}
+
+function toAnchoredNeighbor(nr: NeighborResult, projectRoot: string, store: GraphStore): AnchoredNeighbor {
   const anchor = computeAnchor(nr.node, projectRoot);
+  const agentStale = isAgentEdgeStale(nr, store);
+  const effectiveAnchor = agentStale ? { ...anchor, stale: true } : anchor;
   return {
-    anchor,
+    anchor: effectiveAnchor,
     name: nr.node.name,
     edgeKind: nr.edge.kind,
     confidence: nr.edge.provenance.confidence,
@@ -30,10 +41,11 @@ function buildSection(
   neighbors: NeighborResult[],
   limit: number,
   projectRoot: string,
+  store: GraphStore,
 ): NeighborSection {
   const ranked = rankNeighbors(neighbors, limit);
   return {
-    items: ranked.kept.map((nr) => toAnchoredNeighbor(nr, projectRoot)),
+    items: ranked.kept.map((nr) => toAnchoredNeighbor(nr, projectRoot, store)),
     omitted: ranked.omitted,
   };
 }
@@ -84,10 +96,10 @@ export function symbolGraph(params: SymbolGraphParams): string {
     }
   }
 
-  const callers = buildSection(callerResults, limit, projectRoot);
-  const callees = buildSection(calleeResults, limit, projectRoot);
-  const imports = buildSection(importResults, limit, projectRoot);
-  const unresolved = buildSection(unresolvedResults, limit, projectRoot);
+  const callers = buildSection(callerResults, limit, projectRoot, store);
+  const callees = buildSection(calleeResults, limit, projectRoot, store);
+  const imports = buildSection(importResults, limit, projectRoot, store);
+  const unresolved = buildSection(unresolvedResults, limit, projectRoot, store);
 
   return formatNeighborhood(
     { name: node.name, kind: node.kind, anchor: symbolAnchor },

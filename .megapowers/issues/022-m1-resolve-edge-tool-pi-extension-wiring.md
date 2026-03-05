@@ -1,7 +1,7 @@
 ---
 id: 22
 type: feature
-status: open
+status: in-progress
 milestone: M1
 priority: 2
 created: 2026-03-05T00:48:16.731Z
