@@ -27,7 +27,7 @@ function walkTsFiles(root: string): string[] {
 
   const walk = (dir: string) => {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
-      if (ent.name === "node_modules") continue;
+      if (ent.name === "node_modules" || ent.name === ".megapowers" || ent.name === ".git") continue;
       const full = join(dir, ent.name);
 
       if (ent.isDirectory()) {

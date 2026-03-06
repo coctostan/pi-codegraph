@@ -1,7 +1,18 @@
-import { Database } from "bun:sqlite";
-
+import { createRequire } from "node:module";
 import type { GraphStore, NeighborOptions, NeighborResult } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
+const _require = createRequire(import.meta.url);
+  /** Open a SQLite database using the available runtime module. */
+  function openDb(path: string): any {
+  // bun:sqlite in Bun, node:sqlite in Node.js 22+
+  if ((process.versions as any).bun) {
+    const { Database } = _require("bun:sqlite");
+    return new Database(path);
+  } else {
+    const { DatabaseSync } = _require("node:sqlite");
+    return new DatabaseSync(path);
+  }
+}
 
 /** Raw row returned by the directional neighbor SELECT queries. */
 interface NeighborRow {
@@ -23,10 +34,11 @@ interface NeighborRow {
 }
 
 export class SqliteGraphStore implements GraphStore {
-  private db: Database;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private db: any;
 
   constructor(dbPath: string = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = openDb(dbPath);
     this.initSchema();
   }
 
@@ -70,17 +82,17 @@ export class SqliteGraphStore implements GraphStore {
     `);
 
     const existing = this.db
-      .query("SELECT version FROM schema_version LIMIT 1")
+      .prepare("SELECT version FROM schema_version LIMIT 1")
       .get() as { version: number } | null;
 
     if (!existing) {
-      this.db.query("INSERT INTO schema_version(version) VALUES (1)").run();
+      this.db.prepare("INSERT INTO schema_version(version) VALUES (1)").run();
     }
   }
 
   addNode(node: GraphNode): void {
     this.db
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO nodes
           (id, kind, name, file, start_line, end_line, content_hash)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -91,14 +103,14 @@ export class SqliteGraphStore implements GraphStore {
         node.name,
         node.file,
         node.start_line,
-        node.end_line,
+        node.end_line ?? null,
         node.content_hash
       );
   }
 
   addEdge(edge: GraphEdge): void {
     this.db
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO edges
           (source, target, kind, provenance_source, confidence, evidence, content_hash, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -117,7 +129,7 @@ export class SqliteGraphStore implements GraphStore {
 
   getNode(id: string): GraphNode | null {
     const row = this.db
-      .query(
+      .prepare(
         `SELECT id, kind, name, file, start_line, end_line, content_hash
          FROM nodes
          WHERE id = ?`
@@ -155,8 +167,8 @@ export class SqliteGraphStore implements GraphStore {
          FROM nodes WHERE name = ?`;
 
     const rows = (file
-      ? this.db.query(sql).all(name, file)
-      : this.db.query(sql).all(name)) as Array<{
+      ? this.db.prepare(sql).all(name, file)
+      : this.db.prepare(sql).all(name)) as Array<{
       id: string;
       kind: GraphNode["kind"];
       name: string;
@@ -215,8 +227,8 @@ export class SqliteGraphStore implements GraphStore {
     const sql = kind ? `${baseSQL} AND e.kind = ?` : baseSQL;
 
     const rows = (kind
-      ? this.db.query(sql).all(nodeId, kind)
-      : this.db.query(sql).all(nodeId)) as NeighborRow[];
+      ? this.db.prepare(sql).all(nodeId, kind)
+      : this.db.prepare(sql).all(nodeId)) as NeighborRow[];
 
     return rows.map((row) => ({
       node: {
@@ -270,7 +282,7 @@ export class SqliteGraphStore implements GraphStore {
   getUnresolvedEdges(): GraphEdge[] {
     // Use SUBSTR to avoid SQL LIKE treating '_' as a single-char wildcard.
     const rows = this.db
-      .query(
+      .prepare(
         `SELECT source, target, kind, provenance_source, confidence, evidence,
                 content_hash, created_at
          FROM edges
@@ -283,7 +295,7 @@ export class SqliteGraphStore implements GraphStore {
 
   getEdgesBySource(sourceId: string): GraphEdge[] {
     const rows = this.db
-      .query(
+      .prepare(
         `SELECT source, target, kind, provenance_source, confidence, evidence,
                 content_hash, created_at
          FROM edges
@@ -301,7 +313,7 @@ export class SqliteGraphStore implements GraphStore {
     provenanceSource: string,
   ): void {
     this.db
-      .query(
+      .prepare(
         `DELETE FROM edges
          WHERE source = ? AND target = ? AND kind = ? AND provenance_source = ?`,
       )
@@ -310,7 +322,7 @@ export class SqliteGraphStore implements GraphStore {
 
   getNodesByFile(file: string): GraphNode[] {
     const rows = this.db
-      .query(
+      .prepare(
         `SELECT id, kind, name, file, start_line, end_line, content_hash
          FROM nodes
          WHERE file = ?
@@ -343,7 +355,7 @@ export class SqliteGraphStore implements GraphStore {
     try {
       // 1) delete non-agent edges touching nodes from the file (source OR target)
       this.db
-        .query(
+        .prepare(
           `DELETE FROM edges
            WHERE provenance_source != 'agent'
              AND (source IN (SELECT id FROM nodes WHERE file = ?)
@@ -352,10 +364,10 @@ export class SqliteGraphStore implements GraphStore {
         .run(file, file);
 
       // 2) delete nodes from the file
-      this.db.query(`DELETE FROM nodes WHERE file = ?`).run(file);
+      this.db.prepare(`DELETE FROM nodes WHERE file = ?`).run(file);
 
       // 3) delete file hash row
-      this.db.query(`DELETE FROM file_hashes WHERE file = ?`).run(file);
+      this.db.prepare(`DELETE FROM file_hashes WHERE file = ?`).run(file);
 
       this.db.exec("COMMIT");
     } catch (error) {
@@ -366,7 +378,7 @@ export class SqliteGraphStore implements GraphStore {
 
   listFiles(): string[] {
     const rows = this.db
-      .query("SELECT file FROM file_hashes ORDER BY file ASC")
+      .prepare("SELECT file FROM file_hashes ORDER BY file ASC")
       .all() as Array<{ file: string }>;
 
     return rows.map((r) => r.file);
@@ -374,7 +386,7 @@ export class SqliteGraphStore implements GraphStore {
 
   getFileHash(file: string): string | null {
     const row = this.db
-      .query(`SELECT hash FROM file_hashes WHERE file = ?`)
+      .prepare(`SELECT hash FROM file_hashes WHERE file = ?`)
       .get(file) as { hash: string } | null;
 
     return row?.hash ?? null;
@@ -382,7 +394,7 @@ export class SqliteGraphStore implements GraphStore {
 
   setFileHash(file: string, hash: string): void {
     this.db
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at)
          VALUES (?, ?, ?)`
       )
