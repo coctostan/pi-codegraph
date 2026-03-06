@@ -7,12 +7,13 @@ import { Database } from "bun:sqlite";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
+import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 
 function sha256Hex(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
-test("indexProject indexes .ts files under root, excludes node_modules, and persists nodes/edges + file hashes", () => {
+test("indexProject indexes .ts files under root, excludes node_modules, and persists nodes/edges + file hashes", async () => {
   const root = join(tmpdir(), `pi-codegraph-index-${Date.now()}`);
   const dbPath = join(root, "graph.sqlite");
 
@@ -35,7 +36,7 @@ test("indexProject indexes .ts files under root, excludes node_modules, and pers
 
   const store = new SqliteGraphStore(dbPath);
   try {
-    const result = indexProject(root, store);
+    const result = await indexProject(root, store);
 
     expect(result).toEqual({ indexed: 2, skipped: 0, removed: 0, errors: 0 });
 
@@ -63,7 +64,7 @@ test("indexProject indexes .ts files under root, excludes node_modules, and pers
   }
 });
 
-test("indexProject deletes missing files and continues when a file cannot be read", () => {
+test("indexProject deletes missing files and continues when a file cannot be read", async () => {
   const root = join(tmpdir(), `pi-codegraph-removed-${Date.now()}`);
   const dbPath = join(root, "graph.sqlite");
 
@@ -82,12 +83,12 @@ test("indexProject deletes missing files and continues when a file cannot be rea
 
   const store = new SqliteGraphStore(dbPath);
   try {
-    expect(indexProject(root, store)).toEqual({ indexed: 2, skipped: 0, removed: 0, errors: 1 });
+    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 2, skipped: 0, removed: 0, errors: 1 });
 
     // Remove a previously indexed file
     rmSync(join(root, "src", "b.ts"), { force: true });
 
-    expect(indexProject(root, store)).toEqual({ indexed: 0, skipped: 1, removed: 1, errors: 1 });
+    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 0, skipped: 1, removed: 1, errors: 1 });
 
     const db = new Database(dbPath);
     try {
@@ -113,7 +114,7 @@ test("indexProject deletes missing files and continues when a file cannot be rea
   }
 });
 
-test("indexProject re-indexes a changed file: removes old nodes and stores new ones (criterion 23)", () => {
+test("indexProject re-indexes a changed file: removes old nodes and stores new ones (criterion 23)", async () => {
   const root = join(tmpdir(), `pi-codegraph-changed-${Date.now()}`);
   const dbPath = join(root, "graph.sqlite");
 
@@ -127,7 +128,7 @@ test("indexProject re-indexes a changed file: removes old nodes and stores new o
   const store = new SqliteGraphStore(dbPath);
   try {
     // First run: index original content.
-    expect(indexProject(root, store)).toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
+    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
 
     const db1 = new Database(dbPath);
     try {
@@ -142,7 +143,7 @@ test("indexProject re-indexes a changed file: removes old nodes and stores new o
     writeFileSync(join(root, "src", "a.ts"), changedContent);
 
     // Second run: should re-index the changed file.
-    expect(indexProject(root, store)).toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
+    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
 
     const db2 = new Database(dbPath);
     try {
@@ -156,6 +157,46 @@ test("indexProject re-indexes a changed file: removes old nodes and stores new o
     } finally {
       db2.close();
     }
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+
+test("indexProject runs LSP stage and upgrades unresolved call edge to lsp provenance", async () => {
+  const root = join(tmpdir(), `pi-codegraph-lsp-stage-${Date.now()}`);
+  const dbPath = join(root, "graph.sqlite");
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "api.ts"), "export function shared() { return 1; }\n");
+  writeFileSync(join(root, "src", "impl.ts"), 'import { shared } from "./api";\nexport function run(){ shared(); }\n');
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    const fakeClient: ITsServerClient = {
+      async definition(file, line, col) {
+        if (file === "src/impl.ts" && line === 2 && col === 24) {
+          return { file: "src/api.ts", line: 1, col: 17 };
+        }
+        return null;
+      },
+      async references() {
+        return [];
+      },
+      async implementations() {
+        return [];
+      },
+      async shutdown() {},
+    };
+
+    const result = await indexProject(root, store, {
+      lspClientFactory: () => fakeClient,
+    });
+
+    expect(result.errors).toBe(0);
+
+    const runNode = store.findNodes("run", "src/impl.ts")[0]!;
+    const out = store.getEdgesBySource(runNode.id);
+    expect(out.some((e) => e.kind === "calls" && e.provenance.source === "lsp")).toBe(true);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });

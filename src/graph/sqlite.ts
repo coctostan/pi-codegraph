@@ -243,6 +243,71 @@ export class SqliteGraphStore implements GraphStore {
     }));
   }
 
+  private static edgeFromRow(row: {
+    source: string;
+    target: string;
+    kind: string;
+    provenance_source: string;
+    confidence: number;
+    evidence: string;
+    content_hash: string;
+    created_at: number;
+  }): GraphEdge {
+    return {
+      source: row.source,
+      target: row.target,
+      kind: row.kind as GraphEdge["kind"],
+      provenance: {
+        source: row.provenance_source as GraphEdge["provenance"]["source"],
+        confidence: row.confidence,
+        evidence: row.evidence,
+        content_hash: row.content_hash,
+      },
+      created_at: row.created_at,
+    };
+  }
+
+  getUnresolvedEdges(): GraphEdge[] {
+    // Use SUBSTR to avoid SQL LIKE treating '_' as a single-char wildcard.
+    const rows = this.db
+      .query(
+        `SELECT source, target, kind, provenance_source, confidence, evidence,
+                content_hash, created_at
+         FROM edges
+         WHERE SUBSTR(target, 1, 16) = '__unresolved__::'
+         ORDER BY created_at ASC`,
+      )
+      .all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    return rows.map(SqliteGraphStore.edgeFromRow);
+  }
+
+  getEdgesBySource(sourceId: string): GraphEdge[] {
+    const rows = this.db
+      .query(
+        `SELECT source, target, kind, provenance_source, confidence, evidence,
+                content_hash, created_at
+         FROM edges
+         WHERE source = ?
+         ORDER BY created_at ASC`,
+      )
+      .all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    return rows.map(SqliteGraphStore.edgeFromRow);
+  }
+
+  deleteEdge(
+    source: string,
+    target: string,
+    kind: string,
+    provenanceSource: string,
+  ): void {
+    this.db
+      .query(
+        `DELETE FROM edges
+         WHERE source = ? AND target = ? AND kind = ? AND provenance_source = ?`,
+      )
+      .run(source, target, kind, provenanceSource);
+  }
+
   getNodesByFile(file: string): GraphNode[] {
     const rows = this.db
       .query(
