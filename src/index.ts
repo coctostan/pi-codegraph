@@ -5,6 +5,9 @@ import { join } from "node:path";
 import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
+import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
+import { TsServerClient } from "./indexer/tsserver-client.js";
+import { computeAnchor } from "./output/anchoring.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 
@@ -41,10 +44,28 @@ function getOrCreateStore(projectRoot: string): GraphStore {
   return sharedStore;
 }
 
-function ensureIndexed(projectRoot: string, store: GraphStore): void {
+async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<void> {
   if (store.listFiles().length === 0) {
-    indexProject(projectRoot, store);
+    await indexProject(projectRoot, store);
   }
+}
+
+function renderImplementationsSuffix(store: GraphStore, node: any, projectRoot: string): string {
+  if (node.kind !== "interface") return "";
+
+  // Include all provenance sources (lsp, agent, etc.) — agent-written implements
+  // edges must be visible here since symbolGraph() does not render them.
+  const impl = store
+    .getNeighbors(node.id, { direction: "in", kind: "implements" });
+
+  if (impl.length === 0) return "";
+
+  const lines = ["", "### Implementations"];
+  for (const it of impl) {
+    const anchor = computeAnchor(it.node, projectRoot);
+    lines.push(`  ${anchor.anchor}  ${it.node.name}  implements  confidence:${it.edge.provenance.confidence}  ${it.edge.provenance.source}`);
+  }
+  return lines.join("\n") + "\n";
 }
 
 export default function piCodegraph(pi: ExtensionAPI): void {
@@ -56,8 +77,26 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
-      ensureIndexed(projectRoot, store);
-      const output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
+      await ensureIndexed(projectRoot, store);
+      let resolvedNode: any | null = null;
+      const nodes = store.findNodes(params.name, params.file);
+      if (nodes.length === 1) {
+        resolvedNode = nodes[0]!;
+        const client = new TsServerClient(projectRoot);
+        try {
+          await resolveMissingCallers(resolvedNode, store, projectRoot, client);
+          if (resolvedNode.kind === "interface") {
+            await resolveImplementations(resolvedNode, store, projectRoot, client);
+          }
+        } finally {
+          await client.shutdown().catch(() => {});
+        }
+      }
+
+      let output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
+      if (resolvedNode) {
+        output += renderImplementationsSuffix(store, resolvedNode, projectRoot);
+      }
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -70,7 +109,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
-      ensureIndexed(projectRoot, store);
+      await ensureIndexed(projectRoot, store);
       const output = resolveEdge({
         source: params.source,
         target: params.target,

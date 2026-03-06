@@ -202,3 +202,44 @@ test("extractFile returns empty nodes/edges (but no throw) when the parse has er
   expect(result.nodes).toEqual([]);
   expect(result.edges).toEqual([]);
 });
+
+// ---------- Task 2 additions ----------
+
+test("extractFile records call-site coordinates in calls evidence (bare call)", () => {
+  const file = "src/a.ts";
+  // line 1: function caller() {
+  // line 2:   return foo();     <— 'foo' at col 10 (2 spaces + "return " = 9 chars, then 'f')
+  // line 3: }
+  const content = "function caller() {\n  return foo();\n}";
+  const result = extractFile(file, content);
+
+  const callEdges = result.edges.filter(
+    (e) => e.kind === "calls" && !e.target.includes("__unresolved__")
+      || (e.kind === "calls" && e.target.includes("__unresolved__")),
+  );
+  // There should be at least one calls edge for the 'foo' call
+  const fooEdge = result.edges.find(
+    (e) => e.kind === "calls" && e.provenance.evidence.startsWith("foo:"),
+  );
+  expect(callEdges.length).toBeGreaterThan(0);
+  expect(fooEdge).toBeDefined();
+  // Evidence must be "name:line:col" using 1-based positions from the AST.
+  // 'foo' is the callee identifier: startPosition.row=1 (+1=2), startPosition.column=9 (+1=10)
+  expect(fooEdge!.provenance.evidence).toBe("foo:2:10");
+});
+
+test("extractFile records constructor call-site coordinates in calls evidence (new expression)", () => {
+  const file = "src/b.ts";
+  // line 1: function make() {
+  // line 2:   return new Bar();   <— 'Bar' at col 14 (2 spaces + "return new " = 13 chars, then 'B')
+  // line 3: }
+  const content = "function make() {\n  return new Bar();\n}";
+  const result = extractFile(file, content);
+
+  const barEdge = result.edges.find(
+    (e) => e.kind === "calls" && e.provenance.evidence.startsWith("Bar:"),
+  );
+  expect(barEdge).toBeDefined();
+  // 'Bar' constructor: startPosition.row=1 (+1=2), startPosition.column=13 (+1=14)
+  expect(barEdge!.provenance.evidence).toBe("Bar:2:14");
+});
