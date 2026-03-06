@@ -208,6 +208,9 @@ export function extractFile(file: string, content: string): ExtractionResult {
       }
     });
 
+    function callEvidence(node: SyntaxNode): string {
+      return `${node.text}:${node.startPosition.row + 1}:${node.startPosition.column + 1}`;
+    }
     const visitCalls = (n: SyntaxNode, currentFunctionId: string | null): void => {
       let nextFunctionId = currentFunctionId;
 
@@ -236,7 +239,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
             provenance: {
               source: "tree-sitter",
               confidence: 0.5,
-              evidence: callee.text,
+              evidence: callEvidence(callee),
               content_hash: contentHash,
             },
             created_at: Date.now(),
@@ -254,7 +257,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
             provenance: {
               source: "tree-sitter",
               confidence: 0.5,
-              evidence: ctor.text,
+              evidence: callEvidence(ctor),
               content_hash: contentHash,
             },
             created_at: Date.now(),

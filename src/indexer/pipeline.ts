@@ -3,12 +3,19 @@ import { join, relative, sep } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
+import { runLspIndexStage } from "./lsp.js";
+import { TsServerClient } from "./tsserver-client.js";
+import type { ITsServerClient } from "./tsserver-client.js";
 
 export interface IndexResult {
   indexed: number;
   skipped: number;
   removed: number;
   errors: number;
+}
+
+export interface IndexProjectOptions {
+  lspClientFactory?: (projectRoot: string) => ITsServerClient;
 }
 
 function toPosixPath(p: string): string {
@@ -38,7 +45,11 @@ function walkTsFiles(root: string): string[] {
   return out;
 }
 
-export function indexProject(projectRoot: string, store: GraphStore): IndexResult {
+export async function indexProject(
+  projectRoot: string,
+  store: GraphStore,
+  options: IndexProjectOptions = {},
+): Promise<IndexResult> {
   const files = walkTsFiles(projectRoot);
 
   let indexed = 0;
@@ -82,6 +93,12 @@ export function indexProject(projectRoot: string, store: GraphStore): IndexResul
     }
   }
 
+  const client = options.lspClientFactory ? options.lspClientFactory(projectRoot) : new TsServerClient(projectRoot);
+  try {
+    await runLspIndexStage(store, projectRoot, client);
+  } finally {
+    await client.shutdown().catch(() => {});
+  }
   return { indexed, skipped, removed, errors };
 }
 

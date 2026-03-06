@@ -67,6 +67,9 @@ const validStore: GraphStore = {
   deleteFile: () => {},
   getFileHash: () => null,
   setFileHash: () => {},
+  getUnresolvedEdges: () => [],
+  getEdgesBySource: () => [],
+  deleteEdge: () => {},
   close: () => {},
 };
 

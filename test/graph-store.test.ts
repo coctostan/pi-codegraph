@@ -342,3 +342,128 @@ test("addEdge provenance round-trips correctly through getNeighbors", () => {
   expect(result[0]?.edge.created_at).toBe(42);
   store.close();
 });
+
+// ---------- Task 3 additions ----------
+
+test("getUnresolvedEdges returns only edges whose target starts with __unresolved__::", () => {
+  const store = new SqliteGraphStore();
+
+  const caller = {
+    id: "src/a.ts::caller:1",
+    kind: "function" as const,
+    name: "caller",
+    file: "src/a.ts",
+    start_line: 1,
+    end_line: 3,
+    content_hash: "h1",
+  };
+  const resolved = {
+    id: "src/b.ts::helper:1",
+    kind: "function" as const,
+    name: "helper",
+    file: "src/b.ts",
+    start_line: 1,
+    end_line: 2,
+    content_hash: "h2",
+  };
+  store.addNode(caller);
+  store.addNode(resolved);
+
+  store.addEdge({
+    source: caller.id,
+    target: resolved.id,
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "helper:1:5", content_hash: "h1" },
+    created_at: 1000,
+  });
+  store.addEdge({
+    source: caller.id,
+    target: "__unresolved__::helper:0",
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "helper:2:5", content_hash: "h1" },
+    created_at: 2000,
+  });
+
+  const unresolved = store.getUnresolvedEdges();
+  expect(unresolved).toHaveLength(1);
+  expect(unresolved[0]!.target).toBe("__unresolved__::helper:0");
+
+  store.close();
+});
+
+test("getEdgesBySource returns all edges for a source ordered by created_at ASC", () => {
+  const store = new SqliteGraphStore();
+
+  const caller = {
+    id: "src/a.ts::fn:1",
+    kind: "function" as const,
+    name: "fn",
+    file: "src/a.ts",
+    start_line: 1,
+    end_line: 5,
+    content_hash: "h",
+  };
+  store.addNode(caller);
+
+  // Insert in reverse order to confirm ORDER BY created_at ASC is enforced.
+  store.addEdge({
+    source: caller.id,
+    target: "__unresolved__::second:0",
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "second:3:5", content_hash: "h" },
+    created_at: 2000,
+  });
+  store.addEdge({
+    source: caller.id,
+    target: "__unresolved__::first:0",
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "first:2:5", content_hash: "h" },
+    created_at: 1000,
+  });
+
+  const edges = store.getEdgesBySource(caller.id);
+  expect(edges).toHaveLength(2);
+  // Must be in created_at ASC order regardless of insertion order.
+  expect(edges[0]!.created_at).toBe(1000);
+  expect(edges[1]!.created_at).toBe(2000);
+
+  store.close();
+});
+
+test("deleteEdge removes only the matching (source, target, kind, provenanceSource) row", () => {
+  const store = new SqliteGraphStore();
+
+  const caller = {
+    id: "src/a.ts::deltest:1",
+    kind: "function" as const,
+    name: "deltest",
+    file: "src/a.ts",
+    start_line: 1,
+    end_line: 3,
+    content_hash: "h",
+  };
+  store.addNode(caller);
+
+  store.addEdge({
+    source: caller.id,
+    target: "__unresolved__::foo:0",
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "foo:2:5", content_hash: "h" },
+    created_at: 1000,
+  });
+  store.addEdge({
+    source: caller.id,
+    target: "__unresolved__::bar:0",
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "bar:3:5", content_hash: "h" },
+    created_at: 2000,
+  });
+
+  store.deleteEdge(caller.id, "__unresolved__::foo:0", "calls", "tree-sitter");
+
+  const remaining = store.getEdgesBySource(caller.id);
+  expect(remaining).toHaveLength(1);
+  expect(remaining[0]!.target).toBe("__unresolved__::bar:0");
+
+  store.close();
+});
