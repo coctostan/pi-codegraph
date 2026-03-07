@@ -475,10 +475,43 @@ test("symbol_graph Implementations section includes agent-provenance implements 
   const projectRoot = join(tmpdir(), `pi-cg-agent-impl-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "api.ts"), "export interface IWorker { run(): void }\n");
-  writeFileSync(join(projectRoot, "src", "impl.ts"), "export class Worker implements IWorker { run(): void {} }\n");
+  writeFileSync(join(projectRoot, "src", "impl.ts"), "import type { IWorker } from './api';\nexport class Worker implements IWorker { run(): void {} }\n");
+
+  // Install a fake tsserver so this test is hermetic and does not depend on
+  // global tsserver availability/timing in CI.
+  const binDir = join(projectRoot, "node_modules", ".bin");
+  mkdirSync(binDir, { recursive: true });
+  const tsserverBin = join(binDir, process.platform === "win32" ? "tsserver.cmd" : "tsserver");
+  const fakeJs = join(projectRoot, ".fake-ts-agent-impl.js");
+  writeFileSync(fakeJs, [
+    "function send(m){ process.stdout.write(JSON.stringify(m) + '\n'); }",
+    "process.stdin.setEncoding('utf8'); let buf = '';",
+    "process.stdin.on('data', c => {",
+    "  buf += c;",
+    "  while (true) { const nl = buf.indexOf('\n'); if (nl === -1) break;",
+    "    const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (!line) continue;",
+    "    let msg; try { msg = JSON.parse(line); } catch { continue; }",
+    "    if (msg.command === 'open') continue;",
+    "    if (msg.command === 'exit') process.exit(0);",
+    "    setTimeout(() => {",
+    "      if (msg.command === 'implementation') send({ type:'response', request_seq:msg.seq, success:true, body:[{ file:'src/impl.ts', start:{ line:2, offset:14 } }] });",
+    "      else if (msg.command === 'references') send({ type:'response', request_seq:msg.seq, success:true, body:{ refs:[] } });",
+    "      else send({ type:'response', request_seq:msg.seq, success:true, body:[] });",
+    "    }, 10);",
+    "  }",
+    "});",
+  ].join("\n"));
+  if (process.platform === "win32") {
+    writeFileSync(tsserverBin, `@echo off\nnode "${fakeJs}"\n`);
+  } else {
+    writeFileSync(tsserverBin, `#!/usr/bin/env bash\nnode "${fakeJs}"\n`);
+    chmodSync(tsserverBin, 0o755);
+  }
+
   try {
     const mod = await import("../src/index.js");
     if (typeof mod.resetStoreForTesting === "function") mod.resetStoreForTesting();
+
     let exec: Function | undefined;
     const mockPi = {
       registerTool(tool: { name: string; execute: Function }) {
@@ -487,10 +520,11 @@ test("symbol_graph Implementations section includes agent-provenance implements 
       on() {},
     };
     mod.default(mockPi as any);
+
     // First call — indexes the project and runs resolveImplementations (sets marker).
     await exec!("tc-a1", { name: "IWorker", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
 
-    const store = mod.getSharedStoreForTesting()!
+    const store = mod.getSharedStoreForTesting()!;
     const ifaceNode = store.findNodes("IWorker", "src/api.ts")[0]!;
     const implNode = store.findNodes("Worker", "src/impl.ts")[0]!;
     expect(ifaceNode).toBeDefined();
