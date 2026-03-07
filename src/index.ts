@@ -10,6 +10,7 @@ import { TsServerClient } from "./indexer/tsserver-client.js";
 import { computeAnchor } from "./output/anchoring.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
+import { impact } from "./tools/impact.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -23,6 +24,24 @@ const ResolveEdgeParams = Type.Object({
   evidence: Type.String({ description: "Free-text evidence explaining why this edge exists" }),
   sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
   targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
+});
+
+const ImpactParams = Type.Object({
+  symbols: Type.Array(Type.String({ description: "Changed symbol name" }), {
+    description: "One or more symbol names that changed",
+  }),
+  changeType: Type.Union(
+    [
+      Type.Literal("signature_change"),
+      Type.Literal("removal"),
+      Type.Literal("behavior_change"),
+      Type.Literal("addition"),
+    ],
+    { description: "Kind of change" },
+  ),
+  maxDepth: Type.Optional(
+    Type.Number({ description: "Maximum traversal depth (default 5)" }),
+  ),
 });
 
 let sharedStore: GraphStore | null = null;
@@ -121,6 +140,26 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
       });
       return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  pi.registerTool({
+    name: "impact",
+    label: "Impact",
+    description: "Given changed symbols, return downstream dependents classified by change type",
+    parameters: ImpactParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      const text = impact({
+        symbols: params.symbols,
+        changeType: params.changeType,
+        store,
+        projectRoot,
+        maxDepth: params.maxDepth,
+      });
+      return { content: [{ type: "text", text }], details: undefined };
     },
   });
 }

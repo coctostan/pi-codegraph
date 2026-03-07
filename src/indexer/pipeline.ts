@@ -4,6 +4,7 @@ import { join, relative, sep } from "node:path";
 import type { GraphStore } from "../graph/store.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
 import { runLspIndexStage } from "./lsp.js";
+import { runAstGrepIndexStage } from "./ast-grep.js";
 import { TsServerClient } from "./tsserver-client.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
@@ -35,7 +36,7 @@ function walkTsFiles(root: string): string[] {
         continue;
       }
 
-      if (ent.isFile() && ent.name.endsWith(".ts")) {
+      if (ent.isFile() && (ent.name.endsWith(".ts") || ent.name.endsWith(".tsx"))) {
         out.push(full);
       }
     }
@@ -56,6 +57,7 @@ export async function indexProject(
   let skipped = 0;
   let removed = 0;
   let errors = 0;
+  const changedFiles: string[] = [];
 
   const currentRel = new Set(files.map((absPath) => toPosixPath(relative(projectRoot, absPath))));
   for (const absPath of files) {
@@ -77,6 +79,7 @@ export async function indexProject(
       for (const node of extracted.nodes) store.addNode(node);
       for (const edge of extracted.edges) store.addEdge(edge);
       store.setFileHash(rel, hash);
+      changedFiles.push(rel);
       indexed++;
     } catch {
       errors++;
@@ -99,6 +102,7 @@ export async function indexProject(
   } finally {
     await client.shutdown().catch(() => {});
   }
+  await runAstGrepIndexStage(store, projectRoot, changedFiles);
   return { indexed, skipped, removed, errors };
 }
 

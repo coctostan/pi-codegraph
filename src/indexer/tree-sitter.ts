@@ -22,9 +22,13 @@ function countLines(content: string): number {
 
 type SyntaxNode = Parser.SyntaxNode;
 
-function typescriptLanguage(): unknown {
+function typescriptLanguage(file: string): unknown {
   // tree-sitter-typescript is CommonJS; under ESM default import is an object.
-  return (ts as unknown as { typescript: unknown }).typescript;
+  const mod = ts as unknown as { typescript: unknown; tsx: unknown };
+  if (!mod.typescript || !mod.tsx) {
+    throw new Error("tree-sitter-typescript missing typescript/tsx exports");
+  }
+  return file.endsWith(".tsx") ? mod.tsx : mod.typescript;
 }
 
 function addNode(
@@ -83,7 +87,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
   try {
     const parser = new Parser();
-    parser.setLanguage(typescriptLanguage() as never);
+    parser.setLanguage(typescriptLanguage(file) as never);
     const tree = parser.parse(content);
     const hasParseError =
       typeof (tree.rootNode as unknown as { hasError: unknown }).hasError === "function"
