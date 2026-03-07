@@ -1,0 +1,8 @@
+- name: express-route
+  pattern: $APP.$METHOD($PATH, $$$HANDLERS)
+  lang: typescript
+  produces:
+    edge_kind: routes_to
+    from_capture: HANDLERS
+    to_template: endpoint:{METHOD}:{PATH}
+    confidence: 0.9

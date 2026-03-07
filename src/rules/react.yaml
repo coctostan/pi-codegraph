@@ -1,0 +1,8 @@
+- name: react-render
+  pattern: <$COMPONENT $$$ATTRS />
+  lang: tsx
+  produces:
+    edge_kind: renders
+    from_context: enclosing_function
+    to_capture: COMPONENT
+    confidence: 0.8
