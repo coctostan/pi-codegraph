@@ -148,6 +148,8 @@ export async function runScan(
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`sg invocation failed: ${message}`);
   }
+  // sg outputs empty string (not "[]") when no matches found — treat as empty result
+  if (!stdout.trim()) return [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
