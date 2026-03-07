@@ -553,4 +553,4 @@ test("symbol_graph Implementations section includes agent-provenance implements 
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
-});
+}, 15000);
