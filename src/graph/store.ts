@@ -10,6 +10,17 @@ export interface NeighborResult {
   edge: GraphEdge;
 }
 
+export interface TestTraceStep {
+  nodeId: string;
+  ordinal: number;
+  contentHash: string;
+}
+
+export interface TestTraceRecord {
+  testNodeId: string;
+  steps: TestTraceStep[];
+}
+
 export interface GraphStore {
   addNode(node: GraphNode): void;
   addEdge(edge: GraphEdge): void;
@@ -21,11 +32,10 @@ export interface GraphStore {
   listFiles(): string[];
   getFileHash(file: string): string | null;
   setFileHash(file: string, hash: string): void;
-  /** Returns all edges whose target begins with "__unresolved__::". */
   getUnresolvedEdges(): GraphEdge[];
-  /** Returns all edges whose source equals sourceId, ordered by created_at ASC. */
   getEdgesBySource(sourceId: string): GraphEdge[];
-  /** Deletes the single edge identified by (source, target, kind, provenanceSource). */
   deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
+  saveTestTrace(trace: TestTraceRecord): void;
+  getTestTrace(testNodeId: string): TestTraceRecord | null;
   close(): void;
 }

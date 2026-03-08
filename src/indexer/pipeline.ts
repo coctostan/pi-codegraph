@@ -5,6 +5,7 @@ import type { GraphStore } from "../graph/store.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
 import { runLspIndexStage } from "./lsp.js";
 import { runAstGrepIndexStage } from "./ast-grep.js";
+import { runCoverageIndexStage } from "./coverage.js";
 import { TsServerClient } from "./tsserver-client.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
@@ -17,6 +18,7 @@ export interface IndexResult {
 
 export interface IndexProjectOptions {
   lspClientFactory?: (projectRoot: string) => ITsServerClient;
+  coverageDir?: string;
 }
 
 function toPosixPath(p: string): string {
@@ -103,6 +105,7 @@ export async function indexProject(
     await client.shutdown().catch(() => {});
   }
   await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
   return { indexed, skipped, removed, errors };
 }
 

@@ -11,6 +11,7 @@ import { computeAnchor } from "./output/anchoring.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
+import { trace } from "./tools/trace.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -42,6 +43,11 @@ const ImpactParams = Type.Object({
   maxDepth: Type.Optional(
     Type.Number({ description: "Maximum traversal depth (default 5)" }),
   ),
+});
+
+const TraceParams = Type.Object({
+  entry: Type.String({ description: "Entry symbol or endpoint name" }),
+  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
 });
 
 let sharedStore: GraphStore | null = null;
@@ -159,6 +165,20 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         maxDepth: params.maxDepth,
       });
+      return { content: [{ type: "text", text }], details: undefined };
+    },
+  });
+
+  pi.registerTool({
+    name: "trace",
+    label: "Trace",
+    description: "Return one deterministic anchored execution path for a test, symbol, or endpoint",
+    parameters: TraceParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
       return { content: [{ type: "text", text }], details: undefined };
     },
   });

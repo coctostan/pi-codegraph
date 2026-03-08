@@ -51,3 +51,25 @@ test("pi extension registers resolve_edge tool with correct schema", async () =>
   expect(schema.required).not.toContain("sourceFile");
   expect(schema.required).not.toContain("targetFile");
 });
+
+test("pi extension registers trace tool with correct schema", async () => {
+  const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
+  const mockPi = {
+    registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
+      registeredTools.push(tool);
+    },
+    on() {},
+  };
+
+  const { default: piCodegraph } = await import("../src/index.js");
+  piCodegraph(mockPi as any);
+
+  const traceTool = registeredTools.find((t) => t.name === "trace");
+  expect(traceTool).toBeDefined();
+
+  const schema = traceTool!.parameters as any;
+  expect(schema.properties.entry).toBeDefined();
+  expect(schema.properties.file).toBeDefined();
+  expect(schema.required).toContain("entry");
+  expect(schema.required).not.toContain("file");
+});
