@@ -70,6 +70,8 @@ const validStore: GraphStore = {
   getUnresolvedEdges: () => [],
   getEdgesBySource: () => [],
   deleteEdge: () => {},
+  saveTestTrace: () => {},
+  getTestTrace: () => null,
   close: () => {},
 };
 

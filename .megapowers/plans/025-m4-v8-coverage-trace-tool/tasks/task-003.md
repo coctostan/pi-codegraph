@@ -1,3 +1,117 @@
+---
+id: 3
+title: Persist coverage-backed test traces in SQLite
+status: approved
+depends_on:
+  - 2
+no_test: false
+files_to_modify:
+  - src/graph/store.ts
+  - src/graph/sqlite.ts
+files_to_create:
+  - test/graph-store-coverage-traces.test.ts
+---
+
+### Task 3: Persist coverage-backed test traces in SQLite [depends: 2]
+
+**Files:**
+- Modify: `src/graph/store.ts`
+- Modify: `src/graph/sqlite.ts`
+- Create: `test/graph-store-coverage-traces.test.ts`
+
+**Step 1 — Write the failing test**
+```ts
+import { expect, test } from "bun:test";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+
+test("SqliteGraphStore saves, replaces, and loads per-test coverage traces with stored content hashes", () => {
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode({ id: "src/app.test.ts::appTest:1", kind: "test", name: "appTest", file: "src/app.test.ts", start_line: 1, end_line: 3, content_hash: "h-test" });
+    store.addNode({ id: "src/app.ts::prod:1", kind: "function", name: "prod", file: "src/app.ts", start_line: 1, end_line: 3, content_hash: "h-prod" });
+    store.addNode({ id: "src/app.ts::helper:5", kind: "function", name: "helper", file: "src/app.ts", start_line: 5, end_line: 7, content_hash: "h-helper" });
+
+    store.saveTestTrace({
+      testNodeId: "src/app.test.ts::appTest:1",
+      steps: [
+        { nodeId: "src/app.test.ts::appTest:1", ordinal: 0, contentHash: "h-test" },
+        { nodeId: "src/app.ts::prod:1", ordinal: 1, contentHash: "h-prod" },
+      ],
+    });
+
+    store.saveTestTrace({
+      testNodeId: "src/app.test.ts::appTest:1",
+      steps: [
+        { nodeId: "src/app.test.ts::appTest:1", ordinal: 0, contentHash: "h-test" },
+        { nodeId: "src/app.ts::helper:5", ordinal: 1, contentHash: "h-helper" },
+      ],
+    });
+
+    expect(store.getTestTrace("src/app.test.ts::appTest:1")).toEqual({
+      testNodeId: "src/app.test.ts::appTest:1",
+      steps: [
+        { nodeId: "src/app.test.ts::appTest:1", ordinal: 0, contentHash: "h-test" },
+        { nodeId: "src/app.ts::helper:5", ordinal: 1, contentHash: "h-helper" },
+      ],
+    });
+  } finally {
+    store.close();
+  }
+});
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/graph-store-coverage-traces.test.ts`
+Expected: FAIL — `TypeError: store.saveTestTrace is not a function`
+
+**Step 3 — Write minimal implementation**
+`src/graph/store.ts`
+```ts
+import type { EdgeKind, GraphEdge, GraphNode } from "./types.js";
+
+export interface NeighborOptions {
+  kind?: EdgeKind;
+  direction?: "in" | "out" | "both";
+}
+
+export interface NeighborResult {
+  node: GraphNode;
+  edge: GraphEdge;
+}
+
+export interface TestTraceStep {
+  nodeId: string;
+  ordinal: number;
+  contentHash: string;
+}
+
+export interface TestTraceRecord {
+  testNodeId: string;
+  steps: TestTraceStep[];
+}
+
+export interface GraphStore {
+  addNode(node: GraphNode): void;
+  addEdge(edge: GraphEdge): void;
+  getNode(id: string): GraphNode | null;
+  findNodes(name: string, file?: string): GraphNode[];
+  getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
+  getNodesByFile(file: string): GraphNode[];
+  deleteFile(file: string): void;
+  listFiles(): string[];
+  getFileHash(file: string): string | null;
+  setFileHash(file: string, hash: string): void;
+  getUnresolvedEdges(): GraphEdge[];
+  getEdgesBySource(sourceId: string): GraphEdge[];
+  deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
+  saveTestTrace(trace: TestTraceRecord): void;
+  getTestTrace(testNodeId: string): TestTraceRecord | null;
+  close(): void;
+}
+```
+
+`src/graph/sqlite.ts`
+```ts
 import { createRequire } from "node:module";
 import type { GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
@@ -228,3 +342,12 @@ export class SqliteGraphStore implements GraphStore {
     this.db.close();
   }
 }
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/graph-store-coverage-traces.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all passing

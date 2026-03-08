@@ -265,12 +265,42 @@ test("tool path: interface symbol_graph resolves implementations, persists edge,
   const projectRoot = join(tmpdir(), `pi-cg-interface-lsp-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "api.ts"), "export interface IWorker { run(): void }\n");
-  writeFileSync(join(projectRoot, "src", "impl.ts"), "export class Worker implements IWorker { run(): void {} }\n");
+  writeFileSync(join(projectRoot, "src", "impl.ts"), "import type { IWorker } from './api';\nexport class Worker implements IWorker { run(): void {} }\n");
+
+  // Install a fake tsserver so this test is hermetic and does not depend on
+  // global tsserver availability/timing in CI.
+  const binDir = join(projectRoot, "node_modules", ".bin");
+  mkdirSync(binDir, { recursive: true });
+  const tsserverBin = join(binDir, process.platform === "win32" ? "tsserver.cmd" : "tsserver");
+  const fakeJs = join(projectRoot, ".fake-ts-interface.js");
+  writeFileSync(fakeJs, [
+    "function send(m){ process.stdout.write(JSON.stringify(m) + '\\n'); }",
+    "process.stdin.setEncoding('utf8'); let buf = '';",
+    "process.stdin.on('data', c => {",
+    "  buf += c;",
+    "  while (true) { const nl = buf.indexOf('\\n'); if (nl === -1) break;",
+    "    const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (!line) continue;",
+    "    let msg; try { msg = JSON.parse(line); } catch { continue; }",
+    "    if (msg.command === 'open') continue;",
+    "    if (msg.command === 'exit') process.exit(0);",
+    "    setTimeout(() => {",
+    "      if (msg.command === 'implementation') send({ type:'response', request_seq:msg.seq, success:true, body:[{ file:'src/impl.ts', start:{ line:2, offset:14 } }] });",
+    "      else if (msg.command === 'references') send({ type:'response', request_seq:msg.seq, success:true, body:{ refs:[] } });",
+    "      else send({ type:'response', request_seq:msg.seq, success:true, body:[] });",
+    "    }, 10);",
+    "  }",
+    "});",
+  ].join("\n"));
+  if (process.platform === "win32") {
+    writeFileSync(tsserverBin, `@echo off\nnode "${fakeJs}"\n`);
+  } else {
+    writeFileSync(tsserverBin, `#!/usr/bin/env bash\nnode "${fakeJs}"\n`);
+    chmodSync(tsserverBin, 0o755);
+  }
 
   try {
     const mod = await import("../src/index.js");
     if (typeof mod.resetStoreForTesting === "function") mod.resetStoreForTesting();
-
     let exec: Function | undefined;
     const mockPi = {
       registerTool(tool: { name: string; execute: Function }) {
@@ -278,16 +308,13 @@ test("tool path: interface symbol_graph resolves implementations, persists edge,
       },
       on() {},
     };
-
     mod.default(mockPi as any);
     const result = await exec!("tc-intf", { name: "IWorker", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
-
     const store = mod.getSharedStoreForTesting()!;
     const ifaceNode = store.findNodes("IWorker", "src/api.ts")[0]!;
     const implIn = store
       .getNeighbors(ifaceNode.id, { direction: "in", kind: "implements" })
       .filter((n) => n.edge.provenance.source === "lsp");
-
     expect(implIn.length).toBeGreaterThan(0);
     expect(result.content[0].text).toContain("Implementations");
     expect(result.content[0].text).toContain("Worker");
