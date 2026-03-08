@@ -18,3 +18,4 @@
 - M4 Stage 4 V8 coverage indexer: parses V8 coverage JSON reports, maps function ranges to graph nodes, creates `tested_by` edges with `coverage` provenance, and persists deterministic ordered test traces with content-hash staleness tracking; incremental and malformed-entry-safe (#025, closes #014)
 - M4 `trace` tool: returns one deterministic hashline-anchored execution path for any test, production symbol, or endpoint; prefers coverage-backed traces when available, falls back to static call-graph traversal; marks stale/unresolved steps gracefully (#025, closes #015)
 - Graph schema: `test_trace_steps` table for persisted coverage traces; `saveTestTrace`/`getTestTrace` on `GraphStore` interface (#025)
+- Graph schema: `endpoint` node kind, `routes_to` and `renders` edge kinds, `ast-grep` provenance source (#024)

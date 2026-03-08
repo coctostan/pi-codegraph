@@ -1,44 +1,54 @@
 {
   "version": 1,
-  "activeIssue": "025-m4-v8-coverage-trace-tool",
+  "activeIssue": "024-m3-impact-analysis-ast-grep-rule-engine",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1772922403314
+      "timestamp": 1772819140888
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1772927717278
+      "timestamp": 1772819319988
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772977939398
+      "timestamp": 1772906718874
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772980070819
+      "timestamp": 1772910148269
+    },
+    {
+      "from": "verify",
+      "to": "implement",
+      "timestamp": 1772910829403
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772910923307
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1772980678568
+      "timestamp": 1772911571744
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1772981510977
+      "timestamp": 1772911970871
     }
   ],
   "reviewApproved": false,
   "planMode": null,
   "planIteration": 4,
-  "currentTaskIndex": 8,
+  "currentTaskIndex": 0,
   "completedTasks": [
     1,
     2,
@@ -48,9 +58,14 @@
     6,
     7,
     8,
-    9
+    9,
+    1
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 1,
+    "state": "test-written",
+    "skipped": false
+  },
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -60,6 +75,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/025-m4-v8-coverage-trace-tool",
-  "baseBranch": null
+  "branchName": "feat/024-m3-impact-analysis-ast-grep-rule-engine",
+  "baseBranch": "main"
 }
