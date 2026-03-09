@@ -1,3 +1,78 @@
+---
+id: 10
+title: Register graph_query in the pi extension
+status: approved
+depends_on:
+  - 6
+no_test: false
+files_to_modify:
+  - src/index.ts
+files_to_create:
+  - test/extension-graph-query.test.ts
+---
+
+### Task 10: Register graph_query in the pi extension [depends: 6]
+
+**Covers AC:** 1, 2
+
+**Files:**
+- Modify: `src/index.ts`
+- Test: `test/extension-graph-query.test.ts`
+
+**Step 1 — Write the failing test**
+```ts
+import { expect, test } from "bun:test";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+test("pi extension registers graph_query with query schema and auto-indexes on first call", async () => {
+  const projectRoot = join(tmpdir(), `pi-cg-ext-gq-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, "src/hello.ts"), "export function hello() { return 'world'; }\n");
+
+  try {
+    const mod = await import("../src/index.js");
+    if (typeof mod.resetStoreForTesting === "function") mod.resetStoreForTesting();
+
+    const registeredTools: Array<{ name: string; parameters: any; execute: Function }> = [];
+    const mockPi = {
+      registerTool(tool: { name: string; parameters: any; execute: Function }) {
+        registeredTools.push(tool);
+      },
+      on() {},
+    };
+
+    mod.default(mockPi as any);
+
+    const tool = registeredTools.find((candidate) => candidate.name === "graph_query");
+    expect(tool).toBeDefined();
+    expect(tool!.parameters.properties.query).toBeDefined();
+    expect(tool!.parameters.required).toContain("query");
+
+    const result = await tool!.execute(
+      "call-1",
+      { query: 'MATCH (a {name: "hello"}) RETURN a' },
+      undefined,
+      undefined,
+      { cwd: projectRoot },
+    );
+
+    expect(existsSync(join(projectRoot, ".codegraph", "graph.db"))).toBe(true);
+    expect(result.content[0]?.text ?? "").toContain("hello");
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/extension-graph-query.test.ts`
+Expected: FAIL — `expect(received).toBeDefined()` for tool name `graph_query`
+
+**Step 3 — Write minimal implementation**
+`src/index.ts`
+```ts
 import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { mkdirSync } from "node:fs";
@@ -8,11 +83,11 @@ import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
 import { computeAnchor } from "./output/anchoring.js";
+import { impact } from "./tools/impact.js";
+import { graphQuery } from "./tools/graph-query.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
-import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
-import { graphQuery } from "./tools/graph-query.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -41,9 +116,7 @@ const ImpactParams = Type.Object({
     ],
     { description: "Kind of change" },
   ),
-  maxDepth: Type.Optional(
-    Type.Number({ description: "Maximum traversal depth (default 5)" }),
-  ),
+  maxDepth: Type.Optional(Type.Number({ description: "Maximum traversal depth (default 5)" })),
 });
 
 const TraceParams = Type.Object({
@@ -82,12 +155,7 @@ async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<vo
 
 function renderImplementationsSuffix(store: GraphStore, node: any, projectRoot: string): string {
   if (node.kind !== "interface") return "";
-
-  // Include all provenance sources (lsp, agent, etc.) — agent-written implements
-  // edges must be visible here since symbolGraph() does not render them.
-  const impl = store
-    .getNeighbors(node.id, { direction: "in", kind: "implements" });
-
+  const impl = store.getNeighbors(node.id, { direction: "in", kind: "implements" });
   if (impl.length === 0) return "";
 
   const lines = ["", "### Implementations"];
@@ -124,9 +192,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       }
 
       let output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
-      if (resolvedNode) {
-        output += renderImplementationsSuffix(store, resolvedNode, projectRoot);
-      }
+      if (resolvedNode) output += renderImplementationsSuffix(store, resolvedNode, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -202,3 +268,12 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 }
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/extension-graph-query.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all passing

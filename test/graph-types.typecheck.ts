@@ -72,10 +72,11 @@ const validStore: GraphStore = {
   deleteEdge: () => {},
   saveTestTrace: () => {},
   getTestTrace: () => null,
+  queryRows: () => [],
   close: () => {},
 };
 
-// @ts-expect-error GraphStore must require all 11 methods
+// @ts-expect-error GraphStore must require all methods
 const invalidStore: GraphStore = {};
 
 void [validStore, invalidStore];
