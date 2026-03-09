@@ -19,3 +19,5 @@
 - M4 `trace` tool: returns one deterministic hashline-anchored execution path for any test, production symbol, or endpoint; prefers coverage-backed traces when available, falls back to static call-graph traversal; marks stale/unresolved steps gracefully (#025, closes #015)
 - Graph schema: `test_trace_steps` table for persisted coverage traces; `saveTestTrace`/`getTestTrace` on `GraphStore` interface (#025)
 - Graph schema: `endpoint` node kind, `routes_to` and `renders` edge kinds, `ast-grep` provenance source (#024)
+
+- M5 `graph_query` tool: Cypher subset parser, parameterized SQL compiler, and hashline-anchored renderer; supports node matching by `kind`/`name`, directed edge traversal with optional alias, `WHERE` equality predicates (AND-joined), `RETURN` alias and property projections, and `LIMIT`; returns structured `parse_error`, `validation_error`, `unsupported_error`, and `execution_error` results; query values are always bound parameters, never interpolated; mutation keyword detection strips string literals to avoid false positives; `queryRows<T>` added to `GraphStore` with SELECT-only runtime guard (#026, closes #016)

@@ -1,7 +1,127 @@
+---
+id: 1
+title: Add read-only SQL queryRows to GraphStore
+status: approved
+depends_on: []
+no_test: false
+files_to_modify:
+  - src/graph/store.ts
+  - src/graph/sqlite.ts
+files_to_create:
+  - test/graph-store-query-rows.test.ts
+---
+
+### Task 1: Add read-only SQL queryRows to GraphStore
+
+**Covers AC:** 17
+
+**Files:**
+- Modify: `src/graph/store.ts`
+- Modify: `src/graph/sqlite.ts`
+- Test: `test/graph-store-query-rows.test.ts`
+
+**Step 1 — Write the failing test**
+```ts
+import { expect, test } from "bun:test";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+
+test("SqliteGraphStore.queryRows executes parameterized SELECT queries", () => {
+  const store = new SqliteGraphStore();
+
+  store.addNode({
+    id: "src/a.ts::alpha:1",
+    kind: "function",
+    name: "alpha",
+    file: "src/a.ts",
+    start_line: 1,
+    end_line: 1,
+    content_hash: "h1",
+  });
+  store.addNode({
+    id: "src/b.ts::beta:1",
+    kind: "class",
+    name: "beta",
+    file: "src/b.ts",
+    start_line: 1,
+    end_line: 3,
+    content_hash: "h2",
+  });
+
+  const rows = store.queryRows<{ id: string; name: string }>(
+    "SELECT id, name FROM nodes WHERE kind = ? ORDER BY id ASC",
+    ["function"],
+  );
+
+  expect(rows).toEqual([
+    { id: "src/a.ts::alpha:1", name: "alpha" },
+  ]);
+
+  expect(() => store.queryRows("DELETE FROM nodes", [])).toThrow(
+    "queryRows only supports SELECT statements",
+  );
+
+  store.close();
+});
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/graph-store-query-rows.test.ts`
+Expected: FAIL — `TypeError: store.queryRows is not a function`
+
+**Step 3 — Write minimal implementation**
+`src/graph/store.ts`
+```ts
+import type { EdgeKind, GraphEdge, GraphNode } from "./types.js";
+
+export interface NeighborOptions {
+  kind?: EdgeKind;
+  direction?: "in" | "out" | "both";
+}
+
+export interface NeighborResult {
+  node: GraphNode;
+  edge: GraphEdge;
+}
+
+export interface TestTraceStep {
+  nodeId: string;
+  ordinal: number;
+  contentHash: string;
+}
+
+export interface TestTraceRecord {
+  testNodeId: string;
+  steps: TestTraceStep[];
+}
+
+export interface GraphStore {
+  addNode(node: GraphNode): void;
+  addEdge(edge: GraphEdge): void;
+  getNode(id: string): GraphNode | null;
+  findNodes(name: string, file?: string): GraphNode[];
+  getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
+  getNodesByFile(file: string): GraphNode[];
+  deleteFile(file: string): void;
+  listFiles(): string[];
+  getFileHash(file: string): string | null;
+  setFileHash(file: string, hash: string): void;
+  getUnresolvedEdges(): GraphEdge[];
+  getEdgesBySource(sourceId: string): GraphEdge[];
+  deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
+  saveTestTrace(trace: TestTraceRecord): void;
+  getTestTrace(testNodeId: string): TestTraceRecord | null;
+  queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
+  close(): void;
+}
+```
+
+`src/graph/sqlite.ts`
+```ts
 import { createRequire } from "node:module";
 import type { GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
+
 function openDb(path: string): any {
   if ((process.versions as any).bun) {
     const { Database } = _require("bun:sqlite");
@@ -235,3 +355,12 @@ export class SqliteGraphStore implements GraphStore {
     this.db.close();
   }
 }
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/graph-store-query-rows.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all passing

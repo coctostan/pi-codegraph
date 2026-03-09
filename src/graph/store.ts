@@ -37,5 +37,6 @@ export interface GraphStore {
   deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
   saveTestTrace(trace: TestTraceRecord): void;
   getTestTrace(testNodeId: string): TestTraceRecord | null;
+  queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
   close(): void;
 }
