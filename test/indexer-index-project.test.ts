@@ -202,3 +202,54 @@ test("indexProject runs LSP stage and upgrades unresolved call edge to lsp prove
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("indexProject treats empty sg stdout as a no-match Stage 3 result", async () => {
+  const root = join(tmpdir(), `pi-codegraph-empty-sg-${Date.now()}`);
+  const dbPath = join(root, "graph.sqlite");
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "plain.ts"), "export function alpha() { return 1; }\n");
+  const fakeClient: ITsServerClient = {
+    async definition() {
+      return null;
+    },
+    async references() {
+      return [];
+    },
+    async implementations() {
+      return [];
+    },
+    async shutdown() {},
+  };
+  const textStream = (text: string) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(text));
+        controller.close();
+      },
+    });
+  const prevSpawn = Bun.spawn;
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    (Bun as any).spawn = (cmd: string[], opts: any) => {
+      if (Array.isArray(cmd) && cmd[0] === "sg") {
+        return {
+          stdout: textStream(""),
+          stderr: textStream(""),
+          exited: Promise.resolve(1),
+        };
+      }
+      return prevSpawn(cmd as any, opts);
+    };
+    await expect(indexProject(root, store, { lspClientFactory: () => fakeClient })).resolves.toEqual({
+      indexed: 1,
+      skipped: 0,
+      removed: 0,
+      errors: 0,
+    });
+    expect(store.findNodes("alpha", "src/plain.ts")).toHaveLength(1);
+  } finally {
+    (Bun as any).spawn = prevSpawn;
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
