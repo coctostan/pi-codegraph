@@ -21,3 +21,6 @@
 - Graph schema: `endpoint` node kind, `routes_to` and `renders` edge kinds, `ast-grep` provenance source (#024)
 
 - M5 `graph_query` tool: Cypher subset parser, parameterized SQL compiler, and hashline-anchored renderer; supports node matching by `kind`/`name`, directed edge traversal with optional alias, `WHERE` equality predicates (AND-joined), `RETURN` alias and property projections, and `LIMIT`; returns structured `parse_error`, `validation_error`, `unsupported_error`, and `execution_error` results; query values are always bound parameters, never interpolated; mutation keyword detection strips string literals to avoid false positives; `queryRows<T>` added to `GraphStore` with SELECT-only runtime guard (#026, closes #016)
+
+### Fixed
+- `runScan()` no longer throws `JSON Parse error: Unexpected EOF` when `sg run --json` returns exit code `1` with empty stdout (CI no-match condition); empty and whitespace-only subprocess output is now normalized to `[]` before parsing, keeping malformed non-empty JSON errors intact; regression tests added at both the subprocess boundary (`runScan` with injected `ExecFn`) and the `indexProject` integration level (#028)

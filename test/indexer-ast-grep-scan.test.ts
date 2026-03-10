@@ -66,3 +66,22 @@ test("runScan wraps subprocess launch failures", async () => {
     "sg invocation failed: Failed to launch sg. Is ast-grep installed? spawn ENOENT",
   );
 });
+
+test("runScan returns [] when sg exits successfully with empty stdout", async () => {
+  const emptyExec: ExecFn = async () => "";
+  await expect(runScan("/tmp/p", rule, ["src/api.ts"], emptyExec)).resolves.toEqual([]);
+});
+
+
+test("runScan returns [] when sg stdout is whitespace-only", async () => {
+  const whitespaceExec: ExecFn = async () => " \n\t ";
+  await expect(runScan("/tmp/p", rule, ["src/api.ts"], whitespaceExec)).resolves.toEqual([]);
+});
+
+
+test("runScan still rejects malformed non-empty JSON output", async () => {
+  const malformedExec: ExecFn = async () => "not-json";
+  await expect(runScan("/tmp/p", rule, ["src/api.ts"], malformedExec)).rejects.toThrow(
+    'Invalid sg JSON output: JSON Parse error: Unexpected identifier "not"',
+  );
+});
