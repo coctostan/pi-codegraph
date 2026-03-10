@@ -1,7 +1,7 @@
 ---
 id: 15
 type: feature
-status: open
+status: done
 created: 2026-03-04T23:16:49.695Z
 milestone: M4
 priority: 4

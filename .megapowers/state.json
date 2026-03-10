@@ -1,55 +1,18 @@
 {
   "version": 1,
-  "activeIssue": "028-ci-fix-sg-empty-stdout-breaks-indexproje",
-  "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1773152178530
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1773152585298
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1773157487428
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1773159836535
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1773174042495
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 2,
-  "currentTaskIndex": 3,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "fix/028-ci-fix-sg-empty-stdout-breaks-indexproje",
-  "baseBranch": "main"
+  "branchName": null,
+  "baseBranch": null
 }
