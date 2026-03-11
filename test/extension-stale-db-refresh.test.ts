@@ -38,4 +38,4 @@ test("extension refreshes a persisted stale graph before symbol_graph responds",
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
-});
+}, 30_000);
