@@ -72,6 +72,7 @@ const validStore: GraphStore = {
   deleteEdge: () => {},
   saveTestTrace: () => {},
   getTestTrace: () => null,
+  getStatistics: () => ({ nodes: {}, edges: {}, files: { total: 0, stale: 0 } }),
   queryRows: () => [],
   close: () => {},
 };

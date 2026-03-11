@@ -24,3 +24,10 @@
 
 ### Fixed
 - `runScan()` no longer throws `JSON Parse error: Unexpected EOF` when `sg run --json` returns exit code `1` with empty stdout (CI no-match condition); empty and whitespace-only subprocess output is now normalized to `[]` before parsing, keeping malformed non-empty JSON errors intact; regression tests added at both the subprocess boundary (`runScan` with injected `ExecFn`) and the `indexProject` integration level (#028)
+
+### Added
+- M5 Stage 5 git co-change indexer: parses `git log` commit history to find file pairs that frequently change together; emits `co_changes_with` module→module edges with exponential-decay recency weighting, configurable minimum threshold (default 2), and evidence carrying co-change count, recency score, and window; incremental via HEAD-hash caching (skips when HEAD unchanged, clears and rebuilds on HEAD change); gracefully no-ops in non-git directories and repos with no commits (#027, closes #017)
+- M5 tree-sitter indexer hardening: aliased imports (`import { foo as bar }`) now extract the original name and resolve `bar()` calls to `foo`; namespace imports (`import * as ns`) emit `imports *` edges and resolve `ns.method()` calls to `method`; re-exports (`export { foo } from "./bar"` and `export { foo as baz }`) emit import edges targeting the original exported name enabling transitive barrel resolution; dynamic imports (`import("./mod")`) emitted as `imports` edges with confidence 0.3 (#027, closes #018)
+- Pipeline timing instrumentation: `IndexResult` gains `timings: Record<string, number>` with per-stage wall-clock durations in milliseconds for all 5 stages (tree-sitter, lsp, ast-grep, coverage, git) (#027)
+- `getStatistics(projectRoot?)` on `GraphStore` interface and `SqliteGraphStore`: returns node counts by kind, edge counts by kind+provenance, and file counts (total tracked, stale); staleness detection reads files from disk and compares SHA-256 hashes; sentinel keys (`__`-prefixed) are excluded from counts (#027)
+- SQLite indexes `idx_nodes_name ON nodes(name)` and `idx_edges_kind ON edges(kind)` added to cover `symbol_graph` name lookups and `graph_query` kind filters (#027)

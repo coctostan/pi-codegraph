@@ -79,11 +79,14 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
   const edgeKeys = new Set<string>();
   const pushEdge = (edge: GraphEdge) => {
-    const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}`;
+    const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
     if (edgeKeys.has(key)) return;
     edgeKeys.add(key);
     edges.push(edge);
   };
+
+  const aliasToOriginal = new Map<string, string>();
+  const namespaceImports = new Set<string>();
 
   try {
     const parser = new Parser();
@@ -143,6 +146,31 @@ export function extractFile(file: string, content: string): ExtractionResult {
         return;
       }
 
+      if (n.type === "call_expression") {
+        const fn = n.childForFieldName("function");
+        if (fn?.type === "import") {
+          const args = n.childForFieldName("arguments");
+          if (args && args.namedChildren.length > 0) {
+            const firstArg = args.namedChildren[0];
+            if (firstArg?.type === "string" || firstArg?.type === "template_string") {
+              const specifier = firstArg.text.replace(/^['"`]|['"`]$/g, "");
+              pushEdge({
+                source: moduleNode.id,
+                target: unresolvedId(specifier),
+                kind: "imports",
+                provenance: {
+                  source: "tree-sitter",
+                  confidence: 0.3,
+                  evidence: specifier,
+                  content_hash: contentHash,
+                },
+                created_at: Date.now(),
+              });
+            }
+          }
+        }
+      }
+
       if (n.type === "import_statement") {
         const sourceNode = n.childForFieldName("source");
         if (!sourceNode) return;
@@ -167,17 +195,14 @@ export function extractFile(file: string, content: string): ExtractionResult {
           });
         }
 
-        const namedImports = importClause.namedChildren.find((c) => c.type === "named_imports");
-        if (namedImports) {
-          for (const spec of namedImports.namedChildren) {
-            if (spec.type !== "import_specifier") continue;
-            const nameNode = spec.childForFieldName("name");
-            if (!nameNode) continue;
-            const importedName = nameNode.text;
-
+        const nsImport = importClause.namedChildren.find((c) => c.type === "namespace_import");
+        if (nsImport) {
+          const nsNameNode = nsImport.namedChildren.find((c) => c.type === "identifier");
+          if (nsNameNode) {
+            namespaceImports.add(nsNameNode.text);
             pushEdge({
               source: moduleNode.id,
-              target: unresolvedId(importedName),
+              target: unresolvedId("*"),
               kind: "imports",
               provenance: {
                 source: "tree-sitter",
@@ -190,6 +215,65 @@ export function extractFile(file: string, content: string): ExtractionResult {
           }
         }
 
+        const namedImports = importClause.namedChildren.find((c) => c.type === "named_imports");
+        if (namedImports) {
+          for (const spec of namedImports.namedChildren) {
+            if (spec.type !== "import_specifier") continue;
+            const nameNode = spec.childForFieldName("name");
+            if (!nameNode) continue;
+            const originalName = nameNode.text;
+
+            const aliasNode = spec.childForFieldName("alias");
+            if (aliasNode) {
+              aliasToOriginal.set(aliasNode.text, originalName);
+            }
+            pushEdge({
+              source: moduleNode.id,
+              target: unresolvedId(originalName),
+              kind: "imports",
+              provenance: {
+                source: "tree-sitter",
+                confidence: 0.5,
+                evidence,
+                content_hash: contentHash,
+              },
+              created_at: Date.now(),
+            });
+          }
+        }
+
+        return;
+      }
+
+      if (n.type === "export_statement") {
+        const sourceNode = n.childForFieldName("source");
+        if (!sourceNode) return;
+
+        const evidence = sourceNode.text;
+
+        for (const child of n.namedChildren) {
+          if (child.type === "export_clause") {
+            for (const spec of child.namedChildren) {
+              if (spec.type !== "export_specifier") continue;
+              const nameNode = spec.childForFieldName("name");
+              if (!nameNode) continue;
+              const originalName = nameNode.text;
+
+              pushEdge({
+                source: moduleNode.id,
+                target: unresolvedId(originalName),
+                kind: "imports",
+                provenance: {
+                  source: "tree-sitter",
+                  confidence: 0.5,
+                  evidence,
+                  content_hash: contentHash,
+                },
+                created_at: Date.now(),
+              });
+            }
+          }
+        }
         return;
       }
 
@@ -238,7 +322,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
         if (callee?.type === "identifier") {
           pushEdge({
             source: nextFunctionId,
-            target: unresolvedId(callee.text),
+            target: unresolvedId(aliasToOriginal.get(callee.text) ?? callee.text),
             kind: "calls",
             provenance: {
               source: "tree-sitter",
@@ -248,6 +332,24 @@ export function extractFile(file: string, content: string): ExtractionResult {
             },
             created_at: Date.now(),
           });
+        }
+        if (callee?.type === "member_expression") {
+          const obj = callee.childForFieldName("object");
+          const prop = callee.childForFieldName("property");
+          if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text)) {
+            pushEdge({
+              source: nextFunctionId,
+              target: unresolvedId(prop.text),
+              kind: "calls",
+              provenance: {
+                source: "tree-sitter",
+                confidence: 0.5,
+                evidence: callEvidence(prop),
+                content_hash: contentHash,
+              },
+              created_at: Date.now(),
+            });
+          }
         }
       }
 

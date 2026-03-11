@@ -21,6 +21,12 @@ export interface TestTraceRecord {
   steps: TestTraceStep[];
 }
 
+export interface GraphStatistics {
+  nodes: Record<string, number>;
+  edges: Record<string, Record<string, number>>;
+  files: { total: number; stale: number };
+}
+
 export interface GraphStore {
   addNode(node: GraphNode): void;
   addEdge(edge: GraphEdge): void;
@@ -37,6 +43,7 @@ export interface GraphStore {
   deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
   saveTestTrace(trace: TestTraceRecord): void;
   getTestTrace(testNodeId: string): TestTraceRecord | null;
+  getStatistics(projectRoot?: string): GraphStatistics;
   queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
   close(): void;
 }

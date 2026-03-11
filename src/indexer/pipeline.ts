@@ -6,6 +6,7 @@ import { extractFile, sha256Hex } from "./tree-sitter.js";
 import { runLspIndexStage } from "./lsp.js";
 import { runAstGrepIndexStage } from "./ast-grep.js";
 import { runCoverageIndexStage } from "./coverage.js";
+import { runGitCoChangeStage } from "./git.js";
 import { TsServerClient } from "./tsserver-client.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
@@ -14,6 +15,7 @@ export interface IndexResult {
   skipped: number;
   removed: number;
   errors: number;
+  timings: Record<string, number>;
 }
 
 export interface IndexProjectOptions {
@@ -53,6 +55,9 @@ export async function indexProject(
   store: GraphStore,
   options: IndexProjectOptions = {},
 ): Promise<IndexResult> {
+  const timings: Record<string, number> = {};
+
+  const tsStart = performance.now();
   const files = walkTsFiles(projectRoot);
 
   let indexed = 0;
@@ -89,7 +94,7 @@ export async function indexProject(
   }
 
   for (const oldFile of store.listFiles()) {
-    if (currentRel.has(oldFile)) continue;
+    if (currentRel.has(oldFile) || oldFile.startsWith("__")) continue;
     try {
       store.deleteFile(oldFile);
       removed++;
@@ -97,16 +102,30 @@ export async function indexProject(
       errors++;
     }
   }
+  timings["tree-sitter"] = Math.round(performance.now() - tsStart);
 
+  const lspStart = performance.now();
   const client = options.lspClientFactory ? options.lspClientFactory(projectRoot) : new TsServerClient(projectRoot);
   try {
     await runLspIndexStage(store, projectRoot, client);
   } finally {
     await client.shutdown().catch(() => {});
   }
+  timings["lsp"] = Math.round(performance.now() - lspStart);
+
+  const astGrepStart = performance.now();
   await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  timings["ast-grep"] = Math.round(performance.now() - astGrepStart);
+
+  const coverageStart = performance.now();
   runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
-  return { indexed, skipped, removed, errors };
+  timings["coverage"] = Math.round(performance.now() - coverageStart);
+
+  const gitStart = performance.now();
+  await runGitCoChangeStage(store, projectRoot);
+  timings["git"] = Math.round(performance.now() - gitStart);
+
+  return { indexed, skipped, removed, errors, timings };
 }
 
 // Back-compat with the existing placeholder export test
