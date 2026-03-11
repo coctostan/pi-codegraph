@@ -1,5 +1,6 @@
 import type { GraphStore } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
+import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
 export type ImpactClassification = "breaking" | "behavioral";
@@ -75,6 +76,17 @@ export function impact(params: {
   projectRoot: string;
   maxDepth?: number;
 }): string {
+  for (const symbol of params.symbols) {
+    const resolved = resolveUniqueSymbol({
+      name: symbol,
+      store: params.store,
+      projectRoot: params.projectRoot,
+      notFoundLabel: "Symbol",
+    });
+    if (resolved.kind === "ambiguous") return resolved.text;
+    if (resolved.kind === "not_found") return "";
+  }
+
   const hits = collectImpact({
     symbols: params.symbols,
     changeType: params.changeType,
@@ -82,6 +94,7 @@ export function impact(params: {
     maxDepth: params.maxDepth,
   });
   if (hits.length === 0) return "";
+
   const lines = hits.flatMap((hit) => {
     const node = params.store.getNode(hit.nodeId);
     if (!node) return [];

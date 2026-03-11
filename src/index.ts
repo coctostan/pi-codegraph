@@ -75,9 +75,7 @@ function getOrCreateStore(projectRoot: string): GraphStore {
 }
 
 async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<void> {
-  if (store.listFiles().length === 0) {
-    await indexProject(projectRoot, store);
-  }
+  await indexProject(projectRoot, store);
 }
 
 function renderImplementationsSuffix(store: GraphStore, node: any, projectRoot: string): string {

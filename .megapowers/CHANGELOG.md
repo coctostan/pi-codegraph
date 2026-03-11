@@ -31,3 +31,8 @@
 - Pipeline timing instrumentation: `IndexResult` gains `timings: Record<string, number>` with per-stage wall-clock durations in milliseconds for all 5 stages (tree-sitter, lsp, ast-grep, coverage, git) (#027)
 - `getStatistics(projectRoot?)` on `GraphStore` interface and `SqliteGraphStore`: returns node counts by kind, edge counts by kind+provenance, and file counts (total tracked, stale); staleness detection reads files from disk and compares SHA-256 hashes; sentinel keys (`__`-prefixed) are excluded from counts (#027)
 - SQLite indexes `idx_nodes_name ON nodes(name)` and `idx_edges_kind ON edges(kind)` added to cover `symbol_graph` name lookups and `graph_query` kind filters (#027)
+
+### Fixed
+- Stale persisted graph data no longer served to tools: `ensureIndexed()` now calls `indexProject()` unconditionally instead of gating on an empty DB; incremental change detection (SHA-256 per file) ensures only changed files are re-indexed (#032, closes #029)
+- `trace` and `impact` now return an explicit disambiguation list for ambiguous symbol names instead of reporting "not found" or silently aggregating all matches; shared `resolveUniqueSymbol()` helper unifies contract across all tools (#032, closes #030)
+- `graph_query` now accepts single-quoted string literals in `WHERE` equality predicates (e.g. `WHERE n.name = 'GraphStore'`); previously only double-quoted values were accepted (#032, closes #031)

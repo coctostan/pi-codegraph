@@ -1,122 +1,156 @@
 # pi-codegraph — Roadmap
 
+## Status
+
+Core v1 is effectively complete:
+- M0 Foundation
+- M1 `symbol_graph` + `resolve_edge`
+- M2 LSP integration
+- M3 `impact` + framework rules
+- M4 `trace` + coverage
+- M5 `graph_query` + git co-change + hardening
+
+The roadmap now shifts from **feature existence** to two new goals:
+1. **M6: functionality hardening and correctness**
+2. **M7: agent utility and product refinement**
+
+---
+
 ## M0: Foundation — ✅ COMPLETE
 
-**Goal:** Project scaffolding, graph store, and basic structure extraction. No tools yet — just the ability to index a TypeScript project into a symbol graph.
+**Goal:** Project scaffolding, graph store, and basic structure extraction.
 
 - [x] Project setup: TypeScript, bun, test framework _(#001)_
 - [x] Graph store abstraction + SQLite implementation _(#002 via batch #019)_
 - [x] Node and edge types with provenance model _(#003 via batch #019)_
-- [x] Stage 1 indexer: tree-sitter → function/class/interface/module nodes _(#004 via batch #020)_
-- [x] Stage 1 indexer: import extraction → `imports` edges _(#004 via batch #020)_
-- [x] Stage 1 indexer: direct call extraction → `calls` edges (name-matched) _(#004 via batch #020)_
-- [x] Incremental indexing: content hash per file, skip unchanged _(#005 via batch #020)_
-- [x] Index a real TypeScript project, validate the graph makes sense _(verified in #020)_
+- [x] Stage 1 indexer: tree-sitter symbol extraction and structural edges _(#004 via batch #020)_
+- [x] Incremental indexing: content hash per file _(#005 via batch #020)_
 
-**Exit criteria met:** ✅ Can index a project and query the SQLite database directly to see nodes and edges. The graph is structurally correct for direct calls and imports.
+**Exit criteria met:** Can index a project and inspect nodes/edges reliably in SQLite.
 
 ---
 
-## M1: `symbol_graph` + `resolve_edge` — 🔶 IN PROGRESS (2/4 issues done)
+## M1: `symbol_graph` + `resolve_edge` — ✅ COMPLETE
 
-**Goal:** First two tools, usable by an agent. The core loop: query the graph, see holes, fill them.
+**Goal:** First agent-usable tools.
 
-- [x] `symbol_graph` tool: given a symbol name, return anchored neighborhood _(#006 via batch #021)_
-- [x] Output layer: hashline anchoring for every node in results _(#007 via batch #021)_
-- [x] Result ranking: top N callers/callees by confidence, omission counts _(#007 via batch #021)_
-- [ ] `resolve_edge` tool: agent writes an edge with evidence _(#008 — stub only)_
-- [ ] Edge persistence and invalidation (content hash check) _(#008)_
-- [ ] Unresolved edge display: show candidates + hint for agent resolution _(#008)_
-- [ ] pi extension wiring: register tools, handle invocations _(#009 — stub only)_
-- [ ] Test: agent uses `symbol_graph` on a real project, sees results, resolves an edge
+- [x] `symbol_graph` tool _(#006 via batch #021)_
+- [x] Output layer: hashline anchoring and ranking _(#007 via batch #021)_
+- [x] `resolve_edge` tool _(#008 via batch #022)_
+- [x] pi extension wiring _(#009 via batch #022)_
 
-**Remaining:** Batch #022 (resolve_edge + extension wiring)
-
-**Exit criteria:** An agent can explore a codebase through `symbol_graph`, encounter unresolved edges, and fill them with `resolve_edge`. The graph persists across sessions.
+**Exit criteria met:** Agents can inspect neighborhoods and persist agent-authored edges with evidence.
 
 ---
 
-## M2: LSP Integration (Week 5-6) — NOT STARTED
+## M2: LSP Integration — ✅ COMPLETE
 
-**Goal:** Stage 2 indexing. The graph gets dramatically more accurate.
+**Goal:** Increase graph accuracy beyond tree-sitter alone.
 
-- [ ] tsserver spawning and lifecycle management
-- [ ] Go-to-definition queries for unresolved call targets
-- [ ] Find-references queries for discovering callers tree-sitter missed
-- [ ] Upgrade `tree-sitter` edges to `lsp` edges where LSP confirms them
-- [ ] Interface → implementation resolution
-- [ ] Lazy resolution: only query LSP for symbols that are actually queried by tools (not full upfront scan)
-- [ ] Cache LSP results in the graph store
+- [x] tsserver lifecycle and request handling _(#010 via batch #023)_
+- [x] definition/reference-based enrichment _(#011 via batch #023)_
+- [x] interface/implementation resolution
+- [x] lazy tool-time LSP enrichment paths
 
-**Batch:** #023 (LSP integration)
-
-**Exit criteria:** `symbol_graph` returns significantly more complete results for TypeScript projects. Interface calls resolve to concrete implementations. Edge provenance correctly distinguishes `tree-sitter` vs `lsp` sources.
+**Exit criteria met:** Tool results incorporate higher-confidence LSP-backed relationships where available.
 
 ---
 
-## M3: `impact` + Framework Rules (Week 7-8) — NOT STARTED
+## M3: `impact` + Framework Rules — ✅ COMPLETE
 
-**Goal:** Change impact analysis and framework-aware indexing.
+**Goal:** Symbol-level impact analysis and framework-aware indexing.
 
-- [ ] `impact` tool: given changed symbols, return classified dependents (breaking/behavioral/safe)
-- [ ] Signature change detection: arity, param types, return type
-- [ ] Transitive impact propagation with depth tracking
-- [ ] Stage 3 indexer: ast-grep framework rule engine
-- [ ] Express route rules (bundled)
-- [ ] React component render rules (bundled)
-- [ ] User-defined rule loading from project-local config
-- [ ] Endpoint nodes derived from framework rules
+- [x] `impact` tool _(#012 via batch #024)_
+- [x] ast-grep framework rule engine _(#013 via batch #024)_
+- [x] Express route rules
+- [x] React render rules
 
-**Batch:** #024 (impact analysis + ast-grep rule engine)
-
-**Exit criteria:** `impact` gives symbol-level, classified impact analysis. Framework rules create endpoint and route nodes that connect handlers to HTTP methods.
+**Exit criteria met:** Agents can ask what downstream code is affected and see framework-derived edges.
 
 ---
 
-## M4: `trace` + Test Coverage (Week 9-10) — NOT STARTED
+## M4: `trace` + Test Coverage — ✅ COMPLETE
 
-**Goal:** The killer feature. Real execution paths from test coverage.
+**Goal:** Coverage-backed execution-path tooling.
 
-- [ ] Stage 4 indexer: V8 coverage JSON parser
-- [ ] Map coverage function ranges back to graph nodes
-- [ ] `tested_by` edge creation from coverage data
-- [ ] Trace path reconstruction from coverage: ordered execution sequence per test
-- [ ] `trace` tool: given an entry point, return the anchored execution path
-- [ ] Associate traces with endpoint nodes where possible
-- [ ] Fallback trace from static analysis when no coverage exists (with fork points at interfaces)
+- [x] coverage parsing and node mapping _(#014 via batch #025)_
+- [x] `tested_by` edge creation _(#014 via batch #025)_
+- [x] `trace` tool _(#015 via batch #025)_
+- [x] static fallback path selection
 
-**Batch:** #025 (V8 coverage + trace tool)
-
-**Exit criteria:** Agent runs tests with coverage, then `trace("POST /api/login")` returns the actual ordered execution path. `symbol_graph` shows `test-coverage` edges with highest confidence.
+**Exit criteria met:** Agents can retrieve one anchored path from tests, symbols, or endpoints, using runtime-backed data when available.
 
 ---
 
-## M5: `graph_query` + Co-Change + Polish (Week 11-12) — NOT STARTED
+## M5: `graph_query` + Co-Change + Hardening — ✅ COMPLETE
 
-**Goal:** Power query tool, git-based signals, and production readiness.
+**Goal:** Power-user query path, git signals, and production hardening.
 
-- [ ] `graph_query` tool: Cypher-to-SQL translator (subset of Cypher sufficient for useful queries)
-- [ ] Stage 5 indexer: git log co-change analysis
-- [ ] Co-change edges at file level (symbol-level refinement as stretch)
-- [ ] Index statistics: node/edge counts by type and source, staleness report
-- [ ] Performance profiling on large projects (1000+ files)
-- [ ] Documentation: tool usage guide, framework rule authoring guide
-- [ ] Edge case hardening: re-exports, barrel files, namespace imports, aliased imports
+- [x] `graph_query` tool _(#016 via batch #026)_
+- [x] git co-change analysis _(#017 via batch #027)_
+- [x] hardening and edge-case coverage _(#018 via batch #027)_
+- [x] CI hardening for sg empty-stdout behavior _(#028)_
 
-**Batches:** #026 (Cypher-to-SQL query tool), #027 (git co-change + hardening)
-
-**Exit criteria:** All 5 tools working. Graph built from all 5 layers. Tested on multiple real TypeScript projects.
+**Exit criteria met:** All five core tools exist and are tested across the implemented indexing layers.
 
 ---
 
-## Future (post-v1)
+## M6: Functionality hardening and correctness — 🔶 NEXT
 
-- **Multi-language support:** Python (pylsp), Go (gopls), Rust (rust-analyzer)
-- **MCP adapter:** Expose tools via MCP for use outside pi (Cursor, Claude Code, etc.)
-- **Semantic search:** Optional embedding layer for "find code that does X" queries
-- **Live mode:** File watcher + incremental re-index on save
-- **Cross-repo graphs:** Monorepo support, package boundary awareness
-- **Graph visualization:** Debug/inspection UI for the graph (dev tool, not user-facing)
+**Goal:** Fix the concrete live-session problems uncovered by real tool-call testing.
+
+### Scope
+- [ ] Auto-refresh stale persisted graph on tool invocation _(#029)_
+- [ ] Make ambiguous symbol handling consistent across `symbol_graph`, `trace`, and `impact` _(#030)_
+- [ ] Improve `graph_query` support/ergonomics for basic equality `WHERE` predicates _(#031)_
+- [ ] Deliver as batch _(#032)_
+
+### Why this milestone exists
+The system is feature-complete enough to be useful, but real-session testing showed trust gaps:
+- stale persisted graph state can leak into tool results
+- ambiguity handling is inconsistent across tools
+- graph-query ergonomics are narrower than the contract implies
+
+### Exit criteria
+- Existing `.codegraph/graph.db` state does not silently degrade tool correctness
+- Ambiguous symbol behavior is explicit and consistent
+- Basic graph inspection queries work with low surprise
+- A live battery of real tool calls passes on both stale-state and fresh-state scenarios
+
+---
+
+## M7: Agent utility and product refinement — ⏳ PLANNED
+
+**Goal:** Improve actual value to coding agents beyond simple structural completeness.
+
+### Scope
+- [ ] Strengthen `trace` as an agent-oriented path tool with clearer semantics and richer backing data _(#033)_
+- [ ] Add higher-value agent reasoning affordances beyond structural graph edges _(#034)_
+- [ ] Improve graph trust, freshness transparency, and persisted-session ergonomics _(#035)_
+- [ ] Refine `graph_query` and opinionated graph inspection UX for agent workflows _(#036)_
+
+### Recommended order
+1. _#035_ trust / freshness transparency
+2. _#033_ trace usefulness
+3. _#034_ higher-value agent reasoning
+4. _#036_ graph inspection UX
+
+### Exit criteria
+- Agents can tell what graph data is live, stale, inferred, or runtime-backed
+- `trace` is more useful and less easy to over-trust
+- The tool materially reduces search cost and uncertainty in planning, review, and test targeting
+- Graph inspection favors agent workflows over query-language completeness for its own sake
+
+---
+
+## Future
+
+- Multi-language support: Python, Go, Rust
+- MCP adapter for use outside pi
+- Optional semantic search layer
+- Live mode / file watching
+- Cross-repo or monorepo graph support
+- Dev-only graph visualization/debugging tools
 
 ---
 
@@ -124,8 +158,9 @@
 
 Throughout all milestones:
 
-1. **Structured output only.** No prose. Numbers, paths, line ranges, booleans, anchors.
-2. **Provenance on every edge.** The agent always knows how much to trust a relationship.
-3. **Incremental by default.** Never re-index what hasn't changed.
-4. **TypeScript first.** Get one language perfect before expanding.
-5. **The agent is a collaborator.** Unresolved edges are features, not bugs — they're invitations for the agent to contribute.
+1. **Structured output first.** Results should stay agent-actionable.
+2. **Provenance on every edge.** Trust must be inspectable.
+3. **Freshness matters as much as coverage.** Cached graph state must not silently mislead.
+4. **Incremental by default.** Recompute only what changed.
+5. **TypeScript first.** Keep one language excellent before expanding.
+6. **The agent is a collaborator.** Unresolved or agent-authored knowledge should remain explicit, reviewable, and evidence-backed.
