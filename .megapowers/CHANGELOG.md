@@ -21,3 +21,18 @@
 - Graph schema: `endpoint` node kind, `routes_to` and `renders` edge kinds, `ast-grep` provenance source (#024)
 
 - M5 `graph_query` tool: Cypher subset parser, parameterized SQL compiler, and hashline-anchored renderer; supports node matching by `kind`/`name`, directed edge traversal with optional alias, `WHERE` equality predicates (AND-joined), `RETURN` alias and property projections, and `LIMIT`; returns structured `parse_error`, `validation_error`, `unsupported_error`, and `execution_error` results; query values are always bound parameters, never interpolated; mutation keyword detection strips string literals to avoid false positives; `queryRows<T>` added to `GraphStore` with SELECT-only runtime guard (#026, closes #016)
+
+### Fixed
+- `runScan()` no longer throws `JSON Parse error: Unexpected EOF` when `sg run --json` returns exit code `1` with empty stdout (CI no-match condition); empty and whitespace-only subprocess output is now normalized to `[]` before parsing, keeping malformed non-empty JSON errors intact; regression tests added at both the subprocess boundary (`runScan` with injected `ExecFn`) and the `indexProject` integration level (#028)
+
+### Added
+- M5 Stage 5 git co-change indexer: parses `git log` commit history to find file pairs that frequently change together; emits `co_changes_with` module→module edges with exponential-decay recency weighting, configurable minimum threshold (default 2), and evidence carrying co-change count, recency score, and window; incremental via HEAD-hash caching (skips when HEAD unchanged, clears and rebuilds on HEAD change); gracefully no-ops in non-git directories and repos with no commits (#027, closes #017)
+- M5 tree-sitter indexer hardening: aliased imports (`import { foo as bar }`) now extract the original name and resolve `bar()` calls to `foo`; namespace imports (`import * as ns`) emit `imports *` edges and resolve `ns.method()` calls to `method`; re-exports (`export { foo } from "./bar"` and `export { foo as baz }`) emit import edges targeting the original exported name enabling transitive barrel resolution; dynamic imports (`import("./mod")`) emitted as `imports` edges with confidence 0.3 (#027, closes #018)
+- Pipeline timing instrumentation: `IndexResult` gains `timings: Record<string, number>` with per-stage wall-clock durations in milliseconds for all 5 stages (tree-sitter, lsp, ast-grep, coverage, git) (#027)
+- `getStatistics(projectRoot?)` on `GraphStore` interface and `SqliteGraphStore`: returns node counts by kind, edge counts by kind+provenance, and file counts (total tracked, stale); staleness detection reads files from disk and compares SHA-256 hashes; sentinel keys (`__`-prefixed) are excluded from counts (#027)
+- SQLite indexes `idx_nodes_name ON nodes(name)` and `idx_edges_kind ON edges(kind)` added to cover `symbol_graph` name lookups and `graph_query` kind filters (#027)
+
+### Fixed
+- Stale persisted graph data no longer served to tools: `ensureIndexed()` now calls `indexProject()` unconditionally instead of gating on an empty DB; incremental change detection (SHA-256 per file) ensures only changed files are re-indexed (#032, closes #029)
+- `trace` and `impact` now return an explicit disambiguation list for ambiguous symbol names instead of reporting "not found" or silently aggregating all matches; shared `resolveUniqueSymbol()` helper unifies contract across all tools (#032, closes #030)
+- `graph_query` now accepts single-quoted string literals in `WHERE` equality predicates (e.g. `WHERE n.name = 'GraphStore'`); previously only double-quoted values were accepted (#032, closes #031)

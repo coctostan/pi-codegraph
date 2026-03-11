@@ -38,7 +38,7 @@ test("indexProject indexes .ts files under root, excludes node_modules, and pers
   try {
     const result = await indexProject(root, store);
 
-    expect(result).toEqual({ indexed: 2, skipped: 0, removed: 0, errors: 0 });
+    expect(result).toMatchObject({ indexed: 2, skipped: 0, removed: 0, errors: 0 });
 
     const db = new Database(dbPath);
     try {
@@ -83,12 +83,12 @@ test("indexProject deletes missing files and continues when a file cannot be rea
 
   const store = new SqliteGraphStore(dbPath);
   try {
-    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 2, skipped: 0, removed: 0, errors: 1 });
+    await expect(indexProject(root, store)).resolves.toMatchObject({ indexed: 2, skipped: 0, removed: 0, errors: 1 });
 
     // Remove a previously indexed file
     rmSync(join(root, "src", "b.ts"), { force: true });
 
-    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 0, skipped: 1, removed: 1, errors: 1 });
+    await expect(indexProject(root, store)).resolves.toMatchObject({ indexed: 0, skipped: 1, removed: 1, errors: 1 });
 
     const db = new Database(dbPath);
     try {
@@ -128,7 +128,7 @@ test("indexProject re-indexes a changed file: removes old nodes and stores new o
   const store = new SqliteGraphStore(dbPath);
   try {
     // First run: index original content.
-    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
+    await expect(indexProject(root, store)).resolves.toMatchObject({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
 
     const db1 = new Database(dbPath);
     try {
@@ -143,7 +143,7 @@ test("indexProject re-indexes a changed file: removes old nodes and stores new o
     writeFileSync(join(root, "src", "a.ts"), changedContent);
 
     // Second run: should re-index the changed file.
-    await expect(indexProject(root, store)).resolves.toEqual({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
+    await expect(indexProject(root, store)).resolves.toMatchObject({ indexed: 1, skipped: 0, removed: 0, errors: 0 });
 
     const db2 = new Database(dbPath);
     try {
@@ -198,6 +198,57 @@ test("indexProject runs LSP stage and upgrades unresolved call edge to lsp prove
     const out = store.getEdgesBySource(runNode.id);
     expect(out.some((e) => e.kind === "calls" && e.provenance.source === "lsp")).toBe(true);
   } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("indexProject treats empty sg stdout as a no-match Stage 3 result", async () => {
+  const root = join(tmpdir(), `pi-codegraph-empty-sg-${Date.now()}`);
+  const dbPath = join(root, "graph.sqlite");
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "plain.ts"), "export function alpha() { return 1; }\n");
+  const fakeClient: ITsServerClient = {
+    async definition() {
+      return null;
+    },
+    async references() {
+      return [];
+    },
+    async implementations() {
+      return [];
+    },
+    async shutdown() {},
+  };
+  const textStream = (text: string) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(text));
+        controller.close();
+      },
+    });
+  const prevSpawn = Bun.spawn;
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    (Bun as any).spawn = (cmd: string[], opts: any) => {
+      if (Array.isArray(cmd) && cmd[0] === "sg") {
+        return {
+          stdout: textStream(""),
+          stderr: textStream(""),
+          exited: Promise.resolve(1),
+        };
+      }
+      return prevSpawn(cmd as any, opts);
+    };
+    await expect(indexProject(root, store, { lspClientFactory: () => fakeClient })).resolves.toMatchObject({
+      indexed: 1,
+      skipped: 0,
+      removed: 0,
+      errors: 0,
+    });
+    expect(store.findNodes("alpha", "src/plain.ts")).toHaveLength(1);
+  } finally {
+    (Bun as any).spawn = prevSpawn;
     store.close();
     rmSync(root, { recursive: true, force: true });
   }

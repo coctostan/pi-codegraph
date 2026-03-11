@@ -1,17 +1,12 @@
 import type { GraphStore } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
+import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export interface TraceParams {
   entry: string;
   file?: string;
   store: GraphStore;
   projectRoot: string;
-}
-
-function resolveNode(store: GraphStore, entry: string, file?: string) {
-  const matches = store.findNodes(entry, file);
-  if (matches.length !== 1) return null;
-  return matches[0]!;
 }
 
 function pickCoverageTraceForNode(store: GraphStore, nodeId: string): string | null {
@@ -76,9 +71,16 @@ function formatLiveTraceLine(store: GraphStore, nodeId: string, projectRoot: str
 }
 
 export function trace(params: TraceParams): string {
-  const node = resolveNode(params.store, params.entry, params.file);
-  if (!node) return `Entry "${params.entry}" not found`;
+  const resolved = resolveUniqueSymbol({
+    name: params.entry,
+    file: params.file,
+    store: params.store,
+    projectRoot: params.projectRoot,
+    notFoundLabel: "Entry",
+  });
+  if (resolved.kind === "not_found" || resolved.kind === "ambiguous") return resolved.text;
 
+  const node = resolved.node;
   const coverageTraceId = resolveCoverageTraceId(params.store, node.id);
   if (coverageTraceId) {
     const coverage = params.store.getTestTrace(coverageTraceId);
