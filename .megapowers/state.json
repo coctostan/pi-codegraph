@@ -1,44 +1,41 @@
 {
   "version": 1,
-  "activeIssue": "032-phase-1-functionality-hardening-and-corr",
+  "activeIssue": "029-auto-refresh-stale-persisted-graph-on-to",
   "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1773243044758
+      "timestamp": 1773258341810
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1773243652092
+      "timestamp": 1773258945902
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1773255959683
+      "timestamp": 1773260323318
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1773256341086
+      "timestamp": 1773260537256
     },
     {
       "from": "verify",
       "to": "done",
-      "timestamp": 1773256549627
+      "timestamp": 1773261035565
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 3,
-  "currentTaskIndex": 3,
+  "planIteration": 1,
+  "currentTaskIndex": 0,
   "completedTasks": [
-    1,
-    2,
-    3,
-    4
+    1
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -50,6 +47,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/032-phase-1-functionality-hardening-and-corr",
+  "branchName": "fix/029-auto-refresh-stale-persisted-graph-on-to",
   "baseBranch": "main"
 }
