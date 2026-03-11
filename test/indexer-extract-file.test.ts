@@ -132,9 +132,7 @@ test("extractFile extracts import edges for named, aliased, and default imports"
 
   const result = extractFile(file, content);
   const expectedHash = createHash("sha256").update(content).digest("hex");
-
   const imports = result.edges.filter((e) => e.kind === "imports");
-
   const fooEdge = imports.find((e) => e.target.includes("::foo:"));
   expect(fooEdge).toBeDefined();
   expect(fooEdge).toMatchObject({
@@ -148,11 +146,35 @@ test("extractFile extracts import edges for named, aliased, and default imports"
     },
   });
 
+  // Aliased import: `import { foo as baz }` should create edge targeting original name `foo`, not `baz`
   const bazEdge = imports.find((e) => e.target.includes("::baz:"));
-  expect(bazEdge).toBeUndefined();
+  expect(bazEdge).toBeUndefined(); // no edge to "baz"
 
+  // There should be TWO edges to "foo" (one from named, one from alias)
+  const fooEdges = imports.filter((e) => e.target.includes("::foo:"));
+  expect(fooEdges.length).toBe(2);
   const defaultEdge = imports.find((e) => e.target.includes("::default:"));
   expect(defaultEdge).toBeDefined();
+});
+
+test("extractFile resolves aliased import calls to the original exported name", () => {
+  const file = "src/alias-call.ts";
+  const content = [
+    'import { helper as h } from "./utils";',
+    "function main() {",
+    "  h();",
+    "}",
+  ].join("\n");
+
+  const result = extractFile(file, content);
+
+  const callEdges = result.edges.filter((e) => e.kind === "calls");
+  // h() should resolve to "helper", not "h"
+  const helperCall = callEdges.find((e) => e.target.includes("::helper:"));
+  expect(helperCall).toBeDefined();
+
+  const hCall = callEdges.find((e) => e.target.includes("::h:"));
+  expect(hCall).toBeUndefined();
 });
 
 test("extractFile extracts calls edges for bare calls + constructors, ignoring method calls", () => {

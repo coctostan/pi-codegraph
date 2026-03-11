@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import type { GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
+import { join } from "node:path";
+import type { GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string): any {
@@ -82,6 +85,8 @@ export class SqliteGraphStore implements GraphStore {
       CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file);
       CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
       CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
+      CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
+      CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
     `);
 
     const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
@@ -200,6 +205,37 @@ export class SqliteGraphStore implements GraphStore {
 
   setFileHash(file: string, hash: string): void {
     this.db.prepare(`INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at) VALUES (?, ?, ?)`).run(file, hash, Date.now());
+  }
+
+  getStatistics(projectRoot?: string): GraphStatistics {
+    const nodeRows = this.db.prepare("SELECT kind, COUNT(*) as cnt FROM nodes GROUP BY kind").all() as Array<{ kind: string; cnt: number }>;
+    const nodes: Record<string, number> = {};
+    for (const row of nodeRows) nodes[row.kind] = row.cnt;
+
+    const edgeRows = this.db.prepare("SELECT kind, provenance_source, COUNT(*) as cnt FROM edges GROUP BY kind, provenance_source").all() as Array<{ kind: string; provenance_source: string; cnt: number }>;
+    const edges: Record<string, Record<string, number>> = {};
+    for (const row of edgeRows) {
+      if (!edges[row.kind]) edges[row.kind] = {};
+      edges[row.kind][row.provenance_source] = row.cnt;
+    }
+
+    const fileRows = (this.db.prepare("SELECT file, hash FROM file_hashes").all() as Array<{ file: string; hash: string }>).filter((r) => !r.file.startsWith("__"));
+    const total = fileRows.length;
+
+    let stale = 0;
+    if (projectRoot) {
+      for (const row of fileRows) {
+        try {
+          const content = readFileSync(join(projectRoot, row.file), "utf8");
+          const currentHash = createHash("sha256").update(content).digest("hex");
+          if (currentHash !== row.hash) stale++;
+        } catch {
+          stale++;
+        }
+      }
+    }
+
+    return { nodes, edges, files: { total, stale } };
   }
 
   saveTestTrace(trace: TestTraceRecord): void {
