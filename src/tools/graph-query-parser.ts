@@ -145,18 +145,18 @@ function rejectUnsupported(query: string): void {
 
 function parseWhere(whereClause?: string): WhereClause[] {
   if (!whereClause) return [];
-
   if (/\s+OR\s+/i.test(whereClause)) {
     throw new GraphQueryError("unsupported_error", "OR is not supported");
   }
-
   return whereClause.split(/\s+AND\s+/i).map((piece) => {
-    const match = piece.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]+)"$/);
+    const match = piece
+      .trim()
+      .match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"([^"]+)"|'([^']+)')$/);
     if (!match) throw new GraphQueryError("parse_error", `invalid WHERE predicate: ${piece.trim()}`);
     return {
       alias: match[1]!,
       property: match[2]!,
-      value: match[3]!,
+      value: match[3] ?? match[4]!,
     };
   });
 }
