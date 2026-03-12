@@ -70,6 +70,13 @@ function formatLiveTraceLine(store: GraphStore, nodeId: string, projectRoot: str
   return `${anchor.anchor}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""}`;
 }
 
+function formatModeHeader(mode: "coverage" | "static", stale = false): string {
+  const base = mode === "coverage"
+    ? "mode: coverage"
+    : "mode: static (heuristic, no runtime evidence)";
+  return `${base}${stale ? " [stale]" : ""}`;
+}
+
 export function trace(params: TraceParams): string {
   const resolved = resolveUniqueSymbol({
     name: params.entry,
@@ -87,10 +94,10 @@ export function trace(params: TraceParams): string {
     if (coverage) {
       const rendered = coverage.steps.sort((a, b) => a.ordinal - b.ordinal).map((step) => formatStoredTraceLine(params.store, step.nodeId, step.contentHash, params.projectRoot));
       const traceStale = rendered.some((item) => item.stale);
-      return `${[`mode: coverage${traceStale ? " [stale]" : ""}`, ...rendered.map((item) => item.line)].join("\n")}\n`;
+      return `${[formatModeHeader("coverage", traceStale), ...rendered.map((item) => item.line)].join("\n")}\n`;
     }
   }
 
   const staticSteps = buildStaticTrace(params.store, node.id);
-  return `${["mode: static", ...staticSteps.map((step) => formatLiveTraceLine(params.store, step, params.projectRoot))].join("\n")}\n`;
+  return `${[formatModeHeader("static"), ...staticSteps.map((step) => formatLiveTraceLine(params.store, step, params.projectRoot))].join("\n")}\n`;
 }

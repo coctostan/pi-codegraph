@@ -175,7 +175,8 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "trace",
     label: "Trace",
-    description: "Return one deterministic anchored execution path for a test, symbol, or endpoint",
+    description:
+      "Return one deterministic anchored execution path for a test, symbol, or endpoint. Results may be coverage-backed or static heuristics. Use trace to follow one path, symbol_graph to inspect neighborhoods, and impact to inspect downstream dependents.",
     parameters: TraceParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;

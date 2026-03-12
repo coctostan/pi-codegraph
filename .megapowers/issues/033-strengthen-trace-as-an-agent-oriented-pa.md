@@ -1,7 +1,7 @@
 ---
 id: 33
 type: feature
-status: open
+status: in-progress
 created: 2026-03-11T14:27:08.981Z
 priority: 2
 ---
