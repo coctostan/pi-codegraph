@@ -36,3 +36,7 @@
 - Stale persisted graph data no longer served to tools: `ensureIndexed()` now calls `indexProject()` unconditionally instead of gating on an empty DB; incremental change detection (SHA-256 per file) ensures only changed files are re-indexed (#032, closes #029)
 - `trace` and `impact` now return an explicit disambiguation list for ambiguous symbol names instead of reporting "not found" or silently aggregating all matches; shared `resolveUniqueSymbol()` helper unifies contract across all tools (#032, closes #030)
 - `graph_query` now accepts single-quoted string literals in `WHERE` equality predicates (e.g. `WHERE n.name = 'GraphStore'`); previously only double-quoted values were accepted (#032, closes #031)
+
+### Changed
+- `trace` static fallback header changed from `mode: static` to `mode: static (heuristic, no runtime evidence)` so agents can distinguish runtime-backed paths from structural heuristics without inspecting step content; a shared `formatModeHeader()` helper now produces both coverage and static headers, preventing future drift (#033)
+- `trace` tool description expanded to state that results may be coverage-backed or static heuristics, and to explain when agents should prefer `trace` versus `symbol_graph` and `impact` (#033)

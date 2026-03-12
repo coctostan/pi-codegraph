@@ -1,45 +1,52 @@
 {
   "version": 1,
-  "activeIssue": "029-auto-refresh-stale-persisted-graph-on-to",
-  "workflow": "bugfix",
+  "activeIssue": "033-strengthen-trace-as-an-agent-oriented-pa",
+  "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1773258341810
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1773264419310
     },
     {
-      "from": "diagnose",
+      "from": "spec",
       "to": "plan",
-      "timestamp": 1773258945902
+      "timestamp": 1773267640127
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1773260323318
+      "timestamp": 1773269094056
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1773260537256
+      "timestamp": 1773273067977
     },
     {
       "from": "verify",
+      "to": "code-review",
+      "timestamp": 1773273407382
+    },
+    {
+      "from": "code-review",
       "to": "done",
-      "timestamp": 1773261035565
+      "timestamp": 1773274195413
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 1,
-  "currentTaskIndex": 0,
+  "planIteration": 2,
+  "currentTaskIndex": 2,
   "completedTasks": [
-    1
+    1,
+    2,
+    3
   ],
   "tddTaskState": null,
   "doneActions": [
-    "generate-bugfix-summary",
+    "generate-docs",
     "write-changelog",
     "capture-learnings",
     "push-and-pr",
@@ -47,6 +54,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/029-auto-refresh-stale-persisted-graph-on-to",
+  "branchName": "feat/033-strengthen-trace-as-an-agent-oriented-pa",
   "baseBranch": "main"
 }
