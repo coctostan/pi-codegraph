@@ -38,7 +38,8 @@ function addNode(
   name: string,
   startLine: number,
   endLine: number,
-  contentHash: string
+  contentHash: string,
+  isExported: boolean
 ): void {
   nodes.push({
     id: nodeId(file, name, startLine),
@@ -48,6 +49,7 @@ function addNode(
     start_line: startLine,
     end_line: endLine,
     content_hash: contentHash,
+    is_exported: isExported,
   });
 }
 
@@ -58,6 +60,15 @@ function walk(node: SyntaxNode, visit: (n: SyntaxNode) => void): void {
 
 function unresolvedId(name: string): string {
   return nodeId("__unresolved__", name, 0);
+}
+
+function isExportedNode(node: SyntaxNode): boolean {
+  let current: SyntaxNode | null = node;
+  while (current) {
+    if (current.type === "export_statement") return true;
+    current = current.parent;
+  }
+  return false;
 }
 
 
@@ -72,6 +83,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
     start_line: 1,
     end_line: countLines(content),
     content_hash: contentHash,
+    is_exported: false,
   };
 
   const nodes: GraphNode[] = [];
@@ -111,7 +123,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           nameNode.text,
           n.startPosition.row + 1,
           n.endPosition.row + 1,
-          contentHash
+          contentHash,
+          isExportedNode(n)
         );
         return;
       }
@@ -126,7 +139,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           nameNode.text,
           n.startPosition.row + 1,
           n.endPosition.row + 1,
-          contentHash
+          contentHash,
+          isExportedNode(n)
         );
         return;
       }
@@ -141,7 +155,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           nameNode.text,
           n.startPosition.row + 1,
           n.endPosition.row + 1,
-          contentHash
+          contentHash,
+          isExportedNode(n)
         );
         return;
       }
@@ -291,7 +306,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           nameNode.text,
           n.startPosition.row + 1,
           valueNode.endPosition.row + 1,
-          contentHash
+          contentHash,
+          isExportedNode(n)
         );
       }
     });

@@ -6,6 +6,7 @@ import {
   type AnchoredNeighbor,
   type NeighborSection,
 } from "../output/anchoring.js";
+import { createSignalComputer, type NodeSignals } from "../output/signals.js";
 
 export interface SymbolGraphParams {
   name: string;
@@ -24,7 +25,12 @@ function isAgentEdgeStale(nr: NeighborResult, store: GraphStore): boolean {
   return nr.edge.provenance.content_hash !== currentFileHash;
 }
 
-function toAnchoredNeighbor(nr: NeighborResult, projectRoot: string, store: GraphStore): AnchoredNeighbor {
+function toAnchoredNeighbor(
+  nr: NeighborResult,
+  projectRoot: string,
+  store: GraphStore,
+  computeSignals?: (nodeId: string) => NodeSignals,
+): AnchoredNeighbor {
   const anchor = computeAnchor(nr.node, projectRoot);
   const agentStale = isAgentEdgeStale(nr, store);
   const effectiveAnchor = agentStale ? { ...anchor, stale: true } : anchor;
@@ -34,6 +40,7 @@ function toAnchoredNeighbor(nr: NeighborResult, projectRoot: string, store: Grap
     edgeKind: nr.edge.kind,
     confidence: nr.edge.provenance.confidence,
     provenanceSource: nr.edge.provenance.source,
+    signals: computeSignals ? computeSignals(nr.node.id) : undefined,
   };
 }
 
@@ -42,10 +49,11 @@ function buildSection(
   limit: number,
   projectRoot: string,
   store: GraphStore,
+  computeSignals?: (nodeId: string) => NodeSignals,
 ): NeighborSection {
   const ranked = rankNeighbors(neighbors, limit);
   return {
-    items: ranked.kept.map((nr) => toAnchoredNeighbor(nr, projectRoot, store)),
+    items: ranked.kept.map((nr) => toAnchoredNeighbor(nr, projectRoot, store, computeSignals)),
     omitted: ranked.omitted,
   };
 }
@@ -71,6 +79,7 @@ export function symbolGraph(params: SymbolGraphParams): string {
 
   const node = nodes[0]!;
   const symbolAnchor = computeAnchor(node, projectRoot);
+  const signalComputer = createSignalComputer(store);
 
   const allNeighbors = store.getNeighbors(node.id);
 
@@ -96,13 +105,13 @@ export function symbolGraph(params: SymbolGraphParams): string {
     }
   }
 
-  const callers = buildSection(callerResults, limit, projectRoot, store);
-  const callees = buildSection(calleeResults, limit, projectRoot, store);
-  const imports = buildSection(importResults, limit, projectRoot, store);
+  const callers = buildSection(callerResults, limit, projectRoot, store, (nodeId) => signalComputer.compute(nodeId));
+  const callees = buildSection(calleeResults, limit, projectRoot, store, (nodeId) => signalComputer.compute(nodeId));
+  const imports = buildSection(importResults, limit, projectRoot, store, (nodeId) => signalComputer.compute(nodeId));
   const unresolved = buildSection(unresolvedResults, limit, projectRoot, store);
 
   return formatNeighborhood(
-    { name: node.name, kind: node.kind, anchor: symbolAnchor },
+    { name: node.name, kind: node.kind, anchor: symbolAnchor, signals: signalComputer.compute(node.id) },
     callers,
     callees,
     imports,

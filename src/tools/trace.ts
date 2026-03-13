@@ -1,5 +1,6 @@
 import type { GraphStore } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
+import { createSignalComputer, formatRoleTags, type SignalComputer } from "../output/signals.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export interface TraceParams {
@@ -50,24 +51,37 @@ function buildStaticTrace(store: GraphStore, startNodeId: string): string[] {
   return ordered;
 }
 
-function formatStoredTraceLine(store: GraphStore, nodeId: string, storedHash: string, projectRoot: string): { line: string; stale: boolean } {
+function formatStoredTraceLine(
+  store: GraphStore,
+  nodeId: string,
+  storedHash: string,
+  projectRoot: string,
+  signalComputer: SignalComputer,
+): { line: string; stale: boolean } {
   const node = store.getNode(nodeId);
   if (!node) {
     return { line: `${nodeId}  unresolved [stale]`, stale: true };
   }
   const anchor = computeAnchor(node, projectRoot);
   const stale = anchor.stale || node.content_hash !== storedHash;
+  const tags = formatRoleTags(signalComputer.compute(node.id));
   return {
-    line: `${anchor.anchor}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""}`,
+    line: `${anchor.anchor}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""} ${tags}`,
     stale,
   };
 }
 
-function formatLiveTraceLine(store: GraphStore, nodeId: string, projectRoot: string): string {
+function formatLiveTraceLine(
+  store: GraphStore,
+  nodeId: string,
+  projectRoot: string,
+  signalComputer: SignalComputer,
+): string {
   const node = store.getNode(nodeId);
   if (!node) return `${nodeId}  unresolved [stale]`;
   const anchor = computeAnchor(node, projectRoot);
-  return `${anchor.anchor}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""}`;
+  const tags = formatRoleTags(signalComputer.compute(node.id));
+  return `${anchor.anchor}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""} ${tags}`;
 }
 
 function formatModeHeader(mode: "coverage" | "static", stale = false): string {
@@ -88,16 +102,19 @@ export function trace(params: TraceParams): string {
   if (resolved.kind === "not_found" || resolved.kind === "ambiguous") return resolved.text;
 
   const node = resolved.node;
+  const signalComputer = createSignalComputer(params.store);
   const coverageTraceId = resolveCoverageTraceId(params.store, node.id);
   if (coverageTraceId) {
     const coverage = params.store.getTestTrace(coverageTraceId);
     if (coverage) {
-      const rendered = coverage.steps.sort((a, b) => a.ordinal - b.ordinal).map((step) => formatStoredTraceLine(params.store, step.nodeId, step.contentHash, params.projectRoot));
+      const rendered = coverage.steps
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((step) => formatStoredTraceLine(params.store, step.nodeId, step.contentHash, params.projectRoot, signalComputer));
       const traceStale = rendered.some((item) => item.stale);
       return `${[formatModeHeader("coverage", traceStale), ...rendered.map((item) => item.line)].join("\n")}\n`;
     }
   }
 
   const staticSteps = buildStaticTrace(params.store, node.id);
-  return `${[formatModeHeader("static"), ...staticSteps.map((step) => formatLiveTraceLine(params.store, step, params.projectRoot))].join("\n")}\n`;
+  return `${[formatModeHeader("static"), ...staticSteps.map((step) => formatLiveTraceLine(params.store, step, params.projectRoot, signalComputer))].join("\n")}\n`;
 }

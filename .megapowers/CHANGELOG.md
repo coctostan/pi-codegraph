@@ -40,3 +40,11 @@
 ### Changed
 - `trace` static fallback header changed from `mode: static` to `mode: static (heuristic, no runtime evidence)` so agents can distinguish runtime-backed paths from structural heuristics without inspecting step content; a shared `formatModeHeader()` helper now produces both coverage and static headers, preventing future drift (#033)
 - `trace` tool description expanded to state that results may be coverage-backed or static heuristics, and to explain when agents should prefer `trace` versus `symbol_graph` and `impact` (#033)
+
+### Added
+- Shared node-signal layer (`src/output/signals.ts`): computes `fanIn`/`fanOut` (duplicate-provenance-safe), role tags (`entry-point`, `hub`, `leaf`), coverage tags (`tested`, `untested`, `framework-mediated`), co-change score from module-level git edges, and weakest-link chain confidence for `impact` traversal paths; memoized per-invocation for sub-second performance at 120+ dependents (#034)
+- `is_exported` flag on `GraphNode`: extracted by tree-sitter from `export_statement` ancestry and persisted in SQLite (idempotent schema migration, NULL→false coercion) (#034)
+- Always-on inline role-tag annotations in `symbol_graph`: resolved symbol header and resolved neighbor lines gain compact `[tag, ...]` suffixes; unresolved rows unchanged (#034)
+- Always-on inline role-tag annotations in `trace`: every step line gains a compact `[tag, ...]` suffix; `mode:` header and step ordering preserved (#034)
+- Always-on inline `why` annotations in `impact`: every result line ends with `[fan-in:<n>  <coverage>  co-change:<n>  chain-confidence:<v>]`; dependents are sorted by breaking→behavioral, fanIn desc, untested first, co-change desc, chain-confidence desc, depth asc, then file/name (#034)
+- Performance regression test: 120-symbol in-memory `impact` with always-on signal annotations completes in under 1 second (#034)

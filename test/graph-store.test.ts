@@ -46,6 +46,7 @@ test("addNode + getNode round-trip, upsert, and unknown returns null", () => {
     start_line: 1,
     end_line: 3,
     content_hash: "h1",
+    is_exported: false,
   };
 
   store.addNode(original);
@@ -295,6 +296,7 @@ test("data persists after close() and reopen with same db path", () => {
       start_line: 1,
       end_line: 2,
       content_hash: "persist-hash",
+      is_exported: false,
     };
 
     const store1 = new SqliteGraphStore(dbPath);
