@@ -20,6 +20,7 @@ test("extractFile returns module node with stable id and SHA-256 content hash", 
     start_line: 1,
     end_line: 1,
     content_hash: expectedHash,
+    is_exported: false,
   });
   expect(result.nodes).toEqual([]);
   expect(result.edges).toEqual([]);
@@ -40,6 +41,7 @@ test("extractFile extracts non-exported function declarations (criterion 1)", ()
     start_line: 1,
     end_line: 1,
     content_hash: expectedHash,
+    is_exported: false,
   });
 });
 
@@ -69,6 +71,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     start_line: 1,
     end_line: 3,
     content_hash: expectedHash,
+    is_exported: true,
   });
 
   expect(byName.get("bar")).toEqual({
@@ -79,6 +82,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     start_line: 5,
     end_line: 5,
     content_hash: expectedHash,
+    is_exported: false,
   });
 
   expect(byName.get("baz")).toEqual({
@@ -89,6 +93,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     start_line: 6,
     end_line: 8,
     content_hash: expectedHash,
+    is_exported: false,
   });
 });
 
@@ -109,6 +114,7 @@ test("extractFile extracts class and interface declarations", () => {
     start_line: 1,
     end_line: 1,
     content_hash: expectedHash,
+    is_exported: false,
   });
 
   expect(byName.get("MyInterface")).toEqual({
@@ -119,6 +125,7 @@ test("extractFile extracts class and interface declarations", () => {
     start_line: 3,
     end_line: 3,
     content_hash: expectedHash,
+    is_exported: false,
   });
 });
 

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
 import type { NeighborResult } from "../graph/store.js";
+import { formatRoleTags, type NodeSignals } from "./signals.js";
 
 export interface AnchorResult {
   anchor: string;
@@ -73,8 +74,8 @@ export interface AnchoredNeighbor {
   edgeKind: string;
   confidence: number;
   provenanceSource: string;
+  signals?: NodeSignals;
 }
-
 export interface NeighborSection {
   items: AnchoredNeighbor[];
   omitted: number;
@@ -84,8 +85,8 @@ export interface SymbolHeader {
   name: string;
   kind: string;
   anchor: AnchorResult;
+  signals?: NodeSignals;
 }
-
 function formatSection(title: string, section: NeighborSection): string {
   if (section.items.length === 0 && section.omitted === 0) {
     return "";
@@ -96,8 +97,9 @@ function formatSection(title: string, section: NeighborSection): string {
 
   for (const item of section.items) {
     const staleMarker = item.anchor.stale ? " [stale]" : "";
+    const signalTags = item.signals ? ` ${formatRoleTags(item.signals)}` : "";
     lines.push(
-      `  ${item.anchor.anchor}  ${item.name}  ${item.edgeKind}  confidence:${item.confidence}  ${item.provenanceSource}${staleMarker}`,
+      `  ${item.anchor.anchor}  ${item.name}  ${item.edgeKind}  confidence:${item.confidence}  ${item.provenanceSource}${staleMarker}${signalTags}`,
     );
   }
 
@@ -116,7 +118,8 @@ export function formatNeighborhood(
   unresolved: NeighborSection,
 ): string {
   const staleMarker = symbol.anchor.stale ? " [stale]" : "";
-  const header = `## ${symbol.name} (${symbol.kind})\n${symbol.anchor.anchor}${staleMarker}`;
+  const signalTags = symbol.signals ? ` ${formatRoleTags(symbol.signals)}` : "";
+  const header = `## ${symbol.name} (${symbol.kind})\n${symbol.anchor.anchor}${staleMarker}${signalTags}`;
 
   const sections = [
     formatSection("Callers", callers),

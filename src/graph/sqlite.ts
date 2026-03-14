@@ -22,6 +22,7 @@ interface NeighborRow {
   start_line: number;
   end_line: number | null;
   content_hash: string;
+  is_exported: number | null;
   source: string;
   target: string;
   edge_kind: GraphEdge["kind"];
@@ -49,7 +50,8 @@ export class SqliteGraphStore implements GraphStore {
         file TEXT NOT NULL,
         start_line INTEGER NOT NULL,
         end_line INTEGER,
-        content_hash TEXT NOT NULL
+        content_hash TEXT NOT NULL,
+        is_exported INTEGER NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS edges (
@@ -93,11 +95,16 @@ export class SqliteGraphStore implements GraphStore {
     if (!existing) {
       this.db.prepare("INSERT INTO schema_version(version) VALUES (1)").run();
     }
+
+    const nodeColumns = this.db.prepare("PRAGMA table_info(nodes)").all() as Array<{ name: string }>;
+    if (!nodeColumns.some((column) => column.name === "is_exported")) {
+      this.db.prepare("ALTER TABLE nodes ADD COLUMN is_exported INTEGER NOT NULL DEFAULT 0").run();
+    }
   }
 
   addNode(node: GraphNode): void {
-    this.db.prepare(`INSERT OR REPLACE INTO nodes (id, kind, name, file, start_line, end_line, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(node.id, node.kind, node.name, node.file, node.start_line, node.end_line ?? null, node.content_hash);
+    this.db.prepare(`INSERT OR REPLACE INTO nodes (id, kind, name, file, start_line, end_line, content_hash, is_exported) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(node.id, node.kind, node.name, node.file, node.start_line, node.end_line ?? null, node.content_hash, node.is_exported ? 1 : 0);
   }
 
   addEdge(edge: GraphEdge): void {
@@ -105,17 +112,29 @@ export class SqliteGraphStore implements GraphStore {
       .run(edge.source, edge.target, edge.kind, edge.provenance.source, edge.provenance.confidence, edge.provenance.evidence, edge.provenance.content_hash, edge.created_at);
   }
 
+  private hydrateNode(row: { id: string; kind: GraphNode["kind"]; name: string; file: string; start_line: number; end_line: number | null; content_hash: string; is_exported: number | null; }): GraphNode {
+    return {
+      id: row.id,
+      kind: row.kind,
+      name: row.name,
+      file: row.file,
+      start_line: row.start_line,
+      end_line: row.end_line,
+      content_hash: row.content_hash,
+      is_exported: Boolean(row.is_exported),
+    };
+  }
   getNode(id: string): GraphNode | null {
-    const row = this.db.prepare(`SELECT id, kind, name, file, start_line, end_line, content_hash FROM nodes WHERE id = ?`).get(id) as GraphNode | null;
-    return row ? { ...row } : null;
+    const row = this.db.prepare(`SELECT id, kind, name, file, start_line, end_line, content_hash, is_exported FROM nodes WHERE id = ?`).get(id) as Parameters<SqliteGraphStore["hydrateNode"]>[0] | null;
+    return row ? this.hydrateNode(row) : null;
   }
 
   findNodes(name: string, file?: string): GraphNode[] {
     const sql = file
-      ? `SELECT id, kind, name, file, start_line, end_line, content_hash FROM nodes WHERE name = ? AND file = ?`
-      : `SELECT id, kind, name, file, start_line, end_line, content_hash FROM nodes WHERE name = ?`;
-    const rows = (file ? this.db.prepare(sql).all(name, file) : this.db.prepare(sql).all(name)) as GraphNode[];
-    return rows.map((row) => ({ ...row }));
+      ? `SELECT id, kind, name, file, start_line, end_line, content_hash, is_exported FROM nodes WHERE name = ? AND file = ?`
+      : `SELECT id, kind, name, file, start_line, end_line, content_hash, is_exported FROM nodes WHERE name = ?`;
+    const rows = (file ? this.db.prepare(sql).all(name, file) : this.db.prepare(sql).all(name)) as Parameters<SqliteGraphStore["hydrateNode"]>[0][];
+    return rows.map((row) => this.hydrateNode(row));
   }
 
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[] {
@@ -129,7 +148,7 @@ export class SqliteGraphStore implements GraphStore {
   private fetchNeighborRows(nodeId: string, direction: "in" | "out", kind?: GraphEdge["kind"]): NeighborResult[] {
     const [joinOn, whereField] = direction === "out" ? ["e.target", "e.source"] : ["e.source", "e.target"];
     const baseSQL = `
-      SELECT n.id, n.kind, n.name, n.file, n.start_line, n.end_line, n.content_hash,
+      SELECT n.id, n.kind, n.name, n.file, n.start_line, n.end_line, n.content_hash, n.is_exported,
              e.source, e.target, e.kind as edge_kind,
              e.provenance_source, e.confidence, e.evidence,
              e.content_hash as edge_hash, e.created_at
@@ -139,7 +158,16 @@ export class SqliteGraphStore implements GraphStore {
     const sql = kind ? `${baseSQL} AND e.kind = ?` : baseSQL;
     const rows = (kind ? this.db.prepare(sql).all(nodeId, kind) : this.db.prepare(sql).all(nodeId)) as NeighborRow[];
     return rows.map((row) => ({
-      node: { id: row.id, kind: row.kind, name: row.name, file: row.file, start_line: row.start_line, end_line: row.end_line, content_hash: row.content_hash },
+      node: {
+        id: row.id,
+        kind: row.kind,
+        name: row.name,
+        file: row.file,
+        start_line: row.start_line,
+        end_line: row.end_line,
+        content_hash: row.content_hash,
+        is_exported: Boolean(row.is_exported),
+      },
       edge: {
         source: row.source,
         target: row.target,
@@ -175,8 +203,8 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getNodesByFile(file: string): GraphNode[] {
-    const rows = this.db.prepare(`SELECT id, kind, name, file, start_line, end_line, content_hash FROM nodes WHERE file = ? ORDER BY start_line ASC, id ASC`).all(file) as GraphNode[];
-    return rows.map((row) => ({ ...row }));
+    const rows = this.db.prepare(`SELECT id, kind, name, file, start_line, end_line, content_hash, is_exported FROM nodes WHERE file = ? ORDER BY start_line ASC, id ASC`).all(file) as Parameters<SqliteGraphStore["hydrateNode"]>[0][];
+    return rows.map((row) => this.hydrateNode(row));
   }
 
   deleteFile(file: string): void {
