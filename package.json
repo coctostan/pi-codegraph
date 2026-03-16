@@ -18,7 +18,7 @@
     "tree-sitter-typescript": "^0.23.2"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.57.1",
+    "@mariozechner/pi-coding-agent": "^0.58.3",
     "@types/bun": "latest",
     "typescript": "^5.7.0"
   }
