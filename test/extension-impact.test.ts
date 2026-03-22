@@ -44,12 +44,12 @@ test("impact() emits anchored structured lines and empty string for no-impact", 
       created_at: 1,
     });
     const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
-    expect(out.trim().split("\n")).toHaveLength(1);
-    expect(out.trim()).toMatch(/^src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
-    // AC 11 strict contract: file:line:hash + two-space field separators + trailing newline.
-    expect(out).toMatch(/^src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n$/);
+    expect(out).toContain("## Trust");
+    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
+    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
     const noImpact = impact({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 });
-    expect(noImpact).toBe("");
+    expect(noImpact).toContain("## Trust");
+    expect(noImpact).not.toContain("caller");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

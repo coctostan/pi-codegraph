@@ -48,3 +48,4 @@
 - Always-on inline role-tag annotations in `trace`: every step line gains a compact `[tag, ...]` suffix; `mode:` header and step ordering preserved (#034)
 - Always-on inline `why` annotations in `impact`: every result line ends with `[fan-in:<n>  <coverage>  co-change:<n>  chain-confidence:<v>]`; dependents are sorted by breaking→behavioral, fanIn desc, untested first, co-change desc, chain-confidence desc, depth asc, then file/name (#034)
 - Performance regression test: 120-symbol in-memory `impact` with always-on signal annotations completes in under 1 second (#034)
+- Shared trust/freshness header for all read-oriented tools: `symbol_graph`, `trace`, `impact`, and `graph_query` now prepend a compact 3-line `## Trust` header with `status` (fresh/stale/mixed/heuristic/runtime-backed), `evidence` (provenance sources), and `stale-files` count; existing row-level `[stale]` markers preserved; `resolve_edge` intentionally excluded; no new indexing stages (#035)

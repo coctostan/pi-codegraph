@@ -6,6 +6,9 @@ test("graphQuery converts store execution failures into execution_error output",
     queryRows() {
       throw new Error("sqlite busy");
     },
+    getStatistics() {
+      return { nodes: {}, edges: {}, files: { total: 0, stale: 0 } };
+    },
   } as any;
 
   const output = graphQuery({
@@ -14,5 +17,6 @@ test("graphQuery converts store execution failures into execution_error output",
     projectRoot: "/tmp/project",
   });
 
-  expect(output).toBe("execution_error: failed to execute compiled query\n");
+  expect(output).toContain("## Trust");
+  expect(output).toContain("execution_error: failed to execute compiled query");
 });

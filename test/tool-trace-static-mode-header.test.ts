@@ -3,15 +3,16 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { trace } from "../src/tools/trace.js";
 
 test("trace marks static fallback paths as heuristic without changing step lines", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-static-mode-header-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
-  writeFileSync(
-    join(projectRoot, "src", "app.ts"),
-    "export function entry() { return first(); }\nexport function first() { return second(); }\nexport function second() { return 1; }\n",
-  );
+  const fileContent =
+    "export function entry() { return first(); }\nexport function first() { return second(); }\nexport function second() { return 1; }\n";
+  writeFileSync(join(projectRoot, "src", "app.ts"), fileContent);
+  const fileHash = sha256Hex(fileContent);
   const store = new SqliteGraphStore();
   try {
     const entry = {
@@ -21,7 +22,7 @@ test("trace marks static fallback paths as heuristic without changing step lines
       file: "src/app.ts",
       start_line: 1,
       end_line: 1,
-      content_hash: "h-app",
+      content_hash: fileHash,
     };
     const first = {
       id: "src/app.ts::first:2",
@@ -30,7 +31,7 @@ test("trace marks static fallback paths as heuristic without changing step lines
       file: "src/app.ts",
       start_line: 2,
       end_line: 2,
-      content_hash: "h-app",
+      content_hash: fileHash,
     };
     const second = {
       id: "src/app.ts::second:3",
@@ -39,7 +40,7 @@ test("trace marks static fallback paths as heuristic without changing step lines
       file: "src/app.ts",
       start_line: 3,
       end_line: 3,
-      content_hash: "h-app",
+      content_hash: fileHash,
     };
     store.addNode(entry);
     store.addNode(first);
@@ -58,14 +59,17 @@ test("trace marks static fallback paths as heuristic without changing step lines
       provenance: { source: "tree-sitter", confidence: 0.5, evidence: "second", content_hash: first.content_hash },
       created_at: 2,
     });
+    store.setFileHash("src/app.ts", fileHash);
 
     const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
     const lines = output.trim().split("\n");
 
-    expect(lines[0]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[1]).toContain("src/app.ts:1:");
-    expect(lines[1]).toContain("entry  function");
-    expect(lines).toHaveLength(4);
+    expect(lines[0]).toBe("## Trust");
+    expect(lines[1]).toBe("status: heuristic");
+    expect(lines[3]).toBe("mode: static (heuristic, no runtime evidence)");
+    expect(lines[4]).toContain("src/app.ts:1:");
+    expect(lines[4]).toContain("entry  function");
+    expect(lines).toHaveLength(7);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

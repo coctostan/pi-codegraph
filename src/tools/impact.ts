@@ -1,6 +1,7 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
 import { createSignalComputer, formatImpactWhy, type NodeSignals, type SignalComputer } from "../output/signals.js";
+import { prependTrustHeader } from "../output/trust.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
@@ -54,19 +55,11 @@ function dedupeInboundByStrongestEdge(inbound: NeighborResult[]): NeighborResult
 
 function compareDetails(a: ImpactDetail, b: ImpactDetail): number {
   if (a.classification !== b.classification) return a.classification === "breaking" ? -1 : 1;
-
   if (a.signals.fanIn !== b.signals.fanIn) return b.signals.fanIn - a.signals.fanIn;
-
   if (a.signals.tested !== b.signals.tested) return a.signals.tested ? 1 : -1;
-
-  if (a.signals.coChangeScore !== b.signals.coChangeScore) {
-    return b.signals.coChangeScore - a.signals.coChangeScore;
-  }
-
+  if (a.signals.coChangeScore !== b.signals.coChangeScore) return b.signals.coChangeScore - a.signals.coChangeScore;
   if (a.chainConfidence !== b.chainConfidence) return b.chainConfidence - a.chainConfidence;
-
   if (a.depth !== b.depth) return a.depth - b.depth;
-
   return a.file.localeCompare(b.file) || a.name.localeCompare(b.name);
 }
 
@@ -93,9 +86,7 @@ export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[
     const current = queue.shift()!;
     if (current.depth >= maxDepth) continue;
 
-    const inbound = dedupeInboundByStrongestEdge(
-      store.getNeighbors(current.id, { direction: "in", kind: "calls" }),
-    );
+    const inbound = dedupeInboundByStrongestEdge(store.getNeighbors(current.id, { direction: "in", kind: "calls" }));
 
     for (const neighbor of inbound) {
       const depth = current.depth + 1;
@@ -144,6 +135,8 @@ export function impact(params: {
   projectRoot: string;
   maxDepth?: number;
 }): string {
+  const stats = params.store.getStatistics(params.projectRoot);
+
   for (const symbol of params.symbols) {
     const resolved = resolveUniqueSymbol({
       name: symbol,
@@ -151,8 +144,8 @@ export function impact(params: {
       projectRoot: params.projectRoot,
       notFoundLabel: "Symbol",
     });
-    if (resolved.kind === "ambiguous") return resolved.text;
-    if (resolved.kind === "not_found") return "";
+    if (resolved.kind === "ambiguous") return prependTrustHeader(resolved.text, { stats });
+    if (resolved.kind === "not_found") return prependTrustHeader("", { stats });
   }
 
   const signalComputer = createSignalComputer(params.store);
@@ -163,14 +156,19 @@ export function impact(params: {
     maxDepth: params.maxDepth,
     signalComputer,
   });
-  if (hits.length === 0) return "";
 
+  if (hits.length === 0) return prependTrustHeader("", { stats });
+
+  let hasLocalExceptions = false;
   const lines = hits.flatMap((hit) => {
     const node = params.store.getNode(hit.nodeId);
     if (!node) return [];
     const { anchor, stale } = computeAnchor(node, params.projectRoot);
+    if (stale) hasLocalExceptions = true;
     const why = formatImpactWhy(hit.signals, hit.chainConfidence);
     return [`${anchor}  ${hit.name}  ${hit.classification}  depth:${hit.depth}${stale ? " [stale]" : ""}  ${why}`];
   });
-  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
+
+  const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
+  return prependTrustHeader(body, { stats, hasLocalExceptions });
 }
