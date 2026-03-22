@@ -56,14 +56,20 @@ const GraphQueryParams = Type.Object({
 });
 
 let sharedStore: GraphStore | null = null;
+let lastIndexError: Error | null = null;
 
 export function getSharedStoreForTesting(): GraphStore | null {
   return sharedStore;
 }
 
+export function getLastIndexErrorForTesting(): Error | null {
+  return lastIndexError;
+}
+
 export function resetStoreForTesting(): void {
   if (sharedStore) sharedStore.close();
   sharedStore = null;
+  lastIndexError = null;
 }
 
 function getOrCreateStore(projectRoot: string): GraphStore {
@@ -75,7 +81,18 @@ function getOrCreateStore(projectRoot: string): GraphStore {
 }
 
 async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<void> {
-  await indexProject(projectRoot, store);
+  try {
+    await indexProject(projectRoot, store);
+    lastIndexError = null;
+  } catch (err) {
+    lastIndexError = err instanceof Error ? err : new Error(String(err));
+    // Indexing failed (likely readonly DB) — degrade gracefully and serve stale graph data.
+  }
+}
+
+function indexingFailedNote(): string {
+  if (!lastIndexError) return "";
+  return "indexing-failed: graph may be stale (readonly database)\n";
 }
 
 function renderImplementationsSuffix(store: GraphStore, node: any, projectRoot: string): string {
@@ -116,6 +133,8 @@ export default function piCodegraph(pi: ExtensionAPI): void {
           if (resolvedNode.kind === "interface") {
             await resolveImplementations(resolvedNode, store, projectRoot, client);
           }
+        } catch {
+          // Resolver writes failed (likely readonly DB) — continue with existing graph data.
         } finally {
           await client.shutdown().catch(() => {});
         }
@@ -125,6 +144,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       if (resolvedNode) {
         output += renderImplementationsSuffix(store, resolvedNode, projectRoot);
       }
+      output = indexingFailedNote() + output;
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -138,16 +158,26 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      const output = resolveEdge({
-        source: params.source,
-        target: params.target,
-        sourceFile: params.sourceFile,
-        targetFile: params.targetFile,
-        kind: params.kind,
-        evidence: params.evidence,
-        store,
-        projectRoot,
-      });
+      let output: string;
+      try {
+        output = resolveEdge({
+          source: params.source,
+          target: params.target,
+          sourceFile: params.sourceFile,
+          targetFile: params.targetFile,
+          kind: params.kind,
+          evidence: params.evidence,
+          store,
+          projectRoot,
+        });
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        if (msg.includes("readonly")) {
+          output = "Cannot write edge: database is readonly. Re-index the project to enable writes.";
+        } else {
+          throw err;
+        }
+      }
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -168,7 +198,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         maxDepth: params.maxDepth,
       });
-      return { content: [{ type: "text", text }], details: undefined };
+      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
     },
   });
 
@@ -183,7 +213,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
-      return { content: [{ type: "text", text }], details: undefined };
+      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
     },
   });
 
@@ -205,7 +235,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = graphQuery({ query: params.query, store, projectRoot });
-      return { content: [{ type: "text", text }], details: undefined };
+      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
     },
   });
 }
