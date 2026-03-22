@@ -25,8 +25,8 @@ test("impact appends always-on why annotations with chain confidence", () => {
     });
 
     const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
-    expect(out.trim().split("\n")).toHaveLength(1);
-    expect(out.trim()).toMatch(/^src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:0, fan-out:1, roles:none, coverage:untested, co-change:0\.00, chain-confidence:0\.80\]$/);
+    expect(out).toContain("## Trust");
+    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:0, fan-out:1, roles:none, coverage:untested, co-change:0\.00, chain-confidence:0\.80\]/);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

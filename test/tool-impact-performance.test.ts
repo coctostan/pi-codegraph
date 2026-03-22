@@ -52,9 +52,10 @@ test("impact renders 120 annotated dependents under one second", () => {
     });
     const elapsedMs = Date.now() - startedAt;
 
+    expect(output).toContain("## Trust");
     const linesOut = output.trim().split("\n");
-    expect(linesOut).toHaveLength(120);
-    expect(linesOut.every((line) => line.includes("[fan-in:"))).toBe(true);
+    const resultLines = linesOut.filter((line) => line.includes("[fan-in:"));
+    expect(resultLines).toHaveLength(120);
     expect(elapsedMs).toBeLessThan(1000);
   } finally {
     store.close();

@@ -12,6 +12,11 @@ interface GraphNodeRow {
   content_hash: string;
 }
 
+export interface GraphQueryRenderResult {
+  text: string;
+  hasLocalExceptions: boolean;
+}
+
 function readNode(row: Record<string, unknown>, prefix: string): GraphNodeRow {
   return {
     id: String(row[`${prefix}__id`]),
@@ -24,14 +29,16 @@ function readNode(row: Record<string, unknown>, prefix: string): GraphNodeRow {
   };
 }
 
-export function renderGraphQueryRows(
+export function renderGraphQueryResult(
   rows: Array<Record<string, unknown>>,
   columns: CompiledColumn[],
   projectRoot: string,
-): string {
+): GraphQueryRenderResult {
   if (rows.length === 0) {
-    return "rows: 0\n";
+    return { text: "rows: 0\n", hasLocalExceptions: false };
   }
+
+  let hasLocalExceptions = false;
   const lines: string[] = [`rows: ${rows.length}`];
 
   rows.forEach((row, index) => {
@@ -40,13 +47,12 @@ export function renderGraphQueryRows(
       if (column.kind === "node") {
         const node = readNode(row, column.sqlAliasPrefix);
         const anchor = computeAnchor(node, projectRoot);
+        if (anchor.stale) hasLocalExceptions = true;
         lines.push(`  ${column.key}: ${anchor.anchor}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""}`);
         continue;
       }
       if (column.kind === "edge") {
-        lines.push(
-          `  ${column.key}: ${String(row[`${column.sqlAliasPrefix}__kind`])}  source:${String(row[`${column.sqlAliasPrefix}__source`])}  target:${String(row[`${column.sqlAliasPrefix}__target`])}  provenance:${String(row[`${column.sqlAliasPrefix}__provenance_source`])}  confidence:${String(row[`${column.sqlAliasPrefix}__confidence`])}  evidence:${String(row[`${column.sqlAliasPrefix}__evidence`])}`,
-        );
+        lines.push(`  ${column.key}: ${String(row[`${column.sqlAliasPrefix}__kind`])}  source:${String(row[`${column.sqlAliasPrefix}__source`])}  target:${String(row[`${column.sqlAliasPrefix}__target`])}  provenance:${String(row[`${column.sqlAliasPrefix}__provenance_source`])}  confidence:${String(row[`${column.sqlAliasPrefix}__confidence`])}  evidence:${String(row[`${column.sqlAliasPrefix}__evidence`])}`);
         continue;
       }
       if (column.kind === "scalar") {
@@ -55,5 +61,13 @@ export function renderGraphQueryRows(
     }
   });
 
-  return `${lines.join("\n")}\n`;
+  return { text: `${lines.join("\n")}\n`, hasLocalExceptions };
+}
+
+export function renderGraphQueryRows(
+  rows: Array<Record<string, unknown>>,
+  columns: CompiledColumn[],
+  projectRoot: string,
+): string {
+  return renderGraphQueryResult(rows, columns, projectRoot).text;
 }

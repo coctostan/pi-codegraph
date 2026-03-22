@@ -11,7 +11,8 @@ test("graphQuery rejects blank query strings with parse_error", () => {
       projectRoot: "/tmp/project",
     });
 
-    expect(output).toBe("parse_error: query must not be empty\n");
+    expect(output).toContain("## Trust");
+    expect(output).toContain("parse_error: query must not be empty");
   } finally {
     store.close();
   }
