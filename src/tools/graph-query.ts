@@ -1,7 +1,7 @@
 import type { GraphStore } from "../graph/store.js";
 import { prependTrustHeader } from "../output/trust.js";
 import { compileGraphQuery } from "./graph-query-compiler.js";
-import { GraphQueryError, parseGraphQuery } from "./graph-query-parser.js";
+import { formatGraphQueryError, GraphQueryError, parseGraphQuery } from "./graph-query-parser.js";
 import { renderGraphQueryResult } from "./graph-query-render.js";
 
 export interface GraphQueryParams {
@@ -33,7 +33,7 @@ export function graphQuery(params: GraphQueryParams): string {
     }
   } catch (error) {
     if (error instanceof GraphQueryError) {
-      return prependTrustHeader(`${error.kind}: ${error.message}\n`, { stats });
+      return prependTrustHeader(formatGraphQueryError(error), { stats });
     }
     throw error;
   }

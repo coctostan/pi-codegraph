@@ -190,7 +190,15 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "graph_query",
     label: "Graph Query",
-    description: "Execute a Cypher subset query against the graph",
+    description: [
+      "Execute a Cypher subset query against the graph.",
+      "Examples:",
+      'MATCH (a {name: "hello"}) RETURN a',
+      'MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b LIMIT 5',
+      'MATCH (n) WHERE n.name = "GraphStore" RETURN n.name',
+      'MATCH (n) WHERE n.name CONTAINS "Graph" RETURN n.name',
+      'MATCH (n {kind: "function"}) RETURN n LIMIT 10',
+    ].join("\n"),
     parameters: GraphQueryParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
