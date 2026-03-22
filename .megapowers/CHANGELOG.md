@@ -53,3 +53,6 @@
 - WHERE `CONTAINS` and `STARTS WITH` operators: substring and prefix search in `graph_query` WHERE clauses, compiled to parameterized `LIKE` SQL (#036)
 - Edge alias WHERE predicates: WHERE clauses now correctly resolve against edge aliases (e.g., `WHERE e.evidence = "ref"`) instead of only node aliases (#036)
 - `graph_query` tool description now includes 5 working example queries for discoverability (#036)
+
+### Fixed
+- All tools no longer crash with `"attempt to write a readonly database"` under pi's extension runtime; `ensureIndexed()` catches indexing failures and degrades gracefully to stale graph data; `symbol_graph` lazy resolver survives readonly writes; `resolve_edge` returns a clear error message; read tools prepend `indexing-failed` trust note when degraded (#038)
