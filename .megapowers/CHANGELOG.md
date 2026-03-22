@@ -49,3 +49,7 @@
 - Always-on inline `why` annotations in `impact`: every result line ends with `[fan-in:<n>  <coverage>  co-change:<n>  chain-confidence:<v>]`; dependents are sorted by breaking→behavioral, fanIn desc, untested first, co-change desc, chain-confidence desc, depth asc, then file/name (#034)
 - Performance regression test: 120-symbol in-memory `impact` with always-on signal annotations completes in under 1 second (#034)
 - Shared trust/freshness header for all read-oriented tools: `symbol_graph`, `trace`, `impact`, and `graph_query` now prepend a compact 3-line `## Trust` header with `status` (fresh/stale/mixed/heuristic/runtime-backed), `evidence` (provenance sources), and `stale-files` count; existing row-level `[stale]` markers preserved; `resolve_edge` intentionally excluded; no new indexing stages (#035)
+- Agent-friendly `graph_query` error recovery: all rejected queries now include a `try instead:` suggestion with a concrete working query; covers unsupported forms, parse errors, and validation errors (#036)
+- WHERE `CONTAINS` and `STARTS WITH` operators: substring and prefix search in `graph_query` WHERE clauses, compiled to parameterized `LIKE` SQL (#036)
+- Edge alias WHERE predicates: WHERE clauses now correctly resolve against edge aliases (e.g., `WHERE e.evidence = "ref"`) instead of only node aliases (#036)
+- `graph_query` tool description now includes 5 working example queries for discoverability (#036)

@@ -4,10 +4,20 @@ export type GraphQueryErrorKind =
   | "unsupported_error";
 
 export class GraphQueryError extends Error {
-  constructor(public kind: GraphQueryErrorKind, message: string) {
+  constructor(
+    public kind: GraphQueryErrorKind,
+    message: string,
+    public suggestion?: string,
+  ) {
     super(message);
     this.name = "GraphQueryError";
   }
+}
+
+export function formatGraphQueryError(error: GraphQueryError): string {
+  let text = `${error.kind}: ${error.message}\n`;
+  if (error.suggestion) text += `try instead: ${error.suggestion}\n`;
+  return text;
 }
 
 export interface NodePattern {
@@ -24,6 +34,7 @@ export interface EdgePattern {
 export interface WhereClause {
   alias: string;
   property: string;
+  operator?: "CONTAINS" | "STARTS WITH";
   value: string;
 }
 
@@ -126,37 +137,75 @@ function splitClauses(query: string): { matchClause: string; whereClause?: strin
 
 function rejectUnsupported(query: string): void {
   if (/\bOPTIONAL\s+MATCH\b/i.test(query)) {
-    throw new GraphQueryError("unsupported_error", "OPTIONAL MATCH is not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "OPTIONAL MATCH is not supported",
+      'MATCH (a {name: "foo"}) RETURN a LIMIT 10',
+    );
   }
   if (/\bCOUNT\s*\(/i.test(query)) {
-    throw new GraphQueryError("unsupported_error", "aggregation is not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "aggregation is not supported",
+      'MATCH (a {kind: "function"}) RETURN a LIMIT 10',
+    );
   }
   if (/\bORDER\s+BY\b/i.test(query)) {
-    throw new GraphQueryError("unsupported_error", "ORDER BY is not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "ORDER BY is not supported",
+      'MATCH (a {name: "foo"}) RETURN a LIMIT 10',
+    );
   }
   const queryWithoutStrings = query.replace(/"[^"]*"/g, '""');
   if (/\bCREATE\b|\bMERGE\b|\bDELETE\b|\bSET\b/i.test(queryWithoutStrings)) {
-    throw new GraphQueryError("unsupported_error", "mutating queries are not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "mutating queries are not supported",
+      'MATCH (a {name: "foo"}) RETURN a',
+    );
   }
   if (/\[\s*\*[^\]]*\]/.test(query)) {
-    throw new GraphQueryError("unsupported_error", "variable-length paths are not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "variable-length paths are not supported",
+      'MATCH (a)-[:calls]->(b) RETURN a, b LIMIT 10',
+    );
   }
 }
 
 function parseWhere(whereClause?: string): WhereClause[] {
   if (!whereClause) return [];
   if (/\s+OR\s+/i.test(whereClause)) {
-    throw new GraphQueryError("unsupported_error", "OR is not supported");
+    throw new GraphQueryError(
+      "unsupported_error",
+      "OR is not supported",
+      'MATCH (a {name: "foo"}) RETURN a LIMIT 10',
+    );
   }
   return whereClause.split(/\s+AND\s+/i).map((piece) => {
     const match = piece
       .trim()
-      .match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"([^"]+)"|'([^']+)')$/);
-    if (!match) throw new GraphQueryError("parse_error", `invalid WHERE predicate: ${piece.trim()}`);
+      .match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*(=|CONTAINS|STARTS WITH)\s*(?:"([^"]*)"|'([^']*)')$/i);
+    if (!match) {
+      throw new GraphQueryError(
+        "parse_error",
+        `invalid WHERE predicate: ${piece.trim()}`,
+        'MATCH (a) WHERE a.name = "foo" RETURN a',
+      );
+    }
+
+    const rawOperator = match[3]!.toUpperCase();
     return {
       alias: match[1]!,
       property: match[2]!,
-      value: match[3] ?? match[4]!,
+      operator:
+        rawOperator === "CONTAINS"
+          ? "CONTAINS"
+          : rawOperator === "STARTS WITH"
+            ? "STARTS WITH"
+            : undefined,
+      value: match[4] ?? match[5] ?? "",
     };
   });
 }
@@ -181,11 +230,19 @@ function parseReturns(returnClause: string, nodeAliases: Set<string>, edgeAliase
     }
 
     if (nodeAliases.has(alias) && !NODE_RETURN_PROPERTIES.has(property)) {
-      throw new GraphQueryError("validation_error", `property "${property}" is not allowed on alias "${alias}"`);
+      throw new GraphQueryError(
+        "validation_error",
+        `property "${property}" is not allowed on alias "${alias}"`,
+        `RETURN ${alias}.name`,
+      );
     }
 
     if (edgeAliases.has(alias) && !EDGE_RETURN_PROPERTIES.has(property)) {
-      throw new GraphQueryError("validation_error", `property "${property}" is not allowed on alias "${alias}"`);
+      throw new GraphQueryError(
+        "validation_error",
+        `property "${property}" is not allowed on alias "${alias}"`,
+        `RETURN ${alias}.kind`,
+      );
     }
 
     return { kind: "property" as const, alias, property };

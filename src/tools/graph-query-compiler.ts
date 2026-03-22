@@ -83,7 +83,20 @@ export function compileGraphQuery(ast: GraphQueryAst): CompiledGraphQuery {
   }
 
   for (const predicate of ast.where) {
-    const tableAlias = nodeAliases[predicate.alias]!;
+    const tableAlias = nodeAliases[predicate.alias] ?? edgeAliases[predicate.alias];
+    if (!tableAlias) {
+      throw new Error(`unbound alias in compiler: ${predicate.alias}`);
+    }
+    if (predicate.operator === "CONTAINS") {
+      wheres.push(`${tableAlias}.${predicate.property} LIKE ?`);
+      params.push(`%${predicate.value}%`);
+      continue;
+    }
+    if (predicate.operator === "STARTS WITH") {
+      wheres.push(`${tableAlias}.${predicate.property} LIKE ?`);
+      params.push(`${predicate.value}%`);
+      continue;
+    }
     wheres.push(`${tableAlias}.${predicate.property} = ?`);
     params.push(predicate.value);
   }
