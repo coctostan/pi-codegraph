@@ -52,10 +52,12 @@ test("formatNeighborhood produces header and populated sections, omits empty one
 
   const output = formatNeighborhood(
     { name: "myFunc", kind: "function", anchor: symbolAnchor },
-    callers,
-    callees,
-    imports,
-    unresolved
+    [
+      { title: "Callers", section: callers },
+      { title: "Callees", section: callees },
+      { title: "Imports", section: imports },
+      { title: "Unresolved", section: unresolved },
+    ],
   );
 
   // Has header
@@ -101,10 +103,12 @@ test("formatNeighborhood shows (N more omitted) when a category is truncated", (
 
   const output = formatNeighborhood(
     { name: "myFunc", kind: "function", anchor: symbolAnchor },
-    callers,
-    callees,
-    imports,
-    unresolved,
+    [
+      { title: "Callers", section: callers },
+      { title: "Callees", section: callees },
+      { title: "Imports", section: imports },
+      { title: "Unresolved", section: unresolved },
+    ],
   );
 
   expect(output).toContain("(5 more omitted)");
@@ -140,10 +144,12 @@ test("formatNeighborhood suffixes stale entries with [stale]", () => {
 
   const output = formatNeighborhood(
     { name: "myFunc", kind: "function", anchor: symbolAnchor },
-    callers,
-    callees,
-    imports,
-    unresolved,
+    [
+      { title: "Callers", section: callers },
+      { title: "Callees", section: callees },
+      { title: "Imports", section: imports },
+      { title: "Unresolved", section: unresolved },
+    ],
   );
 
   // Stale entry has [stale] marker
@@ -178,12 +184,67 @@ test("formatNeighborhood shows Unresolved section for __unresolved__ nodes", () 
 
   const output = formatNeighborhood(
     { name: "myFunc", kind: "function", anchor: symbolAnchor },
-    callers,
-    callees,
-    imports,
-    unresolved,
+    [
+      { title: "Callers", section: callers },
+      { title: "Callees", section: callees },
+      { title: "Imports", section: imports },
+      { title: "Unresolved", section: unresolved },
+    ],
   );
 
   expect(output).toContain("Unresolved");
   expect(output).toContain("Parser");
+});
+
+test("formatNeighborhood accepts named sections array and renders them in order", () => {
+  const symbolAnchor: AnchorResult = { anchor: "src/a.ts:10:abcd", stale: false };
+
+  const sections = [
+    {
+      title: "Callers",
+      section: {
+        items: [
+          {
+            anchor: { anchor: "src/b.ts:5:1234", stale: false } as AnchorResult,
+            name: "caller1",
+            edgeKind: "calls",
+            confidence: 0.9,
+            provenanceSource: "tree-sitter",
+          },
+        ],
+        omitted: 0,
+      },
+    },
+    {
+      title: "Extends",
+      section: {
+        items: [
+          {
+            anchor: { anchor: "src/c.ts:20:5678", stale: false } as AnchorResult,
+            name: "BaseClass",
+            edgeKind: "extends",
+            confidence: 0.8,
+            provenanceSource: "lsp",
+          },
+        ],
+        omitted: 0,
+      },
+    },
+  ];
+
+  const output = formatNeighborhood(
+    { name: "MyClass", kind: "class", anchor: symbolAnchor },
+    sections,
+  );
+
+  expect(output).toContain("MyClass (class)");
+  expect(output).toContain("### Callers");
+  expect(output).toContain("caller1");
+  expect(output).toContain("### Extends");
+  expect(output).toContain("BaseClass");
+
+  // Callers should appear before Extends (order preserved)
+  const callersIdx = output.indexOf("### Callers");
+  const extendsIdx = output.indexOf("### Extends");
+  expect(callersIdx).toBeLessThan(extendsIdx);
 });

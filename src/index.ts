@@ -7,7 +7,6 @@ import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
-import { computeAnchor } from "./output/anchoring.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
@@ -95,23 +94,6 @@ function indexingFailedNote(): string {
   return "indexing-failed: graph may be stale (readonly database)\n";
 }
 
-function renderImplementationsSuffix(store: GraphStore, node: any, projectRoot: string): string {
-  if (node.kind !== "interface") return "";
-
-  // Include all provenance sources (lsp, agent, etc.) — agent-written implements
-  // edges must be visible here since symbolGraph() does not render them.
-  const impl = store
-    .getNeighbors(node.id, { direction: "in", kind: "implements" });
-
-  if (impl.length === 0) return "";
-
-  const lines = ["", "### Implementations"];
-  for (const it of impl) {
-    const anchor = computeAnchor(it.node, projectRoot);
-    lines.push(`  ${anchor.anchor}  ${it.node.name}  implements  confidence:${it.edge.provenance.confidence}  ${it.edge.provenance.source}`);
-  }
-  return lines.join("\n") + "\n";
-}
 
 export default function piCodegraph(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -141,9 +123,6 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       }
 
       let output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
-      if (resolvedNode) {
-        output += renderImplementationsSuffix(store, resolvedNode, projectRoot);
-      }
       output = indexingFailedNote() + output;
       return { content: [{ type: "text", text: output }], details: undefined };
     },
