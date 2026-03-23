@@ -59,3 +59,4 @@
 - `rankNeighbors` no longer silently drops the last neighbor when called with a negative limit; negative values now fall back to the default of 10 while `limit=0` behavior is preserved (#037)
 - `resolve_edge` now rejects self-referential edges where source and target resolve to the same node, preventing self-loops that pollute `symbol_graph` output (#037)
 - `resolve_edge` now rejects empty or whitespace-only evidence strings, ensuring agent-written edges maintain auditable provenance (#037)
+- `graph_query` execution errors now surface the actual SQLite error message (e.g., `no such column: n0.nonexistent_column`) instead of the generic `failed to execute compiled query`; agents can now diagnose and fix their queries (#045)
