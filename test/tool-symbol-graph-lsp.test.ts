@@ -261,7 +261,7 @@ test("resolveImplementations persists implements edges and marker; second run sk
   store.close();
 });
 
-test("tool path: interface symbol_graph resolves implementations, persists edge, and renders Implementations section", async () => {
+test("tool path: interface symbol_graph resolves implementations, persists edge, and renders Implemented By section", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-interface-lsp-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "api.ts"), "export interface IWorker { run(): void }\n");
@@ -316,14 +316,14 @@ test("tool path: interface symbol_graph resolves implementations, persists edge,
       .getNeighbors(ifaceNode.id, { direction: "in", kind: "implements" })
       .filter((n) => n.edge.provenance.source === "lsp");
     expect(implIn.length).toBeGreaterThan(0);
-    expect(result.content[0].text).toContain("Implementations");
+    expect(result.content[0].text).toContain("Implemented By");
     expect(result.content[0].text).toContain("Worker");
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
 });
 
-test("non-interface symbol_graph output remains unchanged (no Implementations section)", async () => {
+test("non-interface symbol_graph output remains unchanged (no Implemented By section)", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-non-interface-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "x.ts"), "export function hello(){ return 1; }\n");
@@ -343,7 +343,7 @@ test("non-interface symbol_graph output remains unchanged (no Implementations se
     mod.default(mockPi as any);
     const result = await exec!("tc-fn", { name: "hello", file: "src/x.ts" }, undefined, undefined, { cwd: projectRoot });
 
-    expect(result.content[0].text).not.toContain("Implementations");
+    expect(result.content[0].text).not.toContain("Implemented By");
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
@@ -469,9 +469,9 @@ test("resolveMissingCallers: error catch block does NOT create fake lsp-provenan
   store.close();
 });
 
-test("symbol_graph Implementations section includes agent-provenance implements edges", async () => {
-  // renderImplementationsSuffix used to filter to lsp-only, hiding agent-written edges.
-  // After the fix it must show all implements edges regardless of provenance.
+test("symbol_graph Implemented By section includes agent-provenance implements edges", async () => {
+  // The old renderImplementationsSuffix bolt-on filtered to lsp-only, hiding agent-written edges.
+  // Now that symbolGraph() handles all edge kinds natively, all implements edges show regardless of provenance.
   const projectRoot = join(tmpdir(), `pi-cg-agent-impl-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "api.ts"), "export interface IWorker { run(): void }\n");
@@ -548,7 +548,7 @@ test("symbol_graph Implementations section includes agent-provenance implements 
     // Second call — marker is already set so resolveImplementations is skipped.
     // The suffix is rendered from whatever implements edges are in the store.
     const result2 = await exec!("tc-a2", { name: "IWorker", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
-    expect(result2.content[0].text).toContain("Implementations");
+    expect(result2.content[0].text).toContain("Implemented By");
     expect(result2.content[0].text).toContain("Worker");
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
