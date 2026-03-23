@@ -114,25 +114,20 @@ function formatSection(title: string, section: NeighborSection): string {
   return lines.join("\n");
 }
 
+export interface NamedSection {
+  title: string;
+  section: NeighborSection;
+}
 export function formatNeighborhood(
   symbol: SymbolHeader,
-  callers: NeighborSection,
-  callees: NeighborSection,
-  imports: NeighborSection,
-  unresolved: NeighborSection,
+  sections: NamedSection[],
 ): string {
   const staleMarker = symbol.anchor.stale ? " [stale]" : "";
   const signalTags = symbol.signals ? ` ${formatRoleTags(symbol.signals)}` : "";
   const header = `## ${symbol.name} (${symbol.kind})\n${symbol.anchor.anchor}${staleMarker}${signalTags}`;
-
-  const sections = [
-    formatSection("Callers", callers),
-    formatSection("Callees", callees),
-    formatSection("Imports", imports),
-    formatSection("Unresolved", unresolved),
-  ]
+  const renderedSections = sections
+    .map((s) => formatSection(s.title, s.section))
     .filter((s) => s.length > 0)
     .join("\n");
-
-  return `${header}${sections}\n`;
+  return `${header}${renderedSections}\n`;
 }
