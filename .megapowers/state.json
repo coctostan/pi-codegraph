@@ -1,17 +1,53 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
-  "phaseHistory": [],
+  "activeIssue": "041-trace-static-trace-picks-arbitrary-first",
+  "workflow": "bugfix",
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1774292169697
+    },
+    {
+      "from": "diagnose",
+      "to": "plan",
+      "timestamp": 1774292532745
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1774294001051
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1774294654185
+    },
+    {
+      "from": "verify",
+      "to": "done",
+      "timestamp": 1774294732493
+    }
+  ],
   "planMode": null,
-  "planIteration": 0,
-  "currentTaskIndex": 0,
-  "completedTasks": [],
+  "planIteration": 1,
+  "currentTaskIndex": 2,
+  "completedTasks": [
+    1,
+    2,
+    3
+  ],
   "tddTaskState": null,
-  "doneActions": [],
-  "doneChecklistShown": false,
+  "doneActions": [
+    "generate-bugfix-summary",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": null,
-  "baseBranch": null
+  "branchName": "fix/041-trace-static-trace-picks-arbitrary-first",
+  "baseBranch": "main"
 }
