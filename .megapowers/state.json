@@ -1,51 +1,17 @@
 {
   "version": 1,
-  "activeIssue": "039-symbol-graph-deduplicate-self-referentia",
-  "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1774274865836
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1774274928452
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1774275026126
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1774275112833
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1774275219115
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 1,
+  "planIteration": 0,
   "currentTaskIndex": 0,
-  "completedTasks": [
-    1
-  ],
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "fix/039-symbol-graph-deduplicate-self-referentia",
-  "baseBranch": "main"
+  "branchName": null,
+  "baseBranch": null
 }
