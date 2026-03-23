@@ -52,7 +52,11 @@ export interface RankResult {
   omitted: number;
 }
 
+const DEFAULT_NEIGHBOR_LIMIT = 10;
+
 export function rankNeighbors(neighbors: NeighborResult[], limit: number): RankResult {
+  const effectiveLimit = limit < 0 ? DEFAULT_NEIGHBOR_LIMIT : limit;
+
   const sorted = [...neighbors].sort((a, b) => {
     const confidenceDiff = b.edge.provenance.confidence - a.edge.provenance.confidence;
     if (confidenceDiff !== 0) return confidenceDiff;
@@ -60,7 +64,7 @@ export function rankNeighbors(neighbors: NeighborResult[], limit: number): RankR
     return b.edge.created_at - a.edge.created_at;
   });
 
-  const kept = sorted.slice(0, limit);
+  const kept = sorted.slice(0, effectiveLimit);
 
   return {
     kept,

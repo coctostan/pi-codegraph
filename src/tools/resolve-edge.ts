@@ -40,6 +40,11 @@ function formatDisambiguation(label: string, nodes: GraphNode[]): string {
 export function resolveEdge(params: ResolveEdgeParams): string {
   const { source, target, sourceFile, targetFile, kind, evidence, store, projectRoot } = params;
 
+  // Validate evidence is non-empty
+  if (!evidence || evidence.trim().length === 0) {
+    return "evidence is required — provide a non-empty explanation for this edge";
+  }
+
   // Look up source node
   const sourceNodes = store.findNodes(source, sourceFile);
   if (sourceNodes.length === 0) {
@@ -63,6 +68,12 @@ export function resolveEdge(params: ResolveEdgeParams): string {
   }
   const sourceNode = sourceNodes[0]!;
   const targetNode = targetNodes[0]!;
+
+  // Reject self-referential edges
+  if (sourceNode.id === targetNode.id) {
+    return `Cannot create edge: source and target resolve to the same node ("${sourceNode.name}" in ${sourceNode.file})`;
+  }
+
   const contentHash = store.getFileHash(sourceNode.file) ?? sourceNode.content_hash;
   // Check for existing agent edge (upsert detection)
   const existingNeighbors = store.getNeighbors(sourceNode.id, { direction: "out", kind });

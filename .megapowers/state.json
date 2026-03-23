@@ -1,44 +1,42 @@
 {
   "version": 1,
-  "activeIssue": "038-tools-fail-with-attempt-to-write-a-reado",
+  "activeIssue": "037-tool-input-validation-gaps-negative-limi",
   "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1774216941478
+      "timestamp": 1774219253887
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1774217312453
+      "timestamp": 1774224966389
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774217496317
+      "timestamp": 1774225065988
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774218141214
+      "timestamp": 1774225296162
     },
     {
       "from": "verify",
       "to": "done",
-      "timestamp": 1774218339589
+      "timestamp": 1774226056107
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 4,
+  "currentTaskIndex": 2,
   "completedTasks": [
     1,
     2,
-    3,
-    4,
-    5
+    3
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -50,6 +48,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/038-tools-fail-with-attempt-to-write-a-reado",
+  "branchName": "fix/037-tool-input-validation-gaps-negative-limi",
   "baseBranch": "main"
 }
