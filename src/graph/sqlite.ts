@@ -142,7 +142,18 @@ export class SqliteGraphStore implements GraphStore {
     const kind = options?.kind;
     if (direction === "out") return this.fetchNeighborRows(nodeId, "out", kind);
     if (direction === "in") return this.fetchNeighborRows(nodeId, "in", kind);
-    return [...this.fetchNeighborRows(nodeId, "out", kind), ...this.fetchNeighborRows(nodeId, "in", kind)];
+    const outRows = this.fetchNeighborRows(nodeId, "out", kind);
+    const inRows = this.fetchNeighborRows(nodeId, "in", kind);
+    const seen = new Set<string>();
+    const result: NeighborResult[] = [];
+    for (const nr of [...outRows, ...inRows]) {
+      const key = `${nr.edge.source}\0${nr.edge.target}\0${nr.edge.kind}\0${nr.edge.provenance.source}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(nr);
+      }
+    }
+    return result;
   }
 
   private fetchNeighborRows(nodeId: string, direction: "in" | "out", kind?: GraphEdge["kind"]): NeighborResult[] {
