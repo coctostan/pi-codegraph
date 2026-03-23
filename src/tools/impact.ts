@@ -145,9 +145,15 @@ export function impact(params: {
       notFoundLabel: "Symbol",
     });
     if (resolved.kind === "ambiguous") return prependTrustHeader(resolved.text, { stats });
-    if (resolved.kind === "not_found") return prependTrustHeader("", { stats });
+    if (resolved.kind === "not_found") return prependTrustHeader(resolved.text, { stats });
   }
 
+  if (params.changeType === "addition") {
+    return prependTrustHeader(
+      `addition: impact analysis for additions is not yet supported \u2014 use symbol_graph to inspect the new symbol's neighborhood\n`,
+      { stats },
+    );
+  }
   const signalComputer = createSignalComputer(params.store);
   const hits = collectImpactDetails({
     symbols: params.symbols,
