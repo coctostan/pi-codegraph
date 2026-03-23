@@ -62,3 +62,4 @@
 - `graph_query` execution errors now surface the actual SQLite error message (e.g., `no such column: n0.nonexistent_column`) instead of the generic `failed to execute compiled query`; agents can now diagnose and fix their queries (#045)
 - `impact` now returns `Symbol "X" not found` diagnostic for non-existent symbols instead of an empty body (#042)
 - `impact` now returns an explicit unsupported-operation message for `addition` change type instead of an empty body (#043)
+- `getNeighbors` with direction `"both"` no longer returns duplicate entries for self-referential edges; dedup uses the edge composite primary key so distinct edges are preserved (#039)

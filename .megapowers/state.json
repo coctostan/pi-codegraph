@@ -1,41 +1,40 @@
 {
   "version": 1,
-  "activeIssue": "047-impact-empty-output-diagnostics-for-not-",
+  "activeIssue": "039-symbol-graph-deduplicate-self-referentia",
   "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1774271515621
+      "timestamp": 1774274865836
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1774271624347
+      "timestamp": 1774274928452
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774271866751
+      "timestamp": 1774275026126
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774272205145
+      "timestamp": 1774275112833
     },
     {
       "from": "verify",
       "to": "done",
-      "timestamp": 1774273952535
+      "timestamp": 1774275219115
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 1,
+  "currentTaskIndex": 0,
   "completedTasks": [
-    1,
-    2
+    1
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -47,6 +46,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/047-impact-empty-output-diagnostics-for-not-",
+  "branchName": "fix/039-symbol-graph-deduplicate-self-referentia",
   "baseBranch": "main"
 }
