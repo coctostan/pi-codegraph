@@ -18,5 +18,5 @@ test("graphQuery converts store execution failures into execution_error output",
   });
 
   expect(output).toContain("## Trust");
-  expect(output).toContain("execution_error: failed to execute compiled query");
+  expect(output).toContain("execution_error: sqlite busy");
 });

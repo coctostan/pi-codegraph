@@ -28,8 +28,9 @@ export function graphQuery(params: GraphQueryParams): string {
         stats,
         hasLocalExceptions: rendered.hasLocalExceptions,
       });
-    } catch {
-      return prependTrustHeader("execution_error: failed to execute compiled query\n", { stats });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return prependTrustHeader(`execution_error: ${msg}\n`, { stats });
     }
   } catch (error) {
     if (error instanceof GraphQueryError) {

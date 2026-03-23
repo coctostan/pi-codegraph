@@ -1,42 +1,40 @@
 {
   "version": 1,
-  "activeIssue": "037-tool-input-validation-gaps-negative-limi",
+  "activeIssue": "045-graph-query-surface-actual-database-erro",
   "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1774219253887
+      "timestamp": 1774270361999
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1774224966389
+      "timestamp": 1774270456889
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774225065988
+      "timestamp": 1774270575489
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774225296162
+      "timestamp": 1774270748094
     },
     {
       "from": "verify",
       "to": "done",
-      "timestamp": 1774226056107
+      "timestamp": 1774270804818
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 2,
+  "currentTaskIndex": 0,
   "completedTasks": [
-    1,
-    2,
-    3
+    1
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -48,6 +46,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/037-tool-input-validation-gaps-negative-limi",
+  "branchName": "fix/045-graph-query-surface-actual-database-erro",
   "baseBranch": "main"
 }
