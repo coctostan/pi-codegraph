@@ -14,6 +14,7 @@ import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
 import { graphQuery } from "./tools/graph-query.js";
 import { symbolCard } from "./tools/symbol-card.js";
+import { symbolContract } from "./tools/symbol-contract.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -65,6 +66,11 @@ const DeleteEdgeParams = Type.Object({
 });
 
 const SymbolCardParams = Type.Object({
+  name: Type.String({ description: "Symbol name to look up" }),
+  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+});
+
+const SymbolContractParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
 });
@@ -275,6 +281,21 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       let output = symbolCard({ name: params.name, file: params.file, store, projectRoot });
+      output = indexingFailedNote() + output;
+      return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  pi.registerTool({
+    name: "symbol_contract",
+    label: "Symbol Contract",
+    description: "Extract behavioral contract for a symbol: what it takes, returns, throws, and what tests assert about it",
+    parameters: SymbolContractParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output = symbolContract({ name: params.name, file: params.file, store, projectRoot });
       output = indexingFailedNote() + output;
       return { content: [{ type: "text", text: output }], details: undefined };
     },

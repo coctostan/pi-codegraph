@@ -138,8 +138,8 @@ The next work is no longer "build the missing tools". It is:
 **Goal:** Turn codegraph from a dependency browser into a verification input. Extract type signatures, expose compact symbol cards, and mine behavioral contracts from types and test assertions.
 
 ### Issues
-- [ ] #048 Type signature extraction from tree-sitter AST
-- [ ] #049 `symbol_card` tool: compact symbol summary for agent consumption
+- [x] #048 Type signature extraction from tree-sitter AST
+- [x] #049 `symbol_card` tool: compact symbol summary for agent consumption
 - [ ] #050 `symbol_contract` tool: extract behavioral evidence from types and tests
 - [ ] #051 M8: Contracts and symbol cards (batch)
 

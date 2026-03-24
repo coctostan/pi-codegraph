@@ -1,58 +1,43 @@
 {
   "version": 1,
-  "activeIssue": "049-symbol-card-tool-compact-symbol-summary-",
+  "activeIssue": "050-symbol-contract-tool-extract-behavioral-",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1774323473423
+      "timestamp": 1774355502017
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1774323623734
+      "timestamp": 1774355943236
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774323820666
+      "timestamp": 1774356300080
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774324207518
+      "timestamp": 1774356770723
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1774324388291
-    },
-    {
-      "from": "code-review",
-      "to": "implement",
-      "timestamp": 1774324458580
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1774324507319
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1774324523084
+      "timestamp": 1774356905342
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1774324542351
+      "timestamp": 1774357113441
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 0,
+  "currentTaskIndex": 9,
   "completedTasks": [
     1,
     2,
@@ -61,9 +46,15 @@
     5,
     6,
     7,
-    1
+    8,
+    9,
+    10
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 10,
+    "state": "impl-allowed",
+    "skipped": false
+  },
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -73,6 +64,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/049-symbol-card-tool-compact-symbol-summary-",
+  "branchName": "feat/050-symbol-contract-tool-extract-behavioral-",
   "baseBranch": "main"
 }
