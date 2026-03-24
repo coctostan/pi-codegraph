@@ -73,3 +73,33 @@ test("pi extension registers trace tool with correct schema", async () => {
   expect(schema.required).toContain("entry");
   expect(schema.required).not.toContain("file");
 });
+
+test("pi extension registers delete_edge tool with correct schema", async () => {
+  const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
+  const mockPi = {
+    registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
+      registeredTools.push(tool);
+    },
+    on() {},
+  };
+
+  const { default: piCodegraph } = await import("../src/index.js");
+  piCodegraph(mockPi as any);
+
+  const deTool = registeredTools.find((t) => t.name === "delete_edge");
+  expect(deTool).toBeDefined();
+
+  const schema = deTool!.parameters as any;
+  expect(schema.properties.source).toBeDefined();
+  expect(schema.properties.target).toBeDefined();
+  expect(schema.properties.kind).toBeDefined();
+  expect(schema.required).toContain("source");
+  expect(schema.required).toContain("target");
+  expect(schema.required).toContain("kind");
+  expect(schema.properties.sourceFile).toBeDefined();
+  expect(schema.properties.targetFile).toBeDefined();
+  expect(schema.required).not.toContain("sourceFile");
+  expect(schema.required).not.toContain("targetFile");
+  // No evidence param (unlike resolve_edge)
+  expect(schema.properties.evidence).toBeUndefined();
+});
