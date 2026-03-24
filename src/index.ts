@@ -8,6 +8,7 @@ import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
+import { deleteEdge } from "./tools/delete-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
@@ -52,6 +53,14 @@ const TraceParams = Type.Object({
 
 const GraphQueryParams = Type.Object({
   query: Type.String({ description: "Cypher subset query to execute against the graph" }),
+});
+
+const DeleteEdgeParams = Type.Object({
+  source: Type.String({ description: "Source symbol name" }),
+  target: Type.String({ description: "Target symbol name" }),
+  kind: Type.String({ description: "Edge kind (calls, imports, implements, extends, ...)" }),
+  sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
+  targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
 });
 
 let sharedStore: GraphStore | null = null;
@@ -153,6 +162,38 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         const msg = err?.message ?? String(err);
         if (msg.includes("readonly")) {
           output = "Cannot write edge: database is readonly. Re-index the project to enable writes.";
+        } else {
+          throw err;
+        }
+      }
+      return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  pi.registerTool({
+    name: "delete_edge",
+    label: "Delete Edge",
+    description: "Delete an agent-created edge from the symbol graph",
+    parameters: DeleteEdgeParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output: string;
+      try {
+        output = deleteEdge({
+          source: params.source,
+          target: params.target,
+          sourceFile: params.sourceFile,
+          targetFile: params.targetFile,
+          kind: params.kind,
+          store,
+          projectRoot,
+        });
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        if (msg.includes("readonly")) {
+          output = "Cannot delete edge: database is readonly. Re-index the project to enable writes.";
         } else {
           throw err;
         }

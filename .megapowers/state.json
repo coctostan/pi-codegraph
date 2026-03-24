@@ -1,42 +1,53 @@
 {
   "version": 1,
-  "activeIssue": "041-trace-static-trace-picks-arbitrary-first",
-  "workflow": "bugfix",
+  "activeIssue": "044-add-delete-edge-tool-to-allow-agents-to-",
+  "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1774292169697
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1774309497917
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1774292532745
+      "timestamp": 1774310004514
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774294001051
+      "timestamp": 1774310473857
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774294654185
+      "timestamp": 1774311654245
     },
     {
       "from": "verify",
+      "to": "code-review",
+      "timestamp": 1774311915648
+    },
+    {
+      "from": "code-review",
       "to": "done",
-      "timestamp": 1774294732493
+      "timestamp": 1774315602843
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 2,
+  "currentTaskIndex": 8,
   "completedTasks": [
     1,
     2,
-    3
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -48,6 +59,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/041-trace-static-trace-picks-arbitrary-first",
+  "branchName": "feat/044-add-delete-edge-tool-to-allow-agents-to-",
   "baseBranch": "main"
 }
