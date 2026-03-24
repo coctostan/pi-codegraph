@@ -1,7 +1,9 @@
 ---
 id: 44
 type: feature
-status: in-progress
+status: closed
+closed: 2026-03-23
+closing_note: "Implemented. delete_edge tool added in src/tools/delete-edge.ts with full node resolution, disambiguation, agent-only restriction, and confirmation output. Registered in src/index.ts. 8 tests in tool-delete-edge.test.ts cover all paths."
 created: 2026-03-23T12:36:03.155Z
 priority: 1
 ---

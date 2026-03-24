@@ -42,6 +42,7 @@ test("extractFile extracts non-exported function declarations (criterion 1)", ()
     end_line: 1,
     content_hash: expectedHash,
     is_exported: false,
+    signature: "()",
   });
 });
 
@@ -72,6 +73,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     end_line: 3,
     content_hash: expectedHash,
     is_exported: true,
+    signature: "()",
   });
 
   expect(byName.get("bar")).toEqual({
@@ -83,6 +85,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     end_line: 5,
     content_hash: expectedHash,
     is_exported: false,
+    signature: "()",
   });
 
   expect(byName.get("baz")).toEqual({
@@ -94,6 +97,7 @@ test("extractFile extracts function declarations and arrow function assignments"
     end_line: 8,
     content_hash: expectedHash,
     is_exported: false,
+    signature: "()",
   });
 });
 
@@ -115,6 +119,7 @@ test("extractFile extracts class and interface declarations", () => {
     end_line: 1,
     content_hash: expectedHash,
     is_exported: false,
+    signature: "class MyClass",
   });
 
   expect(byName.get("MyInterface")).toEqual({
@@ -126,6 +131,7 @@ test("extractFile extracts class and interface declarations", () => {
     end_line: 3,
     content_hash: expectedHash,
     is_exported: false,
+    signature: "interface MyInterface",
   });
 });
 

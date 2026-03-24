@@ -1,0 +1,8 @@
+# Learnings — #048 Type Signature Extraction
+
+- **tree-sitter field names differ between node types**: `function_declaration` uses `childForFieldName("return_type")` while `arrow_function` uses the same field name — but the AST node for return type is `type_annotation` on arrow functions vs a direct `type_annotation` child on function declarations. Always dump the AST first before assuming field names.
+- **`toEqual` is strict on object shape**: Adding a new field to `GraphNode` breaks all existing `toEqual` assertions in tests. When adding optional fields to core types, budget time to update existing test expectations.
+- **TypeScript narrowing with optional chaining**: Guards like `if (nameNode?.type !== "identifier") return;` don't narrow `nameNode` to non-null in TypeScript. Use `if (!nameNode || nameNode.type !== "identifier") return;` instead to satisfy `tsc --noEmit`.
+- **Duplicated param extraction logic**: The constructor param extraction in `extractClassSignature` duplicates the param logic in `extractFunctionSignature`. A shared `formatParamList(params: SyntaxNode): string` helper would eliminate this — noted for follow-up.
+- **Migration-only columns**: Both `is_exported` and `signature` are absent from the initial `CREATE TABLE` DDL and only added via `ALTER TABLE` migration. This works but means new databases always run the migration path. A future cleanup could add both columns to the DDL.
+- **Generic type params on arrow functions**: `<T>(value: T) => T[]` is valid TypeScript but tree-sitter parses the `<T>` as `type_parameters` on the `arrow_function` node, not on the enclosing declaration. The `extractFunctionSignature` helper correctly finds it via `node.namedChildren` search rather than `childForFieldName`.
