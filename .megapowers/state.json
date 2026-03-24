@@ -10,7 +10,7 @@
       "timestamp": 1774309497917
     },
     {
-      "from": "spec",
+      "from": "diagnose",
       "to": "plan",
       "timestamp": 1774310004514
     },
@@ -51,7 +51,7 @@
   ],
   "tddTaskState": null,
   "doneActions": [
-    "generate-docs",
+    "generate-bugfix-summary",
     "write-changelog",
     "capture-learnings",
     "push-and-pr",

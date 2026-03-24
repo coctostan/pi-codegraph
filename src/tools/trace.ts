@@ -38,16 +38,24 @@ function resolveCoverageTraceId(store: GraphStore, nodeId: string): string | nul
 function buildStaticTrace(store: GraphStore, startNodeId: string): string[] {
   const ordered: string[] = [];
   const seen = new Set<string>();
-  let currentId: string | null = startNodeId;
+  const stack: string[] = [startNodeId];
 
-  while (currentId && !seen.has(currentId)) {
+  while (stack.length > 0) {
+    const currentId = stack.pop()!;
+    if (seen.has(currentId)) continue;
     seen.add(currentId);
     ordered.push(currentId);
     const nextNeighbors = store.getNeighbors(currentId, { direction: "out", kind: "calls" });
-    const next = nextNeighbors.sort((a, b) => a.node.file.localeCompare(b.node.file) || a.node.start_line - b.node.start_line || a.node.id.localeCompare(b.node.id))[0];
-    currentId = next?.node.id ?? null;
+    const sorted = nextNeighbors.sort((a, b) =>
+      a.node.file.localeCompare(b.node.file) || a.node.start_line - b.node.start_line || a.node.id.localeCompare(b.node.id)
+    );
+    // Push in reverse so first-in-sort-order is popped first (DFS pre-order)
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (!seen.has(sorted[i].node.id)) {
+        stack.push(sorted[i].node.id);
+      }
+    }
   }
-
   return ordered;
 }
 

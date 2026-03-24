@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Fixed
+- `trace` static mode now visits all reachable callees via DFS instead of following one arbitrary branch (#041)
+
 ### Added
 - Project scaffold: `package.json`, `tsconfig.json`, pi extension entrypoint, placeholder modules for graph store, indexer, tools, and output layer, plus working `bun test` and `tsc --noEmit` pipeline (#001)
 - M0 type model: `NodeKind`, `EdgeKind`, `ProvenanceSource` string-literal unions; `GraphNode`, `GraphEdge`, `Provenance` interfaces; `nodeId()` helper — invalid assignments are TypeScript compile errors (#019, closes #003)
