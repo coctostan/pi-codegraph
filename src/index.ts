@@ -122,7 +122,6 @@ function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: T
     policy: "read-only" as const,
     readOnly: true,
     pythonName: tool.name,
-    defaultExposure: "opt-in" as const,
   };
   (tool as any).ptc = ptc;
   pi.registerTool(tool);
