@@ -15,6 +15,9 @@ import { trace } from "./tools/trace.js";
 import { graphQuery } from "./tools/graph-query.js";
 import { symbolCard } from "./tools/symbol-card.js";
 import { symbolContract } from "./tools/symbol-contract.js";
+import { graphOverview } from "./tools/graph-overview.js";
+import { deadCode } from "./tools/dead-code.js";
+import { appendTokenMeta, resetSession } from "./tools/token-tracker.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -75,6 +78,15 @@ const SymbolContractParams = Type.Object({
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
 });
 
+const GraphOverviewParams = Type.Object({});
+
+const DeadCodeParams = Type.Object({
+  name: Type.Optional(Type.String({ description: "Symbol name to check (omit for sweep mode)" })),
+  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  kind: Type.Optional(Type.String({ description: "Filter by node kind (function, class, interface, etc.)" })),
+  glob: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
+});
+
 let sharedStore: GraphStore | null = null;
 let lastIndexError: Error | null = null;
 
@@ -90,6 +102,7 @@ export function resetStoreForTesting(): void {
   if (sharedStore) sharedStore.close();
   sharedStore = null;
   lastIndexError = null;
+  resetSession();
 }
 
 function getOrCreateStore(projectRoot: string): GraphStore {
@@ -155,6 +168,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
 
       let output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
       output = indexingFailedNote() + output;
+      output = appendTokenMeta("symbol_graph", { name: params.name, file: params.file }, output, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -240,7 +254,9 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         maxDepth: params.maxDepth,
       });
-      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
+      let output = indexingFailedNote() + text;
+      output = appendTokenMeta("impact", { symbols: params.symbols }, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 
@@ -255,7 +271,9 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
-      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
+      let output = indexingFailedNote() + text;
+      output = appendTokenMeta("trace", { entry: params.entry, file: params.file }, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 
@@ -277,7 +295,9 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = graphQuery({ query: params.query, store, projectRoot });
-      return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
+      let output = indexingFailedNote() + text;
+      output = appendTokenMeta("graph_query", {}, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 
@@ -292,6 +312,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       await ensureIndexed(projectRoot, store);
       let output = symbolCard({ name: params.name, file: params.file, store, projectRoot });
       output = indexingFailedNote() + output;
+      output = appendTokenMeta("symbol_card", { name: params.name, file: params.file }, output, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -307,6 +328,39 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       await ensureIndexed(projectRoot, store);
       let output = symbolContract({ name: params.name, file: params.file, store, projectRoot });
       output = indexingFailedNote() + output;
+      output = appendTokenMeta("symbol_contract", { name: params.name, file: params.file }, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  registerReadOnlyTool(pi, {
+    name: "graph_overview",
+    label: "Graph Overview",
+    description: "Return a high-level overview of the indexed codebase: symbol distribution, hub symbols, most-imported files, and suggested queries",
+    parameters: GraphOverviewParams,
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output = graphOverview({ store, projectRoot });
+      output = indexingFailedNote() + output;
+      output = appendTokenMeta("graph_overview", {}, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  registerReadOnlyTool(pi, {
+    name: "dead_code",
+    label: "Dead Code",
+    description: "Find unreferenced symbols. With name: check if a symbol has references. Without name: find all exported symbols with zero inbound edges.",
+    parameters: DeadCodeParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
+      output = indexingFailedNote() + output;
+      output = appendTokenMeta("dead_code", { name: params.name }, output, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
