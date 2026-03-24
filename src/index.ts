@@ -1,5 +1,5 @@
-import { Type } from "@sinclair/typebox";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { Type, type TSchema } from "@sinclair/typebox";
+import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphStore } from "./graph/store.js";
@@ -115,9 +115,20 @@ function indexingFailedNote(): string {
   return "indexing-failed: graph may be stale (readonly database)\n";
 }
 
-
+function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: ToolDefinition<TParams>): void {
+  const ptc = {
+    callable: true,
+    enabled: true,
+    policy: "read-only" as const,
+    readOnly: true,
+    pythonName: tool.name,
+    defaultExposure: "opt-in" as const,
+  };
+  (tool as any).ptc = ptc;
+  pi.registerTool(tool);
+}
 export default function piCodegraph(pi: ExtensionAPI): void {
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
     description: "Look up a symbol and return its anchored neighborhood",
@@ -214,7 +225,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "impact",
     label: "Impact",
     description: "Given changed symbols, return downstream dependents classified by change type",
@@ -234,7 +245,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "trace",
     label: "Trace",
     description:
@@ -249,7 +260,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "graph_query",
     label: "Graph Query",
     description: [
@@ -271,7 +282,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "symbol_card",
     label: "Symbol Card",
     description: "Return a compact symbol summary: definition, signature, tests, relationships, and signals",
@@ -286,7 +297,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
+  registerReadOnlyTool(pi, {
     name: "symbol_contract",
     label: "Symbol Contract",
     description: "Extract behavioral contract for a symbol: what it takes, returns, throws, and what tests assert about it",
