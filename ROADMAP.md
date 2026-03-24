@@ -2,18 +2,18 @@
 
 ## Status
 
-Core v1 is effectively complete:
+Core v1 through post-v1 hardening is complete (M0–M7, 47 issues):
 - M0 Foundation
 - M1 `symbol_graph` + `resolve_edge`
 - M2 LSP integration
 - M3 `impact` + framework rules
 - M4 `trace` + coverage
 - M5 `graph_query` + git co-change + hardening
+- M6 Functionality hardening and correctness
+- M7 Agent utility and product refinement
 
-The roadmap now shifts from **feature existence** to two new goals:
-1. **M6: functionality hardening and correctness**
-2. **M7: agent utility and product refinement**
-
+The roadmap now shifts to **verification-grade intelligence**:
+- **M8: Contracts and symbol cards** — type signatures, compact symbol cards, behavioral contract extraction
 ---
 
 ## M0: Foundation — ✅ COMPLETE
@@ -95,52 +95,64 @@ The roadmap now shifts from **feature existence** to two new goals:
 
 ---
 
-## M6: Functionality hardening and correctness — 🔶 NEXT
+## M6: Functionality hardening and correctness — ✅ COMPLETE
 
 **Goal:** Fix the concrete live-session problems uncovered by real tool-call testing.
 
-### Scope
-- [ ] Auto-refresh stale persisted graph on tool invocation _(#029)_
-- [ ] Make ambiguous symbol handling consistent across `symbol_graph`, `trace`, and `impact` _(#030)_
-- [ ] Improve `graph_query` support/ergonomics for basic equality `WHERE` predicates _(#031)_
-- [ ] Deliver as batch _(#032)_
+- [x] Auto-refresh stale persisted graph on tool invocation _(#029)_
+- [x] Make ambiguous symbol handling consistent across `symbol_graph`, `trace`, and `impact` _(#030)_
+- [x] Improve `graph_query` support/ergonomics for basic equality `WHERE` predicates _(#031)_
+- [x] Deliver as batch _(#032)_
 
-### Why this milestone exists
-The system is feature-complete enough to be useful, but real-session testing showed trust gaps:
-- stale persisted graph state can leak into tool results
-- ambiguity handling is inconsistent across tools
-- graph-query ergonomics are narrower than the contract implies
-
-### Exit criteria
-- Existing `.codegraph/graph.db` state does not silently degrade tool correctness
-- Ambiguous symbol behavior is explicit and consistent
-- Basic graph inspection queries work with low surprise
-- A live battery of real tool calls passes on both stale-state and fresh-state scenarios
+**Exit criteria met:** Tools refresh stale graph state, ambiguity is handled consistently, and basic graph queries work as expected.
 
 ---
 
-## M7: Agent utility and product refinement — ⏳ PLANNED
+## M7: Agent utility and product refinement — ✅ COMPLETE
 
 **Goal:** Improve actual value to coding agents beyond simple structural completeness.
 
-### Scope
-- [ ] Strengthen `trace` as an agent-oriented path tool with clearer semantics and richer backing data _(#033)_
-- [ ] Add higher-value agent reasoning affordances beyond structural graph edges _(#034)_
-- [ ] Improve graph trust, freshness transparency, and persisted-session ergonomics _(#035)_
-- [ ] Refine `graph_query` and opinionated graph inspection UX for agent workflows _(#036)_
+- [x] Strengthen `trace` as an agent-oriented path tool with clearer semantics and richer backing data _(#033)_
+- [x] Add higher-value agent reasoning affordances beyond structural graph edges _(#034)_
+- [x] Improve graph trust, freshness transparency, and persisted-session ergonomics _(#035)_
+- [x] Refine `graph_query` and opinionated graph inspection UX for agent workflows _(#036)_
+- [x] Tool input validation gaps _(#037)_
+- [x] Readonly database resilience _(#038)_
+- [x] symbol_graph dedup _(#039)_
+- [x] symbol_graph all edge kinds _(#040)_
+- [x] trace branching _(#041)_
+- [x] impact not-found diagnostics _(#042, #047)_
+- [x] impact addition explanation _(#043)_
+- [x] delete_edge tool _(#044)_
+- [x] graph_query error messages _(#045)_
+- [x] Tool output quality batch _(#046)_
 
-### Recommended order
-1. _#035_ trust / freshness transparency
-2. _#033_ trace usefulness
-3. _#034_ higher-value agent reasoning
-4. _#036_ graph inspection UX
+**Exit criteria met:** Trust and freshness are transparent, trace communicates confidence, tools reduce search cost for planning/review/test targeting, and all live-session bugs are fixed.
+
+---
+
+## M8: Contracts and symbol cards — 🔶 NEXT
+
+**Goal:** Turn codegraph from a dependency browser into a verification input. Extract type signatures, expose compact symbol cards, and mine behavioral contracts from types and test assertions.
+
+### Scope
+- [ ] Type signature extraction from tree-sitter AST _(#048)_
+- [ ] `symbol_card` tool: compact symbol summary _(#049)_
+- [ ] `symbol_contract` tool: behavioral evidence from types and tests _(#050)_
+- [ ] Deliver as batch _(#051)_
+
+### Build order
+1. _#048_ type signature extraction (data layer)
+2. _#049_ symbol_card (assembly of existing data + signatures)
+3. _#050_ symbol_contract (new extraction: error paths, test assertion mining)
+### Why this milestone exists
+The graph currently answers "where should I look?" but not "what does this symbol promise?" Contracts and cards give agents verification-grade intelligence — what a function takes, returns, throws, and what tests assert about it — in one call instead of grep chains.
 
 ### Exit criteria
-- Agents can tell what graph data is live, stale, inferred, or runtime-backed
-- `trace` is more useful and less easy to over-trust
-- The tool materially reduces search cost and uncertainty in planning, review, and test targeting
-- Graph inspection favors agent workflows over query-language completeness for its own sake
-
+- A symbol can answer: what it takes in, what it returns, what tests cover it, what invariants seem to hold, what nearby symbols matter most
+- `symbol_card` returns a compact fact sheet with definition, signature, tests, and key relationships
+- `symbol_contract` returns input/output types, error paths, and test-evidenced behaviors
+- Type signatures are extracted and persisted for functions, classes, and interfaces
 ---
 
 ## Future

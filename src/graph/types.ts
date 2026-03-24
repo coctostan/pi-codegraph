@@ -40,6 +40,7 @@ export interface GraphNode {
   end_line: number | null;
   content_hash: string;
   is_exported?: boolean;
+  signature?: string;
 }
 
 export interface GraphEdge {

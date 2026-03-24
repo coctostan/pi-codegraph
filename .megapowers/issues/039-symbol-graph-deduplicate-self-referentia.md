@@ -1,7 +1,9 @@
 ---
 id: 39
 type: bugfix
-status: in-progress
+status: closed
+closed: 2026-03-23
+closing_note: "Fixed. Deduplication added in SqliteGraphStore.getNeighbors via composite key Set for direction=both queries. Self-referential edges rejected at creation in resolve_edge. Verified by repro-039 and self-ref tests (all pass)."
 created: 2026-03-23T12:35:28.419Z
 priority: 1
 ---

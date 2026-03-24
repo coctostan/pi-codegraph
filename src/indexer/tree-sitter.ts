@@ -39,9 +39,10 @@ function addNode(
   startLine: number,
   endLine: number,
   contentHash: string,
-  isExported: boolean
+  isExported: boolean,
+  signature?: string
 ): void {
-  nodes.push({
+  const node: GraphNode = {
     id: nodeId(file, name, startLine),
     kind,
     name,
@@ -50,7 +51,11 @@ function addNode(
     end_line: endLine,
     content_hash: contentHash,
     is_exported: isExported,
-  });
+  };
+  if (signature != null) {
+    node.signature = signature;
+  }
+  nodes.push(node);
 }
 
 function walk(node: SyntaxNode, visit: (n: SyntaxNode) => void): void {
@@ -69,6 +74,104 @@ function isExportedNode(node: SyntaxNode): boolean {
     current = current.parent;
   }
   return false;
+}
+
+function extractFunctionSignature(node: SyntaxNode): string | undefined {
+  const params = node.childForFieldName("parameters");
+  if (!params) return undefined;
+
+  const typeParams = node.namedChildren.find((c: SyntaxNode) => c.type === "type_parameters");
+  const typeParamStr = typeParams ? typeParams.text : "";
+
+  const paramParts: string[] = [];
+  for (const child of params.namedChildren) {
+    if (child.type === "required_parameter" || child.type === "optional_parameter") {
+      const nameNode = child.namedChildren.find((c: SyntaxNode) => c.type === "identifier");
+      const typeAnnotation = child.namedChildren.find((c: SyntaxNode) => c.type === "type_annotation");
+      if (!nameNode) continue;
+      const questionMark = child.type === "optional_parameter" ? "?" : "";
+      const typeStr = typeAnnotation ? typeAnnotation.text.replace(/^\s*:\s*/, "") : "";
+      if (typeStr) {
+        paramParts.push(`${nameNode.text}${questionMark}: ${typeStr}`);
+      } else {
+        paramParts.push(`${nameNode.text}${questionMark}`);
+      }
+    }
+  }
+
+  const returnType = node.childForFieldName("return_type");
+  const returnStr = returnType ? returnType.text.replace(/^\s*:\s*/, "") : "";
+
+  const paramList = `(${paramParts.join(", ")})`;
+
+  if (returnStr) {
+    return `${typeParamStr}${paramList} => ${returnStr}`;
+  }
+  return `${typeParamStr}${paramList}`;
+}
+
+function extractClassSignature(node: SyntaxNode, name: string): string {
+  const parts: string[] = [`class ${name}`];
+
+  const heritage = node.namedChildren.find((c: SyntaxNode) => c.type === "class_heritage");
+  if (heritage) {
+    const extendsClause = heritage.namedChildren.find((c: SyntaxNode) => c.type === "extends_clause");
+    if (extendsClause) {
+      const extendsText = extendsClause.text.replace(/^extends\s+/, "");
+      parts.push(`extends ${extendsText}`);
+    }
+    const implClause = heritage.namedChildren.find((c: SyntaxNode) => c.type === "implements_clause");
+    if (implClause) {
+      const implText = implClause.text.replace(/^implements\s+/, "");
+      parts.push(`implements ${implText}`);
+    }
+  }
+
+  const classBody = node.childForFieldName("body");
+  if (classBody) {
+    for (const member of classBody.namedChildren) {
+      if (member.type === "method_definition") {
+        const methodName = member.childForFieldName("name");
+        if (methodName && methodName.text === "constructor") {
+          const params = member.childForFieldName("parameters");
+          if (params) {
+            const paramParts: string[] = [];
+            for (const child of params.namedChildren) {
+              if (child.type === "required_parameter" || child.type === "optional_parameter") {
+                const nameChild = child.namedChildren.find((c: SyntaxNode) => c.type === "identifier");
+                const typeAnnotation = child.namedChildren.find((c: SyntaxNode) => c.type === "type_annotation");
+                if (!nameChild) continue;
+                const questionMark = child.type === "optional_parameter" ? "?" : "";
+                const typeStr = typeAnnotation ? typeAnnotation.text.replace(/^\s*:\s*/, "") : "";
+                if (typeStr) {
+                  paramParts.push(`${nameChild.text}${questionMark}: ${typeStr}`);
+                } else {
+                  paramParts.push(`${nameChild.text}${questionMark}`);
+                }
+              }
+            }
+            parts.push(`{ constructor(${paramParts.join(", ")}) }`);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  return parts.join(" ");
+}
+
+function extractInterfaceSignature(node: SyntaxNode, name: string): string {
+  const extendsClause = node.namedChildren.find((c: SyntaxNode) => c.type === "extends_type_clause");
+  if (extendsClause) {
+    const types = extendsClause.namedChildren
+      .filter((c: SyntaxNode) => c.type === "type_identifier" || c.type === "generic_type")
+      .map((c: SyntaxNode) => c.text);
+    if (types.length > 0) {
+      return `interface ${name} extends ${types.join(", ")}`;
+    }
+  }
+  return `interface ${name}`;
 }
 
 
@@ -116,6 +219,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
       if (n.type === "function_declaration") {
         const nameNode = n.childForFieldName("name");
         if (!nameNode) return;
+        const signature = extractFunctionSignature(n);
         addNode(
           nodes,
           file,
@@ -124,7 +228,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           n.startPosition.row + 1,
           n.endPosition.row + 1,
           contentHash,
-          isExportedNode(n)
+          isExportedNode(n),
+          signature
         );
         return;
       }
@@ -132,6 +237,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
       if (n.type === "class_declaration") {
         const nameNode = n.childForFieldName("name");
         if (!nameNode) return;
+        const signature = extractClassSignature(n, nameNode.text);
         addNode(
           nodes,
           file,
@@ -140,7 +246,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           n.startPosition.row + 1,
           n.endPosition.row + 1,
           contentHash,
-          isExportedNode(n)
+          isExportedNode(n),
+          signature
         );
         return;
       }
@@ -148,6 +255,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
       if (n.type === "interface_declaration") {
         const nameNode = n.childForFieldName("name");
         if (!nameNode) return;
+        const signature = extractInterfaceSignature(n, nameNode.text);
         addNode(
           nodes,
           file,
@@ -156,7 +264,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           n.startPosition.row + 1,
           n.endPosition.row + 1,
           contentHash,
-          isExportedNode(n)
+          isExportedNode(n),
+          signature
         );
         return;
       }
@@ -295,10 +404,9 @@ export function extractFile(file: string, content: string): ExtractionResult {
       if (n.type === "variable_declarator") {
         const nameNode = n.childForFieldName("name");
         const valueNode = n.childForFieldName("value");
-
-        if (nameNode?.type !== "identifier") return;
-        if (valueNode?.type !== "arrow_function") return;
-
+        if (!nameNode || nameNode.type !== "identifier") return;
+        if (!valueNode || valueNode.type !== "arrow_function") return;
+        const signature = extractFunctionSignature(valueNode);
         addNode(
           nodes,
           file,
@@ -307,7 +415,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
           n.startPosition.row + 1,
           valueNode.endPosition.row + 1,
           contentHash,
-          isExportedNode(n)
+          isExportedNode(n),
+          signature
         );
       }
     });
