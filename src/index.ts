@@ -13,6 +13,7 @@ import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
 import { graphQuery } from "./tools/graph-query.js";
+import { symbolCard } from "./tools/symbol-card.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -61,6 +62,11 @@ const DeleteEdgeParams = Type.Object({
   kind: Type.String({ description: "Edge kind (calls, imports, implements, extends, ...)" }),
   sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
   targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
+});
+
+const SymbolCardParams = Type.Object({
+  name: Type.String({ description: "Symbol name to look up" }),
+  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
 });
 
 let sharedStore: GraphStore | null = null;
@@ -256,6 +262,21 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       await ensureIndexed(projectRoot, store);
       const text = graphQuery({ query: params.query, store, projectRoot });
       return { content: [{ type: "text", text: indexingFailedNote() + text }], details: undefined };
+    },
+  });
+
+  pi.registerTool({
+    name: "symbol_card",
+    label: "Symbol Card",
+    description: "Return a compact symbol summary: definition, signature, tests, relationships, and signals",
+    parameters: SymbolCardParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output = symbolCard({ name: params.name, file: params.file, store, projectRoot });
+      output = indexingFailedNote() + output;
+      return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
 }

@@ -1,48 +1,53 @@
 {
   "version": 1,
-  "activeIssue": "048-type-signature-extraction-from-tree-sitt",
+  "activeIssue": "049-symbol-card-tool-compact-symbol-summary-",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1774321381723
+      "timestamp": 1774323473423
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1774321435261
+      "timestamp": 1774323623734
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1774321759905
+      "timestamp": 1774323820666
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1774322473246
-    },
-    {
-      "from": "verify",
-      "to": "implement",
-      "timestamp": 1774322531317
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1774322576677
+      "timestamp": 1774324207518
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1774322808897
+      "timestamp": 1774324388291
+    },
+    {
+      "from": "code-review",
+      "to": "implement",
+      "timestamp": 1774324458580
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1774324507319
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1774324523084
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1774322979536
+      "timestamp": 1774324542351
     }
   ],
   "planMode": null,
@@ -56,13 +61,9 @@
     5,
     6,
     7,
-    8
+    1
   ],
-  "tddTaskState": {
-    "taskIndex": 1,
-    "state": "test-written",
-    "skipped": false
-  },
+  "tddTaskState": null,
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -72,6 +73,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/048-type-signature-extraction-from-tree-sitt",
+  "branchName": "feat/049-symbol-card-tool-compact-symbol-summary-",
   "baseBranch": "main"
 }
