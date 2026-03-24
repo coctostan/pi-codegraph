@@ -2,3 +2,10 @@ node_modules/
 dist/
 *.js.map
 .megapowers/workspaces/
+
+# Generated graph database (created at runtime per-project)
+.codegraph/
+
+# OS
+.DS_Store
+Thumbs.db
