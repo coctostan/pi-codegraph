@@ -2,7 +2,7 @@
 
 ## Status
 
-Core v1 through post-v1 hardening is complete (M0–M7, 47 issues):
+Core v1 through M8 is complete (M0–M8, 51 issues):
 - M0 Foundation
 - M1 `symbol_graph` + `resolve_edge`
 - M2 LSP integration
@@ -11,9 +11,9 @@ Core v1 through post-v1 hardening is complete (M0–M7, 47 issues):
 - M5 `graph_query` + git co-change + hardening
 - M6 Functionality hardening and correctness
 - M7 Agent utility and product refinement
+- M8 Contracts and symbol cards
 
-The roadmap now shifts to **verification-grade intelligence**:
-- **M8: Contracts and symbol cards** — type signatures, compact symbol cards, behavioral contract extraction
+The roadmap now shifts to **future expansions** (multi-language, MCP, semantic search, etc.).
 ---
 
 ## M0: Foundation — ✅ COMPLETE
@@ -131,15 +131,15 @@ The roadmap now shifts to **verification-grade intelligence**:
 
 ---
 
-## M8: Contracts and symbol cards — 🔶 NEXT
+## M8: Contracts and symbol cards — ✅ COMPLETE
 
 **Goal:** Turn codegraph from a dependency browser into a verification input. Extract type signatures, expose compact symbol cards, and mine behavioral contracts from types and test assertions.
 
 ### Scope
-- [ ] Type signature extraction from tree-sitter AST _(#048)_
-- [ ] `symbol_card` tool: compact symbol summary _(#049)_
-- [ ] `symbol_contract` tool: behavioral evidence from types and tests _(#050)_
-- [ ] Deliver as batch _(#051)_
+- [x] Type signature extraction from tree-sitter AST _(#048)_
+- [x] `symbol_card` tool: compact symbol summary _(#049)_
+- [x] `symbol_contract` tool: behavioral evidence from types and tests _(#050)_
+- [x] Deliver as batch _(#051)_
 
 ### Build order
 1. _#048_ type signature extraction (data layer)
@@ -153,6 +153,8 @@ The graph currently answers "where should I look?" but not "what does this symbo
 - `symbol_card` returns a compact fact sheet with definition, signature, tests, and key relationships
 - `symbol_contract` returns input/output types, error paths, and test-evidenced behaviors
 - Type signatures are extracted and persisted for functions, classes, and interfaces
+
+**Exit criteria met:** Symbol cards and contracts return compact, anchored summaries with type signatures, test coverage, error paths, and behavioral evidence. All 334 tests pass.
 ---
 
 ## Future
