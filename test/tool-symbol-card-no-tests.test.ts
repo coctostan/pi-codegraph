@@ -1,0 +1,32 @@
+import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { symbolCard } from "../src/tools/symbol-card.js";
+import { sha256Hex } from "../src/indexer/tree-sitter.js";
+
+test("symbolCard omits Covering Tests section when symbol has no tested_by edges", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-sc-notests-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+
+  const fileContent = "export function foo() {}\n";
+  writeFileSync(join(projectRoot, "src/a.ts"), fileContent);
+
+  try {
+    const store = new SqliteGraphStore();
+    const hash = sha256Hex(fileContent);
+
+    store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: hash });
+
+    const output = symbolCard({ name: "foo", store, projectRoot });
+
+    // Card renders but no Covering Tests section
+    expect(output).toContain("## foo (function)");
+    expect(output).not.toContain("Covering Tests");
+
+    store.close();
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});

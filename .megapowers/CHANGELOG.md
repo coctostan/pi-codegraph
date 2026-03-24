@@ -2,6 +2,7 @@
 
 ### Added
 - Type signature extraction from tree-sitter AST: `GraphNode.signature` field, SQLite `signature TEXT` column with migration, and extraction for functions, arrow functions, classes, and interfaces including generics, heritage clauses, and constructor params (#048)
+- `symbol_card` tool: compact symbol summary with definition, signature, tests, relationships, and signals in one call (#049)
 
 ### Fixed
 - `trace` static mode now visits all reachable callees via DFS instead of following one arbitrary branch (#041)
