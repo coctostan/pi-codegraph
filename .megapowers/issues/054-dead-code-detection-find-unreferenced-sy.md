@@ -1,7 +1,7 @@
 ---
 id: 54
 type: feature
-status: open
+status: done
 created: 2026-03-24T18:17:44.920Z
 priority: 2
 ---
