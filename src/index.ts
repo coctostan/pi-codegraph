@@ -72,6 +72,7 @@ const DeleteEdgeParams = Type.Object({
 const SymbolCardParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  maxSourceLines: Type.Optional(Type.Number({ description: "Maximum lines of source to inline (default: 50)" })),
 });
 
 const SymbolContractParams = Type.Object({
@@ -319,7 +320,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = symbolCard({ name: params.name, file: params.file, store, projectRoot });
+      let output = symbolCard({ name: params.name, file: params.file, maxSourceLines: params.maxSourceLines, store, projectRoot });
       output = indexingFailedNote() + output;
       output = appendTokenMeta("symbol_card", { name: params.name, file: params.file }, output, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
