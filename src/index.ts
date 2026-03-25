@@ -17,6 +17,7 @@ import { symbolCard } from "./tools/symbol-card.js";
 import { symbolContract } from "./tools/symbol-contract.js";
 import { graphOverview } from "./tools/graph-overview.js";
 import { deadCode } from "./tools/dead-code.js";
+import { symbolSearch, resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMeta, resetSession } from "./tools/token-tracker.js";
 
 const SymbolGraphParams = Type.Object({
@@ -88,6 +89,13 @@ const DeadCodeParams = Type.Object({
   glob: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
 });
 
+const SymbolSearchParams = Type.Object({
+  query: Type.String({ description: "Search query (free text, supports partial names)" }),
+  kind: Type.Optional(Type.String({ description: "Filter by symbol kind (function, class, interface, etc.)" })),
+  file: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
+  limit: Type.Optional(Type.Number({ description: "Maximum results to return (default: 20)" })),
+});
+
 let sharedStore: GraphStore | null = null;
 let lastIndexError: Error | null = null;
 
@@ -104,6 +112,7 @@ export function resetStoreForTesting(): void {
   sharedStore = null;
   lastIndexError = null;
   resetSession();
+  _resetSearchCache();
 }
 
 function getOrCreateStore(projectRoot: string): GraphStore {
@@ -362,6 +371,29 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       let output = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
       output = indexingFailedNote() + output;
       output = appendTokenMeta("dead_code", { name: params.name }, output, store, projectRoot);
+      return { content: [{ type: "text", text: output }], details: undefined };
+    },
+  });
+
+  registerReadOnlyTool(pi, {
+    name: "symbol_search",
+    label: "Symbol Search",
+    description: "Search symbols by approximate name using BM25 ranked scoring. Tokenizes camelCase/snake_case queries and scores against symbol name, signature, and file path.",
+    parameters: SymbolSearchParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const projectRoot = ctx.cwd;
+      const store = getOrCreateStore(projectRoot);
+      await ensureIndexed(projectRoot, store);
+      let output = symbolSearch({
+        query: params.query,
+        kind: params.kind as any,
+        file: params.file,
+        limit: params.limit,
+        store,
+        projectRoot,
+      });
+      output = indexingFailedNote() + output;
+      output = appendTokenMeta("symbol_search", { query: params.query }, output, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
