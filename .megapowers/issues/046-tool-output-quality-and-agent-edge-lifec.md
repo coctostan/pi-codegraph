@@ -1,7 +1,7 @@
 ---
 id: 46
 type: feature
-status: closed
+status: done
 created: 2026-03-23T12:36:16.153Z
 sources: [39, 40, 41, 42, 43, 44, 45]
 ---
