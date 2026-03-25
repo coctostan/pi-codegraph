@@ -6,6 +6,7 @@
 - `symbol_contract` tool: behavioral contract extraction — surfaces what a symbol takes, returns, throws, guard preconditions, and test-evidenced behaviors in one call. Includes on-demand tree-sitter extraction for throw statements, guard patterns, and test assertion mining (#050)
 - M8 milestone (Contracts and Symbol Cards) delivered as batch — all three features integrated and verified (#051)
 - PTC metadata on read-only tools (`symbol_graph`, `impact`, `trace`, `graph_query`, `symbol_card`, `symbol_contract`) for `code_execution` runtime exposure (#052)
+- `symbol_search` tool: BM25 ranked fuzzy symbol search over name (3×), signature (2×), and file path (1×) with camelCase/snake_case tokenization, optional kind and file glob filters, lazy in-memory index with automatic cache invalidation (#056)
 
 ### Fixed
 - `trace` static mode now visits all reachable callees via DFS instead of following one arbitrary branch (#041)
