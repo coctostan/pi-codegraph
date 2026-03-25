@@ -5,6 +5,8 @@
 - `symbol_card` tool: compact symbol summary with definition, signature, tests, relationships, and signals in one call (#049)
 - `symbol_contract` tool: behavioral contract extraction — surfaces what a symbol takes, returns, throws, guard preconditions, and test-evidenced behaviors in one call. Includes on-demand tree-sitter extraction for throw statements, guard patterns, and test assertion mining (#050)
 - M8 milestone (Contracts and Symbol Cards) delivered as batch — all three features integrated and verified (#051)
+- PTC metadata on read-only tools (`symbol_graph`, `impact`, `trace`, `graph_query`, `symbol_card`, `symbol_contract`) for `code_execution` runtime exposure (#052)
+- `symbol_card` now inlines hashlined source snippets and neighbor type signatures — eliminates follow-up `read()` round-trips. Supports `maxSourceLines` parameter (default: 50) with stale detection and graceful degradation (#057)
 
 ### Fixed
 - `trace` static mode now visits all reachable callees via DFS instead of following one arbitrary branch (#041)
