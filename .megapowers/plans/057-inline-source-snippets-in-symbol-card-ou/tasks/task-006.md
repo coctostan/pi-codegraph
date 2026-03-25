@@ -1,3 +1,93 @@
+---
+id: 6
+title: symbolCard — add Source section with hashlined content
+status: approved
+depends_on:
+  - 1
+no_test: false
+files_to_modify:
+  - src/tools/symbol-card.ts
+files_to_create:
+  - test/tool-symbol-card-source.test.ts
+---
+
+### Task 6: symbolCard — add Source section with hashlined content [depends: 1]
+
+**Files:**
+- Modify: `src/tools/symbol-card.ts`
+- Create: `test/tool-symbol-card-source.test.ts`
+
+**Step 1 — Write the failing test**
+
+```typescript
+// test/tool-symbol-card-source.test.ts
+import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { symbolCard } from "../src/tools/symbol-card.js";
+import { sha256Hex } from "../src/indexer/tree-sitter.js";
+
+test("symbolCard includes ### Source section with hashlined content", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-sc-src-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+
+  const fileContent = "// header\nexport function foo() {\n  return 1;\n}\n";
+  writeFileSync(join(projectRoot, "src/a.ts"), fileContent);
+  const hash = sha256Hex(fileContent);
+
+  try {
+    const store = new SqliteGraphStore();
+    store.addNode({
+      id: "src/a.ts::foo:2",
+      kind: "function",
+      name: "foo",
+      file: "src/a.ts",
+      start_line: 2,
+      end_line: 4,
+      content_hash: hash,
+      is_exported: true,
+      signature: "() => number",
+    });
+
+    const output = symbolCard({ name: "foo", store, projectRoot });
+
+    // Should contain Source section
+    expect(output).toContain("### Source");
+    // Should contain hashlined content
+    expect(output).toMatch(/2:[a-f0-9]+\|export function foo/);
+    expect(output).toMatch(/3:[a-f0-9]+\|  return 1;/);
+    expect(output).toMatch(/4:[a-f0-9]+\|}/);
+
+    // Source should appear before Signature
+    const sourceIdx = output.indexOf("### Source");
+    const sigIdx = output.indexOf("### Signature");
+    expect(sourceIdx).toBeGreaterThan(-1);
+    expect(sigIdx).toBeGreaterThan(-1);
+    expect(sourceIdx).toBeLessThan(sigIdx);
+
+    // Existing sections still present
+    expect(output).toContain("## foo (function)");
+    expect(output).toContain("### Exported");
+    expect(output).toContain("### Signals");
+
+    store.close();
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/tool-symbol-card-source.test.ts`
+Expected: FAIL — `expect(received).toContain(expected) — Expected "### Source" to be in the output`
+
+**Step 3 — Write minimal implementation**
+
+Modify `src/tools/symbol-card.ts`:
+
+```typescript
 import type { GraphStore, NeighborResult } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
 import { createSignalComputer, formatRoleTags } from "../output/signals.js";
@@ -113,15 +203,16 @@ export function symbolCard(params: SymbolCardParams): string {
 }
 
 function formatRelGroup(label: string, neighbors: NeighborResult[]): string {
-  const top = neighbors.slice(0, 5);
-  const lines: string[] = [];
-  const names = top.map((nr) => nr.node.name);
+  const names = neighbors.slice(0, 5).map((nr) => nr.node.name);
   const suffix = neighbors.length > 5 ? ` (+${neighbors.length - 5} more)` : "";
-  lines.push(`  ${label} (${neighbors.length}):  ${names.join(", ")}${suffix}`);
-  for (const nr of top) {
-    if (nr.node.signature) {
-      lines.push(`    ${nr.node.name}: ${nr.node.signature}`);
-    }
-  }
-  return lines.join("\n");
+  return `  ${label} (${neighbors.length}):  ${names.join(", ")}${suffix}`;
 }
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/tool-symbol-card-source.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all 381 tests passing
