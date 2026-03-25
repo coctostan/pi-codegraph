@@ -34,7 +34,6 @@ describe("PTC metadata on tool registrations", () => {
         policy: "read-only",
         readOnly: true,
         pythonName: name,
-        defaultExposure: "opt-in",
       });
     });
   }
