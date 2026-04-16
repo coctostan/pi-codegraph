@@ -134,3 +134,19 @@ export function appendTokenMeta(
   const metaLine = formatMetaLine(toolName, naiveTokens, actualTokens);
   return `${toolOutput}\n${metaLine}`;
 }
+
+export function devMetaEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  const raw = env.CODEGRAPH_DEVMETA?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+export function appendTokenMetaIfEnabled(
+  toolName: string,
+  params: Record<string, unknown>,
+  toolOutput: string,
+  store: GraphStore,
+  projectRoot: string,
+): string {
+  if (!devMetaEnabled()) return toolOutput;
+  return appendTokenMeta(toolName, params, toolOutput, store, projectRoot);
+}

@@ -1,6 +1,13 @@
 ## [Unreleased]
 
 ### Added
+- Conditional Trust header: fresh read-only tool calls no longer emit `## Trust` header; non-fresh statuses (`stale`, `mixed`, `heuristic`, `runtime-backed`) still render the full header (#059)
+- `CODEGRAPH_DEVMETA` env flag gates the `_meta: tokens_saved` footer on all read-only tools; reads env per call so toggling mid-session takes effect immediately (#059)
+- `docs/tool-descriptions.md`: style guide codifying the one-terse-line + optional `When to use:` description pattern for all registered tools (#060)
+- Normalized descriptions for all 11 registered tools in `src/index.ts` — no inline examples, no cross-tool references, no parameter restatement (#060)
+- `README.md` and `ARCHITECTURE.md` now accurately list all 11 registered tools and point to the description style guide (#060)
+
+### Added
 - Type signature extraction from tree-sitter AST: `GraphNode.signature` field, SQLite `signature TEXT` column with migration, and extraction for functions, arrow functions, classes, and interfaces including generics, heritage clauses, and constructor params (#048)
 - `symbol_card` tool: compact symbol summary with definition, signature, tests, relationships, and signals in one call (#049)
 - `symbol_contract` tool: behavioral contract extraction — surfaces what a symbol takes, returns, throws, guard preconditions, and test-evidenced behaviors in one call. Includes on-demand tree-sitter extraction for throw statements, guard patterns, and test assertion mining (#050)

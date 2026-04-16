@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
+import { test } from "bun:test";
 
-test("pi extension documents working graph_query examples in the tool description", async () => {
+test("pi extension registers graph_query with the approved description", async () => {
   const mod = await import("../src/index.js");
   if (typeof mod.resetStoreForTesting === "function") mod.resetStoreForTesting();
 
@@ -13,12 +13,16 @@ test("pi extension documents working graph_query examples in the tool descriptio
   };
 
   mod.default(mockPi as any);
-
   const tool = registeredTools.find((candidate) => candidate.name === "graph_query");
-  expect(tool).toBeDefined();
-  expect(tool!.description).toContain('MATCH (a {name: "hello"}) RETURN a');
-  expect(tool!.description).toContain('MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b LIMIT 5');
-  expect(tool!.description).toContain('MATCH (n) WHERE n.name = "GraphStore" RETURN n.name');
-  expect(tool!.description).toContain('MATCH (n) WHERE n.name CONTAINS "Graph" RETURN n.name');
-  expect(tool!.description).toContain('MATCH (n {kind: "function"}) RETURN n LIMIT 10');
+  if (!tool) {
+    throw new Error("graph_query tool was not registered");
+  }
+
+  const expected = "Run a Cypher subset query against the graph.\nWhen to use: You need an ad hoc graph slice that is easier to express as a query.";
+  if (tool.description !== expected) {
+    throw new Error(`graph_query description mismatch: ${tool.description}`);
+  }
+  if (tool.description.includes('MATCH (a {name: "hello"}) RETURN a')) {
+    throw new Error("graph_query description still includes inline examples");
+  }
 });

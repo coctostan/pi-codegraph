@@ -1,6 +1,6 @@
 import { Type, type TSchema } from "@sinclair/typebox";
 import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { mkdirSync } from "node:fs";
+import { accessSync, constants, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
@@ -18,7 +18,8 @@ import { symbolContract } from "./tools/symbol-contract.js";
 import { graphOverview } from "./tools/graph-overview.js";
 import { deadCode } from "./tools/dead-code.js";
 import { symbolSearch, resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
-import { appendTokenMeta, resetSession } from "./tools/token-tracker.js";
+import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
+import { suppressFreshTrustHeader } from "./output/read-only-ceremony.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -123,10 +124,25 @@ function getOrCreateStore(projectRoot: string): GraphStore {
   return sharedStore;
 }
 
+function dbIsWritable(projectRoot: string): boolean {
+  const dbDir = join(projectRoot, ".codegraph");
+  try {
+    accessSync(join(dbDir, "graph.db"), constants.W_OK);
+    accessSync(dbDir, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<void> {
   try {
-    await indexProject(projectRoot, store);
-    lastIndexError = null;
+    const result = await indexProject(projectRoot, store);
+    if (result.errors > 0 && !dbIsWritable(projectRoot)) {
+      lastIndexError = new Error("readonly database");
+    } else {
+      lastIndexError = null;
+    }
   } catch (err) {
     lastIndexError = err instanceof Error ? err : new Error(String(err));
     // Indexing failed (likely readonly DB) — degrade gracefully and serve stale graph data.
@@ -136,6 +152,18 @@ async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<vo
 function indexingFailedNote(): string {
   if (!lastIndexError) return "";
   return "indexing-failed: graph may be stale (readonly database)\n";
+}
+
+function finalizeReadOnlyOutput(
+  toolName: string,
+  params: Record<string, unknown>,
+  toolOutput: string,
+  store: GraphStore,
+  projectRoot: string,
+): string {
+  const withoutFreshHeader = suppressFreshTrustHeader(toolOutput);
+  const withIndexingNote = indexingFailedNote() + withoutFreshHeader;
+  return appendTokenMetaIfEnabled(toolName, params, withIndexingNote, store, projectRoot);
 }
 
 function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: ToolDefinition<TParams>): void {
@@ -153,7 +181,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
-    description: "Look up a symbol and return its anchored neighborhood",
+    description: "Return a symbol's callers, callees, tests, and key signals.\nWhen to use: You need structural context for a named symbol.",
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -176,9 +204,8 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         }
       }
 
-      let output = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("symbol_graph", { name: params.name, file: params.file }, output, store, projectRoot);
+      const text = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
+      const output = finalizeReadOnlyOutput("symbol_graph", { name: params.name, file: params.file }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -186,7 +213,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "resolve_edge",
     label: "Resolve Edge",
-    description: "Create an edge in the symbol graph with evidence",
+    description: "Create an evidence-backed edge in the symbol graph.\nWhen to use: The graph is missing a relationship you can justify from code or docs.",
     parameters: ResolveEdgeParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -219,7 +246,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "delete_edge",
     label: "Delete Edge",
-    description: "Delete an agent-created edge from the symbol graph",
+    description: "Delete an agent-created edge from the symbol graph.\nWhen to use: An agent-added relationship is incorrect or obsolete.",
     parameters: DeleteEdgeParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -251,7 +278,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "impact",
     label: "Impact",
-    description: "Given changed symbols, return downstream dependents classified by change type",
+    description: "Return the classified blast radius for a set of changed symbols.\nWhen to use: You are planning or reviewing a change to existing code.",
     parameters: ImpactParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -264,8 +291,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         maxDepth: params.maxDepth,
       });
-      let output = indexingFailedNote() + text;
-      output = appendTokenMeta("impact", { symbols: params.symbols }, output, store, projectRoot);
+      const output = finalizeReadOnlyOutput("impact", { symbols: params.symbols }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -274,15 +300,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     name: "trace",
     label: "Trace",
     description:
-      "Return one deterministic anchored execution path for a test, symbol, or endpoint. Results may be coverage-backed or static heuristics. Use trace to follow all reachable branches, symbol_graph to inspect neighborhoods, and impact to inspect downstream dependents.",
+      "Return the execution path starting from an entry point. Coverage-backed when available.\nWhen to use: You need to understand what actually runs.",
     parameters: TraceParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
-      let output = indexingFailedNote() + text;
-      output = appendTokenMeta("trace", { entry: params.entry, file: params.file }, output, store, projectRoot);
+      const output = finalizeReadOnlyOutput("trace", { entry: params.entry, file: params.file }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -290,23 +315,15 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "graph_query",
     label: "Graph Query",
-    description: [
-      "Execute a Cypher subset query against the graph.",
-      "Examples:",
-      'MATCH (a {name: "hello"}) RETURN a',
-      'MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b LIMIT 5',
-      'MATCH (n) WHERE n.name = "GraphStore" RETURN n.name',
-      'MATCH (n) WHERE n.name CONTAINS "Graph" RETURN n.name',
-      'MATCH (n {kind: "function"}) RETURN n LIMIT 10',
-    ].join("\n"),
+    description:
+      "Run a Cypher subset query against the graph.\nWhen to use: You need an ad hoc graph slice that is easier to express as a query.",
     parameters: GraphQueryParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = graphQuery({ query: params.query, store, projectRoot });
-      let output = indexingFailedNote() + text;
-      output = appendTokenMeta("graph_query", {}, output, store, projectRoot);
+      const output = finalizeReadOnlyOutput("graph_query", {}, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -314,15 +331,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_card",
     label: "Symbol Card",
-    description: "Return a compact symbol summary: definition, signature, tests, relationships, and signals",
+    description: "Return a compact symbol summary with definition, signature, tests, relationships, and signals.",
     parameters: SymbolCardParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = symbolCard({ name: params.name, file: params.file, maxSourceLines: params.maxSourceLines, store, projectRoot });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("symbol_card", { name: params.name, file: params.file }, output, store, projectRoot);
+      const text = symbolCard({ name: params.name, file: params.file, maxSourceLines: params.maxSourceLines, store, projectRoot });
+      const output = finalizeReadOnlyOutput("symbol_card", { name: params.name, file: params.file }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -330,15 +346,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_contract",
     label: "Symbol Contract",
-    description: "Extract behavioral contract for a symbol: what it takes, returns, throws, and what tests assert about it",
+    description: "Return a symbol's behavioral contract from code and tests.\nWhen to use: You need inputs, outputs, throws, or asserted behavior.",
     parameters: SymbolContractParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = symbolContract({ name: params.name, file: params.file, store, projectRoot });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("symbol_contract", { name: params.name, file: params.file }, output, store, projectRoot);
+      const text = symbolContract({ name: params.name, file: params.file, store, projectRoot });
+      const output = finalizeReadOnlyOutput("symbol_contract", { name: params.name, file: params.file }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -346,15 +361,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "graph_overview",
     label: "Graph Overview",
-    description: "Return a high-level overview of the indexed codebase: symbol distribution, hub symbols, most-imported files, and suggested queries",
+    description: "Return a high-level overview of the indexed codebase.\nWhen to use: You need hotspots, distributions, and suggested starting points.",
     parameters: GraphOverviewParams,
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = graphOverview({ store, projectRoot });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("graph_overview", {}, output, store, projectRoot);
+      const text = graphOverview({ store, projectRoot });
+      const output = finalizeReadOnlyOutput("graph_overview", {}, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -362,15 +376,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "dead_code",
     label: "Dead Code",
-    description: "Find unreferenced symbols. With name: check if a symbol has references. Without name: find all exported symbols with zero inbound edges.",
+    description: "Find unreferenced exported symbols or check whether a symbol is still referenced.\nWhen to use: You are looking for cleanup candidates.",
     parameters: DeadCodeParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("dead_code", { name: params.name }, output, store, projectRoot);
+      const text = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
+      const output = finalizeReadOnlyOutput("dead_code", { name: params.name }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -378,13 +391,13 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_search",
     label: "Symbol Search",
-    description: "Search symbols by approximate name using BM25 ranked scoring. Tokenizes camelCase/snake_case queries and scores against symbol name, signature, and file path.",
+    description: "Find symbols by approximate name match.\nWhen to use: You know roughly what a symbol is called but not its exact name or file.",
     parameters: SymbolSearchParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
-      let output = symbolSearch({
+      const text = symbolSearch({
         query: params.query,
         kind: params.kind as any,
         file: params.file,
@@ -392,8 +405,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         store,
         projectRoot,
       });
-      output = indexingFailedNote() + output;
-      output = appendTokenMeta("symbol_search", { query: params.query }, output, store, projectRoot);
+      const output = finalizeReadOnlyOutput("symbol_search", { query: params.query }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
