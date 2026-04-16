@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml/badge.svg)](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml)
 
-A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 8 agent-optimized tools — so an agent can understand cross-file relationships in one call instead of grep→read chains.
+A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 11 agent-optimized tools — so an agent can understand cross-file relationships in one call instead of grep→read chains.
 
 ## Why pi-codegraph?
 
@@ -18,14 +18,14 @@ Every result is hashline-anchored (`file:line:hash`) — the agent can edit any 
 
 ## Key Features
 
-- **8 agent tools** — `symbol_graph`, `trace`, `impact`, `graph_query`, `resolve_edge`, `delete_edge`, `symbol_card`, `symbol_contract`
+- **11 agent tools** — `symbol_graph`, `resolve_edge`, `delete_edge`, `impact`, `trace`, `graph_query`, `symbol_card`, `symbol_contract`, `graph_overview`, `dead_code`, `symbol_search`
 - **Multi-layer indexing** — tree-sitter AST, LSP (tsserver), ast-grep framework rules, V8 test coverage, git co-change analysis
 - **Provenance on every edge** — each relationship carries its source, confidence, and evidence
 - **Agent-teachable graph** — agents create and delete edges with evidence when static analysis can't see the connection
 - **Incremental by default** — only re-indexes files that changed (content-hash based)
 - **Type signature extraction** — captures parameter types, return types, generics, and heritage clauses
 - **Behavioral contracts** — mines throw statements, guard patterns, and test assertions to surface what a symbol guarantees
-- **Trust and freshness transparency** — every tool result includes a trust header showing graph age and confidence
+- **Trust and freshness transparency** — non-fresh results render a Trust header, while provenance labels and signal badges stay inline on every call
 
 ## Installation
 
@@ -60,63 +60,21 @@ bun install
 }
 ```
 
-Once registered, the 8 tools are available to the agent automatically. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
+Once registered, the 11 tools are available to the agent automatically. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
 
 ## Tools
-
 ### `symbol_graph`
 
-Look up a symbol and return its anchored relationship neighborhood — callers, callees, imports, and more.
+Return a symbol's callers, callees, tests, and key signals.
 
 ```
 symbol_graph({ name: "validateToken" })
 symbol_graph({ name: "validateToken", file: "src/auth.ts" })
 ```
 
-### `symbol_card`
-
-Compact summary of a symbol: definition, type signature, covering tests, key relationships, and signals — all in one call.
-
-```
-symbol_card({ name: "deleteEdge" })
-```
-
-### `symbol_contract`
-
-Behavioral contract extraction: what a symbol takes, returns, throws, and what tests assert about it.
-
-```
-symbol_contract({ name: "deleteEdge" })
-```
-
-### `impact`
-
-Given changed symbols, return downstream dependents classified by change type (signature change, removal, behavior change, addition).
-
-```
-impact({ symbols: ["validateToken"], changeType: "signature_change" })
-```
-
-### `trace`
-
-Return one deterministic anchored execution path from an entry point. Uses test coverage data when available, falls back to static analysis.
-
-```
-trace({ entry: "loginHandler" })
-```
-
-### `graph_query`
-
-Freeform Cypher subset queries against the graph for power-user exploration.
-
-```
-graph_query({ query: 'MATCH (n {kind: "function"}) RETURN n LIMIT 10' })
-graph_query({ query: 'MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b' })
-```
-
 ### `resolve_edge`
 
-Create an edge in the graph with evidence — the agent teaches the graph what static analysis can't see (DI wiring, factory patterns, runtime routing).
+Create an evidence-backed edge in the symbol graph.
 
 ```
 resolve_edge({
@@ -129,12 +87,76 @@ resolve_edge({
 
 ### `delete_edge`
 
-Remove an agent-created edge that turned out to be incorrect.
+Delete an agent-created edge from the symbol graph.
 
 ```
 delete_edge({ source: "AuthController", target: "TokenService", kind: "calls" })
 ```
 
+### `impact`
+
+Return the classified blast radius for a set of changed symbols.
+
+```
+impact({ symbols: ["validateToken"], changeType: "signature_change" })
+```
+
+### `trace`
+
+Return the execution path starting from an entry point. Coverage-backed when available.
+
+```
+trace({ entry: "loginHandler" })
+```
+
+### `graph_query`
+
+Run a Cypher subset query against the graph.
+
+```
+graph_query({ query: 'MATCH (n {kind: "function"}) RETURN n LIMIT 10' })
+graph_query({ query: 'MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b' })
+```
+
+### `symbol_card`
+
+Return a compact symbol summary with definition, signature, tests, relationships, and signals.
+
+```
+symbol_card({ name: "deleteEdge" })
+```
+
+### `symbol_contract`
+
+Return a symbol's behavioral contract from code and tests.
+
+```
+symbol_contract({ name: "deleteEdge" })
+```
+
+### `graph_overview`
+
+Return a high-level overview of the indexed codebase.
+
+```
+graph_overview({})
+```
+
+### `dead_code`
+
+Find unreferenced exported symbols or check whether a symbol is still referenced.
+
+```
+dead_code({})
+```
+
+### `symbol_search`
+
+Find symbols by approximate name match.
+
+```
+symbol_search({ query: "validate token" })
+```
 ## How It Works
 
 ### Indexing Pipeline
@@ -164,7 +186,7 @@ The graph is stored in SQLite (`.codegraph/graph.db`) with two tables:
 Every tool result is structured for agent consumption:
 
 - **Hashline anchors** (`file:line:hash`) on every symbol reference
-- **Trust headers** showing graph freshness and confidence
+- **Conditional Trust headers** on non-fresh results to show graph freshness and confidence when it matters
 - **Provenance labels** on every edge (`[source: lsp]`, `[source: tree-sitter]`, `[source: agent]`)
 - **Signal badges** (`[hub]`, `[tested]`, `[bottleneck]`) for quick assessment
 
@@ -172,7 +194,7 @@ Every tool result is structured for agent consumption:
 
 ```
 src/
-  index.ts                  # pi extension entry — registers all 8 tools
+  index.ts                  # pi extension entry — registers all 11 tools
   graph/
     types.ts                # GraphNode, GraphEdge, provenance types
     store.ts                # GraphStore interface
@@ -189,17 +211,21 @@ src/
     pipeline.ts             # Orchestrates all indexing stages
   tools/
     symbol-graph.ts         # symbol_graph tool
-    symbol-card.ts          # symbol_card tool
-    symbol-contract.ts      # symbol_contract tool
+    resolve-edge.ts         # resolve_edge tool
+    delete-edge.ts          # delete_edge tool
     impact.ts               # impact tool
     trace.ts                # trace tool
     graph-query.ts          # graph_query tool
+    symbol-card.ts          # symbol_card tool
+    symbol-contract.ts      # symbol_contract tool
+    graph-overview.ts       # graph_overview tool
+    dead-code.ts            # dead_code tool
+    symbol-search.ts        # symbol_search tool
     graph-query-parser.ts   # Cypher subset parser
     graph-query-compiler.ts # Query → SQL compiler
     graph-query-render.ts   # Query result renderer
-    resolve-edge.ts         # resolve_edge tool
-    delete-edge.ts          # delete_edge tool
     symbol-resolution.ts    # Shared disambiguation logic
+    token-tracker.ts        # Optional dev-only token meta footer
   output/
     anchoring.ts            # Hashline anchor computation
     trust.ts                # Trust header generation

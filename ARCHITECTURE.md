@@ -6,8 +6,10 @@
 ┌──────────────────────────────────────────────────────────┐
 │                      pi extension                         │
 │                                                           │
-│  Tools: symbol_graph | trace | impact | graph_query |     │
-│         resolve_edge                                      │
+│  Tools: symbol_graph | resolve_edge | delete_edge |          │
+│         impact | trace | graph_query | symbol_card |         │
+│         symbol_contract | graph_overview | dead_code |       │
+│         symbol_search                                       │
 │                                                           │
 │  ┌─────────────────────────────────────────────────────┐  │
 │  │                  Output Layer                        │  │
@@ -223,9 +225,9 @@ CREATE INDEX idx_nodes_name ON nodes(name);
 **Start with SQLite.** It's simpler, dependency-free, and sufficient for the v1 query patterns (1-3 hop traversals, symbol neighborhood lookups). If `graph_query` needs complex pattern matching that SQLite can't handle elegantly, migrate to KuzuDB. The graph model is the same either way — only the query engine changes.
 
 ## Output Layer
+Tool description authoring rules live in docs/tool-descriptions.md.
 
 Every tool response passes through the output layer before returning. It does two things:
-
 ### 1. Hashline Anchoring
 
 For every node in a result, read the current file content and produce the hashline anchor for the node's line range. This means results are always fresh — if a file changed since indexing, the anchors reflect the current state (and stale edges are flagged).
@@ -246,17 +248,31 @@ pi-codegraph/
 │   ├── index.ts                 # pi extension entry point
 │   ├── tools/
 │   │   ├── symbol-graph.ts      # symbol_graph tool
-│   │   ├── trace.ts             # trace tool
+│   │   ├── resolve-edge.ts      # resolve_edge tool
+│   │   ├── delete-edge.ts       # delete_edge tool
 │   │   ├── impact.ts            # impact tool
+│   │   ├── trace.ts             # trace tool
 │   │   ├── graph-query.ts       # graph_query tool
-│   │   └── resolve-edge.ts      # resolve_edge tool
+│   │   ├── symbol-card.ts       # symbol_card tool
+│   │   ├── symbol-contract.ts   # symbol_contract tool
+│   │   ├── graph-overview.ts    # graph_overview tool
+│   │   ├── dead-code.ts         # dead_code tool
+│   │   ├── symbol-search.ts     # symbol_search tool
+│   │   ├── graph-query-parser.ts   # Cypher subset parser
+│   │   ├── graph-query-compiler.ts # Query → SQL compiler
+│   │   ├── graph-query-render.ts   # Query result renderer
+│   │   ├── symbol-resolution.ts    # shared disambiguation logic
+│   │   └── token-tracker.ts        # optional dev-only token meta footer
 │   ├── indexer/
 │   │   ├── pipeline.ts          # orchestrates indexing stages
 │   │   ├── tree-sitter.ts       # Stage 1: structure extraction
-│   │   ├── lsp.ts               # Stage 2: semantic resolution
-│   │   ├── framework-rules.ts   # Stage 3: ast-grep pattern matching
-│   │   ├── test-coverage.ts     # Stage 4: V8 coverage → edges
-│   │   └── co-change.ts         # Stage 5: git history analysis
+│   │   ├── lsp.ts               # shared LSP helpers
+│   │   ├── lsp-resolver.ts      # Stage 2: semantic resolution
+│   │   ├── tsserver-client.ts   # tsserver lifecycle management
+│   │   ├── ast-grep.ts          # Stage 3: ast-grep pattern matching
+│   │   ├── coverage.ts          # Stage 4: V8 coverage → edges
+│   │   ├── git.ts               # Stage 5: git history analysis
+│   │   └── contract-extractor.ts # on-demand contract extraction
 │   ├── graph/
 │   │   ├── store.ts             # graph store abstraction
 │   │   ├── sqlite.ts            # SQLite implementation
@@ -264,7 +280,10 @@ pi-codegraph/
 │   │   └── types.ts             # node, edge, provenance types
 │   ├── output/
 │   │   ├── anchoring.ts         # hashline anchor generation
-│   │   └── ranking.ts           # result ranking and truncation
+│   │   ├── read-only-ceremony.ts # fresh-call output suppression
+│   │   ├── signals.ts           # signal badge computation
+│   │   ├── source.ts            # source snippet rendering
+│   │   └── trust.ts             # trust header generation
 │   └── rules/
 │       ├── express.yaml         # Express framework rules
 │       ├── react.yaml           # React framework rules
