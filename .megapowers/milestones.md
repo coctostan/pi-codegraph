@@ -133,32 +133,78 @@ The next work is no longer "build the missing tools". It is:
 
 ---
 
-## M8: Contracts and symbol cards — 🔶 NEXT
+## M8: Contracts and symbol cards — ✅ COMPLETE
 
 **Goal:** Turn codegraph from a dependency browser into a verification input. Extract type signatures, expose compact symbol cards, and mine behavioral contracts from types and test assertions.
 
 ### Issues
 - [x] #048 Type signature extraction from tree-sitter AST
 - [x] #049 `symbol_card` tool: compact symbol summary for agent consumption
-- [ ] #050 `symbol_contract` tool: extract behavioral evidence from types and tests
-- [ ] #051 M8: Contracts and symbol cards (batch)
+- [x] #050 `symbol_contract` tool: extract behavioral evidence from types and tests
+- [x] #051 M8: Contracts and symbol cards (batch)
 
 ### Build order
 1. #048 Type signature extraction (data layer)
 2. #049 symbol_card (assembly of existing data + signatures)
 3. #050 symbol_contract (new extraction: error paths, test assertion mining)
 
+**Exit criteria met.**
+
+---
+
+## M9: Agent ergonomics — ✅ COMPLETE
+
+**Goal:** Quick-win ergonomics improvements inspired by jCodeMunch analysis. Query existing graph data in new ways so agents pick up codegraph earlier in a session.
+
+### Issues
+- [x] #053 Graph overview / onboarding discovery tool
+- [x] #054 Dead code detection: find unreferenced symbols
+- [x] #055 Token savings tracking in tool response metadata
+- [x] #056 BM25 ranked symbol search
+- [x] #057 Inline source snippets in `symbol_card` output
+- [x] #058 M9 batch: overview, dead code, token tracking (sources #053, #054, #055)
+
+**Exit criteria met.**
+
+---
+
+## M10: Public-surface refocus — 🔶 IN PROGRESS
+
+**Goal:** Cut the 11-tool model-facing surface to ~3, strip per-call output ceremony, and normalize tool descriptions. No changes to the indexer, graph store, or schema — only the tool layer.
+
+**Why:** the observed failure mode is "agent doesn't pick any codegraph tool" (falls back to grep/read), not "agent picks the wrong one." Too many overlapping tools, unconditional Trust/`_meta` ceremony on every call, and inconsistent descriptions all suppress pick-rate.
+
+### Issues
+- [ ] #059 Phase 1 — Conditional Trust header and dev-gated `_meta: tokens_saved`
+- [ ] #060 Phase 2 — Normalize tool descriptions and reconcile README/code drift
+- [ ] #061 Phase 3 — Demote `graph_query` / `graph_overview` / `dead_code` behind `CODEGRAPH_DEVMODE`; make `symbol_search` internal
+- [ ] #062 Phase 4 — Unify symbol-lookup family (fold `symbol_card` / `symbol_contract` into `symbol_graph`)
+- [ ] #063 Phase 5 — Dead-code cut (evidence-driven removal of zero-usage tools)
+- [ ] #064 M10 batch: pre-surface cleanup (sources #059, #060)
+
+### Gates and sequencing
+
+- Phase 1 (#059) can ship immediately — reversible, no API change.
+- Phase 2 (#060) depends on nothing external; pairs naturally with Phase 1 (batch #064).
+- Phase 3 (#061) waits for CODI v0.1 usage data; before committing, verify the pick-rate thesis held after Phase 2.
+- Phase 4 (#062) waits for CODI v0.2 usage data to inform the unified tool's default output shape.
+- Phase 5 (#063) waits for a telemetry window that captures Phases 1–4 live.
+
 ### Exit criteria
-- A symbol can answer: what it takes in, what it returns, what tests cover it, what invariants hold
-- `symbol_card` returns a compact fact sheet in one call
-- `symbol_contract` returns behavioral evidence mined from types and test assertions
-- Type signatures are extracted and persisted for functions, classes, and interfaces
+
+- Public tool count drops from 11 to ~3 (plus dev-mode overflow).
+- Per-call output tokens drop measurably on fresh-graph calls.
+- Tool-picking rate on structural questions rises.
+- Zero regression on power-user capability (graph_query still works behind a flag).
+- README and code agree on what tools exist.
+
+**Reference:** `~/pi/workspace/thinkingspace/plans/codegraph-refocus-plan.md`.
 
 ---
 
 ## Sequencing summary
 
-- **Completed:** M0 → M7 (47 issues)
-- **Immediate next milestone:** M8 (contracts and symbol cards)
+- **Completed:** M0 → M9
+- **In progress:** M10 (public-surface refocus)
 
-This repo is in a **post-v1 capability expansion phase** — shifting from "build the graph engine" to "make it a verification input for agent workflows."
+This repo is in a **post-v1 refinement phase** — shifting from "build the graph engine" and "add capabilities" to "shrink and sharpen the surface so agents actually reach for it."

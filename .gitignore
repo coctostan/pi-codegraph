@@ -6,6 +6,9 @@ dist/
 # Generated graph database (created at runtime per-project)
 .codegraph/
 
+# Pi runtime cache (created at runtime per-project)
+.pi/
+
 # OS
 .DS_Store
 Thumbs.db

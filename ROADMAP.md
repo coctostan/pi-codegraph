@@ -2,7 +2,7 @@
 
 ## Status
 
-Core v1 through M8 is complete (M0–M8, 51 issues):
+Core v1 through M9 is complete (M0–M9):
 - M0 Foundation
 - M1 `symbol_graph` + `resolve_edge`
 - M2 LSP integration
@@ -12,8 +12,11 @@ Core v1 through M8 is complete (M0–M8, 51 issues):
 - M6 Functionality hardening and correctness
 - M7 Agent utility and product refinement
 - M8 Contracts and symbol cards
+- M9 Agent ergonomics (overview, dead code, token tracking, BM25 search, inline source)
 
-The roadmap now shifts to **future expansions** (multi-language, MCP, semantic search, etc.).
+**M10 (in progress):** Public-surface refocus — cut the 11-tool model-facing surface to ~3, strip per-call output ceremony, normalize tool descriptions. The graph stays as-is; only the tool layer on top changes.
+
+After M10, the roadmap shifts to **future expansions** (multi-language, MCP, semantic search, etc.).
 ---
 
 ## M0: Foundation — ✅ COMPLETE
@@ -155,6 +158,64 @@ The graph currently answers "where should I look?" but not "what does this symbo
 - Type signatures are extracted and persisted for functions, classes, and interfaces
 
 **Exit criteria met:** Symbol cards and contracts return compact, anchored summaries with type signatures, test coverage, error paths, and behavioral evidence. All 334 tests pass.
+---
+
+## M9: Agent ergonomics — ✅ COMPLETE
+
+**Goal:** Quick-win ergonomics improvements that query existing graph data in new ways. Inspired by jCodeMunch tool analysis.
+
+- [x] Graph overview / onboarding discovery tool _(#053)_
+- [x] Dead code detection: find unreferenced symbols _(#054)_
+- [x] Token savings tracking in tool response metadata _(#055)_
+- [x] BM25 ranked symbol search _(#056)_
+- [x] Inline source snippets in `symbol_card` output _(#057)_
+- [x] Deliver first three as batch _(#058)_
+
+**Exit criteria met:** Agents have an onboarding entry point, can answer "is this symbol used?", and see token-savings telemetry plus ranked symbol search and inline source snippets.
+
+---
+
+## M10: Public-surface refocus — 🔶 IN PROGRESS
+
+**Goal:** Cut the 11-tool model-facing surface to ~3, strip per-call output ceremony, and normalize tool descriptions. The graph, store, and schema stay unchanged — only the tool layer on top changes.
+
+**Why:** codegraph is technically strong but under-used. The failure mode is "agent doesn't pick any codegraph tool" (falls back to grep/read), not "agent picks the wrong one." Too many overlapping tools, unconditional Trust/`_meta` ceremony on every call, and inconsistent descriptions all suppress pick-rate.
+
+### Phases
+
+- [ ] **Phase 1 — Output ceremony cleanup** _(#059)_: conditional Trust header; dev-gated `_meta: tokens_saved`. Independent and reversible.
+- [ ] **Phase 2 — Description normalization** _(#060)_: style guide, concrete rewrites, reconcile README/code drift (README says 8 tools, code registers 11).
+- [ ] **Phase 3 — Demote dev-mode tools** _(#061)_: `graph_query`, `graph_overview`, `dead_code` behind `CODEGRAPH_DEVMODE`; `symbol_search` becomes internal; begin absorbing `symbol_contract` into `symbol_graph`.
+- [ ] **Phase 4 — Unify symbol-lookup family** _(#062)_: `symbol_graph` gains `include?: Array<"neighborhood" | "contract" | "signals" | "source">`; remove `symbol_card` and `symbol_contract` as standalone tools.
+- [ ] **Phase 5 — Dead-code cut** _(#063)_: evidence-driven removal of zero-usage tools (e.g. `resolve_edge` / `delete_edge`) based on telemetry.
+- [ ] **Batch: M10 pre-surface cleanup** _(#064)_: groups #059 + #060 (the two phases independent of CODI and external telemetry).
+
+### Gates and sequencing
+
+```
+Phase 1 (ceremony) ─┐
+                    ├── CODI v0.1 ─── Phase 2 (descriptions) ─── Phase 3 (demote)
+                    │                                             │
+                    │                                             ├── CODI v0.2 ─── Phase 4 (unify)
+                    │                                             │
+                    └─────────────────────────────────────────────┴── Phase 5 (cut)
+```
+
+- Phase 1 can ship immediately.
+- Phase 3 waits for CODI v0.1 usage data; before committing, verify the pick-rate thesis (did reducing surface raise codegraph pick-rate on structural questions?).
+- Phase 4 waits for CODI v0.2 usage data.
+- Phase 5 waits for a telemetry window that captures Phases 1–4 live.
+
+### Exit criteria
+
+- Public tool count drops from 11 to ~3 (plus dev-mode overflow).
+- Per-call output tokens drop measurably on fresh-graph calls.
+- Tool-picking rate on structural questions rises.
+- Zero regression on power-user capability (graph_query still works behind a flag).
+- README and code agree on what tools exist.
+
+**Reference:** `~/pi/workspace/thinkingspace/plans/codegraph-refocus-plan.md`.
+
 ---
 
 ## Future
