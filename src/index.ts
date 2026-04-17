@@ -2,6 +2,7 @@ import { Type, type TSchema } from "@sinclair/typebox";
 import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { accessSync, constants, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { devModeEnabled } from "./config/dev-mode.js";
 import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
@@ -17,13 +18,19 @@ import { symbolCard } from "./tools/symbol-card.js";
 import { symbolContract } from "./tools/symbol-contract.js";
 import { graphOverview } from "./tools/graph-overview.js";
 import { deadCode } from "./tools/dead-code.js";
-import { symbolSearch, resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
+import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
 import { suppressFreshTrustHeader } from "./output/read-only-ceremony.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  include: Type.Optional(
+    Type.Array(
+      Type.Union([Type.Literal("contract")]),
+      { description: "Optional extra sections to append to the response" },
+    ),
+  ),
 });
 
 const ResolveEdgeParams = Type.Object({
@@ -90,12 +97,6 @@ const DeadCodeParams = Type.Object({
   glob: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
 });
 
-const SymbolSearchParams = Type.Object({
-  query: Type.String({ description: "Search query (free text, supports partial names)" }),
-  kind: Type.Optional(Type.String({ description: "Filter by symbol kind (function, class, interface, etc.)" })),
-  file: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
-  limit: Type.Optional(Type.Number({ description: "Maximum results to return (default: 20)" })),
-});
 
 let sharedStore: GraphStore | null = null;
 let lastIndexError: Error | null = null;
@@ -178,6 +179,7 @@ function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: T
   pi.registerTool(tool);
 }
 export default function piCodegraph(pi: ExtensionAPI): void {
+  const devMode = devModeEnabled();
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
@@ -204,7 +206,13 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         }
       }
 
-      const text = symbolGraph({ name: params.name, file: params.file, store, projectRoot });
+      const text = symbolGraph({
+        name: params.name,
+        file: params.file,
+        include: params.include as Array<"contract"> | undefined,
+        store,
+        projectRoot,
+      });
       const output = finalizeReadOnlyOutput("symbol_graph", { name: params.name, file: params.file }, text, store, projectRoot);
       return { content: [{ type: "text", text: output }], details: undefined };
     },
@@ -312,21 +320,23 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  registerReadOnlyTool(pi, {
-    name: "graph_query",
-    label: "Graph Query",
-    description:
-      "Run a Cypher subset query against the graph.\nWhen to use: You need an ad hoc graph slice that is easier to express as a query.",
-    parameters: GraphQueryParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = graphQuery({ query: params.query, store, projectRoot });
-      const output = finalizeReadOnlyOutput("graph_query", {}, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
+  if (devMode) {
+    registerReadOnlyTool(pi, {
+      name: "graph_query",
+      label: "Graph Query",
+      description:
+        "Run a Cypher subset query against the graph.\nWhen to use: You need an ad hoc graph slice that is easier to express as a query.",
+      parameters: GraphQueryParams,
+      async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+        const projectRoot = ctx.cwd;
+        const store = getOrCreateStore(projectRoot);
+        await ensureIndexed(projectRoot, store);
+        const text = graphQuery({ query: params.query, store, projectRoot });
+        const output = finalizeReadOnlyOutput("graph_query", {}, text, store, projectRoot);
+        return { content: [{ type: "text", text: output }], details: undefined };
+      },
+    });
+  }
 
   registerReadOnlyTool(pi, {
     name: "symbol_card",
@@ -358,55 +368,38 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  registerReadOnlyTool(pi, {
-    name: "graph_overview",
-    label: "Graph Overview",
-    description: "Return a high-level overview of the indexed codebase.\nWhen to use: You need hotspots, distributions, and suggested starting points.",
-    parameters: GraphOverviewParams,
-    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = graphOverview({ store, projectRoot });
-      const output = finalizeReadOnlyOutput("graph_overview", {}, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
+  if (devMode) {
+    registerReadOnlyTool(pi, {
+      name: "graph_overview",
+      label: "Graph Overview",
+      description: "Return a high-level overview of the indexed codebase.\nWhen to use: You need hotspots, distributions, and suggested starting points.",
+      parameters: GraphOverviewParams,
+      async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+        const projectRoot = ctx.cwd;
+        const store = getOrCreateStore(projectRoot);
+        await ensureIndexed(projectRoot, store);
+        const text = graphOverview({ store, projectRoot });
+        const output = finalizeReadOnlyOutput("graph_overview", {}, text, store, projectRoot);
+        return { content: [{ type: "text", text: output }], details: undefined };
+      },
+    });
+  }
 
-  registerReadOnlyTool(pi, {
-    name: "dead_code",
-    label: "Dead Code",
-    description: "Find unreferenced exported symbols or check whether a symbol is still referenced.\nWhen to use: You are looking for cleanup candidates.",
-    parameters: DeadCodeParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
-      const output = finalizeReadOnlyOutput("dead_code", { name: params.name }, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
+  if (devMode) {
+    registerReadOnlyTool(pi, {
+      name: "dead_code",
+      label: "Dead Code",
+      description: "Find unreferenced exported symbols or check whether a symbol is still referenced.\nWhen to use: You are looking for cleanup candidates.",
+      parameters: DeadCodeParams,
+      async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+        const projectRoot = ctx.cwd;
+        const store = getOrCreateStore(projectRoot);
+        await ensureIndexed(projectRoot, store);
+        const text = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
+        const output = finalizeReadOnlyOutput("dead_code", { name: params.name }, text, store, projectRoot);
+        return { content: [{ type: "text", text: output }], details: undefined };
+      },
+    });
+  }
 
-  registerReadOnlyTool(pi, {
-    name: "symbol_search",
-    label: "Symbol Search",
-    description: "Find symbols by approximate name match.\nWhen to use: You know roughly what a symbol is called but not its exact name or file.",
-    parameters: SymbolSearchParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = symbolSearch({
-        query: params.query,
-        kind: params.kind as any,
-        file: params.file,
-        limit: params.limit,
-        store,
-        projectRoot,
-      });
-      const output = finalizeReadOnlyOutput("symbol_search", { query: params.query }, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
 }

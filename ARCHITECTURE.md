@@ -4,13 +4,15 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                      pi extension                         │
-│                                                           │
-│  Tools: symbol_graph | resolve_edge | delete_edge |          │
-│         impact | trace | graph_query | symbol_card |         │
-│         symbol_contract | graph_overview | dead_code |       │
-│         symbol_search                                       │
-│                                                           │
+│                      pi extension                        │
+│                                                          │
+│  Public: symbol_graph | resolve_edge | delete_edge |    │
+│          impact | trace | symbol_card |                 │
+│          symbol_contract                                │
+│  Dev:    graph_query | graph_overview | dead_code       │
+│          (registered only when CODEGRAPH_DEVMODE=1)     │
+│  Internal: symbol_search                                │
+│                                                          │
 │  ┌─────────────────────────────────────────────────────┐  │
 │  │                  Output Layer                        │  │
 │  │        Hashline-anchored results on every node       │  │
@@ -55,8 +57,9 @@
 └──────────────────────────────────────────────────────────┘
 ```
 
-## Indexing Pipeline
+Default registration exposes 7 public tools. `graph_query`, `graph_overview`, and `dead_code` register only when `CODEGRAPH_DEVMODE=1`. `symbol_search` remains internal-only for same-process callers.
 
+## Indexing Pipeline
 Indexing happens in stages. Each stage is independent and can run incrementally.
 
 ### Stage 1: Structure Extraction (tree-sitter)
@@ -245,19 +248,19 @@ Large neighborhoods (symbol with 40+ callers) can't dump everything into context
 ```
 pi-codegraph/
 ├── src/
-│   ├── index.ts                 # pi extension entry point
+│   ├── index.ts                 # pi extension entry point — 7 public tools by default, 3 dev-mode-only tools
 │   ├── tools/
 │   │   ├── symbol-graph.ts      # symbol_graph tool
 │   │   ├── resolve-edge.ts      # resolve_edge tool
 │   │   ├── delete-edge.ts       # delete_edge tool
 │   │   ├── impact.ts            # impact tool
 │   │   ├── trace.ts             # trace tool
-│   │   ├── graph-query.ts       # graph_query tool
+│   │   ├── graph-query.ts       # graph_query tool (dev mode only)
 │   │   ├── symbol-card.ts       # symbol_card tool
 │   │   ├── symbol-contract.ts   # symbol_contract tool
-│   │   ├── graph-overview.ts    # graph_overview tool
-│   │   ├── dead-code.ts         # dead_code tool
-│   │   ├── symbol-search.ts     # symbol_search tool
+│   │   ├── graph-overview.ts    # graph_overview tool (dev mode only)
+│   │   ├── dead-code.ts         # dead_code tool (dev mode only)
+│   │   ├── symbol-search.ts     # symbol_search helper (internal only)
 │   │   ├── graph-query-parser.ts   # Cypher subset parser
 │   │   ├── graph-query-compiler.ts # Query → SQL compiler
 │   │   ├── graph-query-render.ts   # Query result renderer

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml/badge.svg)](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml)
 
-A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 11 agent-optimized tools — so an agent can understand cross-file relationships in one call instead of grep→read chains.
+A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 7 public agent tools by default, with 3 dev-mode-only tools and 1 internal helper for deeper graph work.
 
 ## Why pi-codegraph?
 
@@ -18,7 +18,9 @@ Every result is hashline-anchored (`file:line:hash`) — the agent can edit any 
 
 ## Key Features
 
-- **11 agent tools** — `symbol_graph`, `resolve_edge`, `delete_edge`, `impact`, `trace`, `graph_query`, `symbol_card`, `symbol_contract`, `graph_overview`, `dead_code`, `symbol_search`
+- **7 public tools by default** — `symbol_graph`, `resolve_edge`, `delete_edge`, `impact`, `trace`, `symbol_card`, `symbol_contract`
+- **3 dev-mode tools behind `CODEGRAPH_DEVMODE=1`** — `graph_query`, `graph_overview`, `dead_code`
+- **1 internal helper** — `symbol_search` remains exported for internal callers but is not registered on the public extension surface
 - **Multi-layer indexing** — tree-sitter AST, LSP (tsserver), ast-grep framework rules, V8 test coverage, git co-change analysis
 - **Provenance on every edge** — each relationship carries its source, confidence, and evidence
 - **Agent-teachable graph** — agents create and delete edges with evidence when static analysis can't see the connection
@@ -60,22 +62,21 @@ bun install
 }
 ```
 
-Once registered, the 11 tools are available to the agent automatically. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
+Once registered, the 7 default public tools are available to the agent automatically. Set `CODEGRAPH_DEVMODE=1` before starting pi to also register `graph_query`, `graph_overview`, and `dead_code`. `symbol_search` remains internal-only. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
 
 ## Tools
-### `symbol_graph`
+### Public
 
+#### `symbol_graph`
 Return a symbol's callers, callees, tests, and key signals.
-
 ```
 symbol_graph({ name: "validateToken" })
 symbol_graph({ name: "validateToken", file: "src/auth.ts" })
+symbol_graph({ name: "validateToken", include: ["contract"] })
 ```
 
-### `resolve_edge`
-
+#### `resolve_edge`
 Create an evidence-backed edge in the symbol graph.
-
 ```
 resolve_edge({
   source: "AuthController",
@@ -85,78 +86,64 @@ resolve_edge({
 })
 ```
 
-### `delete_edge`
-
+#### `delete_edge`
 Delete an agent-created edge from the symbol graph.
-
 ```
 delete_edge({ source: "AuthController", target: "TokenService", kind: "calls" })
 ```
 
-### `impact`
-
+#### `impact`
 Return the classified blast radius for a set of changed symbols.
-
 ```
 impact({ symbols: ["validateToken"], changeType: "signature_change" })
 ```
 
-### `trace`
-
+#### `trace`
 Return the execution path starting from an entry point. Coverage-backed when available.
-
 ```
 trace({ entry: "loginHandler" })
 ```
 
-### `graph_query`
+#### `symbol_card`
+Return a compact symbol summary with definition, signature, tests, relationships, and signals.
+```
+symbol_card({ name: "deleteEdge" })
+```
 
+#### `symbol_contract`
+Return a symbol's behavioral contract from code and tests.
+```
+symbol_contract({ name: "deleteEdge" })
+```
+
+### Dev-mode
+
+Set `CODEGRAPH_DEVMODE=1` before starting pi to register these tools. This is the supported switch for re-exposing the dev-only surface.
+
+#### `graph_query`
 Run a Cypher subset query against the graph.
-
 ```
 graph_query({ query: 'MATCH (n {kind: "function"}) RETURN n LIMIT 10' })
 graph_query({ query: 'MATCH (a {name: "foo"})-[r:calls]->(b) RETURN a, r, b' })
 ```
 
-### `symbol_card`
-
-Return a compact symbol summary with definition, signature, tests, relationships, and signals.
-
-```
-symbol_card({ name: "deleteEdge" })
-```
-
-### `symbol_contract`
-
-Return a symbol's behavioral contract from code and tests.
-
-```
-symbol_contract({ name: "deleteEdge" })
-```
-
-### `graph_overview`
-
+#### `graph_overview`
 Return a high-level overview of the indexed codebase.
-
 ```
 graph_overview({})
 ```
 
-### `dead_code`
-
+#### `dead_code`
 Find unreferenced exported symbols or check whether a symbol is still referenced.
-
 ```
 dead_code({})
 ```
 
-### `symbol_search`
+### Internal
 
+#### `symbol_search`
 Find symbols by approximate name match.
-
-```
-symbol_search({ query: "validate token" })
-```
+`symbol_search` remains exported for internal callers but is not registered on the public extension surface.
 ## How It Works
 
 ### Indexing Pipeline
@@ -194,7 +181,7 @@ Every tool result is structured for agent consumption:
 
 ```
 src/
-  index.ts                  # pi extension entry — registers all 11 tools
+  index.ts                  # pi extension entry — registers 7 public tools by default, plus 3 dev-mode tools
   graph/
     types.ts                # GraphNode, GraphEdge, provenance types
     store.ts                # GraphStore interface
@@ -215,12 +202,12 @@ src/
     delete-edge.ts          # delete_edge tool
     impact.ts               # impact tool
     trace.ts                # trace tool
-    graph-query.ts          # graph_query tool
+    graph-query.ts          # graph_query tool (dev mode only)
     symbol-card.ts          # symbol_card tool
     symbol-contract.ts      # symbol_contract tool
-    graph-overview.ts       # graph_overview tool
-    dead-code.ts            # dead_code tool
-    symbol-search.ts        # symbol_search tool
+    graph-overview.ts       # graph_overview tool (dev mode only)
+    dead-code.ts            # dead_code tool (dev mode only)
+    symbol-search.ts        # symbol_search helper (internal only)
     graph-query-parser.ts   # Cypher subset parser
     graph-query-compiler.ts # Query → SQL compiler
     graph-query-render.ts   # Query result renderer
@@ -268,7 +255,7 @@ An agent reviewing a PR can call `impact` to see exactly which downstream symbol
 Before renaming or restructuring, `impact` with `changeType: "signature_change"` reveals every caller that would break. `trace` shows execution paths through the changed code.
 
 ### Understanding Unfamiliar Code
-`symbol_graph` gives the full relationship neighborhood. `symbol_card` gives the quick summary. `graph_query` enables exploratory questions like "find all functions that call anything in the auth module."
+`symbol_graph` gives the full relationship neighborhood. `symbol_card` gives the quick summary. `graph_query` (dev mode only via `CODEGRAPH_DEVMODE=1`) enables exploratory questions like "find all functions that call anything in the auth module."
 
 ### Agent-Driven Knowledge Building
 When static analysis misses a connection (dependency injection, factory patterns, runtime wiring), the agent uses `resolve_edge` to teach the graph. These edges persist and improve future queries for all tools.

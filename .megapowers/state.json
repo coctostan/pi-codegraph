@@ -1,57 +1,52 @@
 {
   "version": 1,
-  "activeIssue": "064-m10-pre-surface-cleanup-ceremony-and-des",
+  "activeIssue": "061-m10-phase-3-demote-graph-query-graph-ove",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1776353414506
+      "timestamp": 1776362568965
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1776355461243
+      "timestamp": 1776364307629
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1776357035543
+      "timestamp": 1776383573856
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1776358710834
+      "timestamp": 1776387045743
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1776359665476
+      "timestamp": 1776387951104
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1776360233868
+      "timestamp": 1776388676105
     }
   ],
   "planMode": null,
-  "planIteration": 1,
-  "currentTaskIndex": 6,
+  "planIteration": 3,
+  "currentTaskIndex": 5,
   "completedTasks": [
     1,
     2,
     3,
     4,
     5,
-    6,
-    7
+    6
   ],
-  "tddTaskState": {
-    "taskIndex": 7,
-    "state": "test-written",
-    "skipped": false
-  },
+  "tddTaskState": null,
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -61,6 +56,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/064-m10-pre-surface-cleanup-ceremony-and-des",
+  "branchName": "feat/061-m10-phase-3-demote-graph-query-graph-ove",
   "baseBranch": "main"
 }

@@ -22,4 +22,5 @@ Tool descriptions exist to help the model decide whether to call a tool. Keep th
 - `Find symbols by approximate name. Parameters: query, kind, file, limit.`
 
 ## Maintenance
-`src/index.ts` is the source of truth for registered tools. When the tool surface changes, update this guide, `README.md`, and `ARCHITECTURE.md` together.
+`src/index.ts` is the source of truth for registered tools. Keep the 7-tool default public surface, the 3 dev-mode-only tools behind `CODEGRAPH_DEVMODE=1`, and the internal-only `symbol_search` status consistent across this guide, `README.md`, and `ARCHITECTURE.md`.
+Keep parameter-level notes terse; additions such as `symbol_graph.include` belong in README or schema docs, not in top-level tool descriptions.
