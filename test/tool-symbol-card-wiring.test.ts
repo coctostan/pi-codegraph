@@ -1,23 +1,16 @@
 import { expect, test } from "bun:test";
-
-test("pi extension registers symbol_card tool with correct schema", async () => {
-  const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
+test("pi extension no longer registers symbol_card and keeps internal renderers exported", async () => {
+  const registeredTools: Array<{ name: string }> = [];
   const mockPi = {
-    registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
+    registerTool(tool: { name: string }) {
       registeredTools.push(tool);
     },
     on() {},
   };
-
   const { default: piCodegraph } = await import("../src/index.js");
+  const symbolCardMod = await import("../src/tools/symbol-card.js");
   piCodegraph(mockPi as any);
-
-  const scTool = registeredTools.find((t) => t.name === "symbol_card");
-  expect(scTool).toBeDefined();
-
-  const schema = scTool!.parameters as any;
-  expect(schema.properties.name).toBeDefined();
-  expect(schema.properties.file).toBeDefined();
-  expect(schema.required).toContain("name");
-  expect(schema.required).not.toContain("file");
+  expect(registeredTools.find((t) => t.name === "symbol_card")).toBeUndefined();
+  expect(typeof (symbolCardMod as any).renderSymbolCardBody).toBe("function");
+  expect(typeof (symbolCardMod as any).renderSymbolSourceSection).toBe("function");
 });

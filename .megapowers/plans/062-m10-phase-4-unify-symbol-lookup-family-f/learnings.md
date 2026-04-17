@@ -1,0 +1,5 @@
+- Consolidating overlapping public tools is safer when the old rendering paths are preserved as shared internal exports first, then recomposed behind one public entry point.
+- Snapshot-free regression protection worked well here: byte-equality assertions for the legacy neighborhood body and explicit string assertions for the compact card caught drift without adding snapshot maintenance noise.
+- Include-driven composition needs explicit error-path handling; otherwise appended sections can accidentally duplicate not-found or ambiguity blocks.
+- Docs drift was a real risk area, not cleanup-only work. Adding a dedicated docs regression test was worth it because the public surface changed in multiple places at once.
+- Keeping `symbolCard()` output shape intact while extracting `renderSymbolCardBody()` and `renderSymbolSourceSection()` reduced blast radius and let the new default `symbol_graph` base evolve without breaking older internal tests.

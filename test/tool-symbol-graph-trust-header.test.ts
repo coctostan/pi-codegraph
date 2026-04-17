@@ -56,7 +56,7 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
       created_at: 1,
     });
 
-    const freshOutput = symbolGraph({ name: "foo", file: "src/a.ts", store, projectRoot });
+    const freshOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
     const freshLines = freshOutput.trimEnd().split("\n");
 
     expect(freshLines[0]).toBe("## Trust");
@@ -78,7 +78,7 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
       created_at: 2,
     });
 
-    const mixedOutput = symbolGraph({ name: "foo", file: "src/a.ts", store, projectRoot });
+    const mixedOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
     const mixedLines = mixedOutput.trimEnd().split("\n");
 
     expect(mixedLines[0]).toBe("## Trust");

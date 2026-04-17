@@ -14,8 +14,6 @@ import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
 import { graphQuery } from "./tools/graph-query.js";
-import { symbolCard } from "./tools/symbol-card.js";
-import { symbolContract } from "./tools/symbol-contract.js";
 import { graphOverview } from "./tools/graph-overview.js";
 import { deadCode } from "./tools/dead-code.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
@@ -27,7 +25,11 @@ const SymbolGraphParams = Type.Object({
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
   include: Type.Optional(
     Type.Array(
-      Type.Union([Type.Literal("contract")]),
+      Type.Union([
+        Type.Literal("neighborhood"),
+        Type.Literal("contract"),
+        Type.Literal("source"),
+      ]),
       { description: "Optional extra sections to append to the response" },
     ),
   ),
@@ -77,16 +79,6 @@ const DeleteEdgeParams = Type.Object({
   targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
 });
 
-const SymbolCardParams = Type.Object({
-  name: Type.String({ description: "Symbol name to look up" }),
-  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
-  maxSourceLines: Type.Optional(Type.Number({ description: "Maximum lines of source to inline (default: 50)" })),
-});
-
-const SymbolContractParams = Type.Object({
-  name: Type.String({ description: "Symbol name to look up" }),
-  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
-});
 
 const GraphOverviewParams = Type.Object({});
 
@@ -209,7 +201,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const text = symbolGraph({
         name: params.name,
         file: params.file,
-        include: params.include as Array<"contract"> | undefined,
+        include: params.include as Array<"neighborhood" | "contract" | "source"> | undefined,
         store,
         projectRoot,
       });
@@ -338,35 +330,6 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     });
   }
 
-  registerReadOnlyTool(pi, {
-    name: "symbol_card",
-    label: "Symbol Card",
-    description: "Return a compact symbol summary with definition, signature, tests, relationships, and signals.",
-    parameters: SymbolCardParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = symbolCard({ name: params.name, file: params.file, maxSourceLines: params.maxSourceLines, store, projectRoot });
-      const output = finalizeReadOnlyOutput("symbol_card", { name: params.name, file: params.file }, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
-
-  registerReadOnlyTool(pi, {
-    name: "symbol_contract",
-    label: "Symbol Contract",
-    description: "Return a symbol's behavioral contract from code and tests.\nWhen to use: You need inputs, outputs, throws, or asserted behavior.",
-    parameters: SymbolContractParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      const text = symbolContract({ name: params.name, file: params.file, store, projectRoot });
-      const output = finalizeReadOnlyOutput("symbol_contract", { name: params.name, file: params.file }, text, store, projectRoot);
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
 
   if (devMode) {
     registerReadOnlyTool(pi, {

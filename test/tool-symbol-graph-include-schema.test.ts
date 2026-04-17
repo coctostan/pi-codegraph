@@ -10,31 +10,34 @@ import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { computeAnchor } from "../src/output/anchoring.js";
 import { symbolGraph } from "../src/tools/symbol-graph.js";
 
-test("symbol_graph accepts include:[\"contract\"] in the schema and keeps default output byte-identical", () => {
+test("symbol_graph accepts include values for neighborhood, contract, and source and keeps default output byte-identical", () => {
   const tools: ToolDefinition<any>[] = [];
   const mockPi: ExtensionAPI = {
     registerTool(tool: ToolDefinition<any>) {
       tools.push(tool);
     },
   } as any;
-
   resetStoreForTesting();
   piCodegraph(mockPi);
-
   const tool = tools.find((candidate) => candidate.name === "symbol_graph");
   if (!tool) {
     throw new Error("symbol_graph was not registered");
   }
-
   const schema = tool.parameters as any;
   if (!schema.properties.include) {
     throw new Error("symbol_graph schema is missing include");
   }
+  if (!Value.Check(schema, { name: "foo", include: ["neighborhood"] })) {
+    throw new Error('symbol_graph schema rejected include=["neighborhood"]');
+  }
   if (!Value.Check(schema, { name: "foo", include: ["contract"] })) {
     throw new Error('symbol_graph schema rejected include=["contract"]');
   }
-  if (Value.Check(schema, { name: "foo", include: ["neighborhood"] })) {
-    throw new Error('symbol_graph schema accepted include=["neighborhood"]');
+  if (!Value.Check(schema, { name: "foo", include: ["source"] })) {
+    throw new Error('symbol_graph schema rejected include=["source"]');
+  }
+  if (Value.Check(schema, { name: "foo", include: ["signals"] })) {
+    throw new Error('symbol_graph schema accepted include=["signals"]');
   }
 
   const projectRoot = join(tmpdir(), `pi-cg-sg-include-${Date.now()}`);
@@ -56,12 +59,10 @@ test("symbol_graph accepts include:[\"contract\"] in the schema and keeps defaul
       is_exported: true,
     });
 
-    const node = store.findNodes("foo")[0]!;
-    const anchor = computeAnchor(node, projectRoot).anchor;
     const withoutInclude = symbolGraph({ name: "foo", store, projectRoot });
-    expect(withoutInclude).toBe(
-      `## Trust\nstatus: fresh\nevidence: none  stale-files: 0/0\n## foo (function)\n${anchor} [entry-point, leaf, untested]\n`,
-    );
+    expect(withoutInclude).toContain("## foo (function)");
+    expect(withoutInclude).toContain("### Signature");
+    expect(withoutInclude).toContain("### Signals");
 
     const withEmptyInclude = symbolGraph({ name: "foo", include: [] as any, store, projectRoot });
     expect(withEmptyInclude).toBe(withoutInclude);

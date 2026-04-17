@@ -94,18 +94,40 @@ test("symbolGraph appends the standalone symbol_contract body when include conta
   }
 });
 
-test("symbolGraph appends the standalone symbol_contract empty state when include contains contract for an unknown symbol", () => {
+test("symbolGraph keeps unknown-symbol contract lookups explicit without duplicating the empty state", () => {
   const { projectRoot, store, cleanup } = setupContractFixture();
   try {
     const base = symbolGraph({ name: "doesNotExist", store, projectRoot });
-    const standaloneBody = suppressFreshTrustHeader(
-      symbolContractTool.symbolContract({ name: "doesNotExist", store, projectRoot }),
-    );
     const withContract = symbolGraph({ name: "doesNotExist", include: ["contract"] as any, store, projectRoot });
-
-    expect(withContract.startsWith(base)).toBe(true);
-    expect(withContract.slice(base.length)).toBe(`\n\n${standaloneBody}`);
+    expect(withContract).toBe(base);
+    expect(withContract).toContain('Symbol "doesNotExist" not found');
+    expect((withContract.match(/Symbol "doesNotExist" not found/g) ?? []).length).toBe(1);
     expect((withContract.match(/## Trust/g) ?? []).length).toBe(1);
+  } finally {
+    cleanup();
+  }
+});
+
+test("symbolGraph keeps ambiguous contract lookups explicit without duplicating the ambiguity block", () => {
+  const { projectRoot, store, cleanup } = setupContractFixture();
+  try {
+    const dupContent = "export class validate {}\n";
+    writeFileSync(join(projectRoot, "src/validate-class.ts"), dupContent);
+    const dupHash = sha256Hex(dupContent);
+    store.addNode({
+      id: "src/validate-class.ts::validate:1",
+      kind: "class",
+      name: "validate",
+      file: "src/validate-class.ts",
+      start_line: 1,
+      end_line: 1,
+      content_hash: dupHash,
+    });
+
+    const ambiguous = symbolGraph({ name: "validate", include: ["contract"] as any, store, projectRoot });
+    expect((ambiguous.match(/Multiple matches for "validate":/g) ?? []).length).toBe(1);
+    expect(ambiguous).toContain("src/validate.ts");
+    expect(ambiguous).toContain("src/validate-class.ts");
   } finally {
     cleanup();
   }

@@ -53,7 +53,7 @@ test("self-referential edge should not produce duplicate caller entries", () => 
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "Foo", store, projectRoot });
+    const output = symbolGraph({ name: "Foo", include: ["neighborhood"] as any, store, projectRoot });
 
     // Count how many times the self-referential entry appears in the output.
     // The node line format includes file:line:hash and the node name.

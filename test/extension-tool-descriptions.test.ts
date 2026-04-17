@@ -1,14 +1,12 @@
 import { test } from "bun:test";
 
-test("pi extension registers the approved descriptions for the 7 default public tools", async () => {
+test("pi extension registers the approved descriptions for the 5 default public tools", async () => {
   const expected = new Map<string, string>([
     ["symbol_graph", "Return a symbol's callers, callees, tests, and key signals.\nWhen to use: You need structural context for a named symbol."],
     ["resolve_edge", "Create an evidence-backed edge in the symbol graph.\nWhen to use: The graph is missing a relationship you can justify from code or docs."],
     ["delete_edge", "Delete an agent-created edge from the symbol graph.\nWhen to use: An agent-added relationship is incorrect or obsolete."],
     ["impact", "Return the classified blast radius for a set of changed symbols.\nWhen to use: You are planning or reviewing a change to existing code."],
     ["trace", "Return the execution path starting from an entry point. Coverage-backed when available.\nWhen to use: You need to understand what actually runs."],
-    ["symbol_card", "Return a compact symbol summary with definition, signature, tests, relationships, and signals."],
-    ["symbol_contract", "Return a symbol's behavioral contract from code and tests.\nWhen to use: You need inputs, outputs, throws, or asserted behavior."],
   ]);
 
   const registeredTools: Array<{ name: string; description: string }> = [];
