@@ -1,0 +1,5 @@
+- Tool-surface changes are safer when the env decision is made once at registration time, not re-checked inside execute handlers. That gives a stable session contract and makes tests simpler.
+- When one tool needs to embed another tool’s content, extracting a shared body renderer is the right seam. It prevents drift in empty states, stale-state handling, and formatting.
+- Registration tests should assert both absence and presence across env states. Default-surface regressions are easy to miss if tests only cover the enabled path.
+- Docs for tool surfaces need an explicit public/dev/internal split once gating exists. A flat inventory drifts quickly and becomes misleading for model-facing behavior.
+- Internal helpers like `symbolSearch` benefit from dedicated regression tests even after removal from public registration. That keeps refactors honest without preserving unnecessary surface area.

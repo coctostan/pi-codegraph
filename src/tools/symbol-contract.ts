@@ -60,15 +60,17 @@ function parseSignatureParams(signature: string): { params: string[]; returnType
   return { params, returnType };
 }
 
-export function symbolContract(params: SymbolContractParams): string {
+export interface RenderedSymbolContract {
+  body: string;
+  hasLocalExceptions: boolean;
+}
+
+export function renderSymbolContractBody(params: SymbolContractParams): RenderedSymbolContract {
   const { name, file, store, projectRoot } = params;
-  const stats = store.getStatistics(projectRoot);
   const nodes = store.findNodes(name, file);
-
   if (nodes.length === 0) {
-    return prependTrustHeader(`Symbol "${name}" not found`, { stats });
+    return { body: `Symbol "${name}" not found`, hasLocalExceptions: false };
   }
-
   if (nodes.length > 1) {
     const lines: string[] = [`Multiple matches for "${name}":\n`];
     for (const node of nodes) {
@@ -78,18 +80,13 @@ export function symbolContract(params: SymbolContractParams): string {
     }
     const body = `${lines.join("\n")}\n`;
     const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
-    return prependTrustHeader(body, { stats, hasLocalExceptions });
+    return { body, hasLocalExceptions };
   }
-
   const node = nodes[0]!;
   const anchor = computeAnchor(node, projectRoot);
   const lines: string[] = [];
-
-  // Header
   lines.push(`## Contract: ${node.name}`);
   lines.push(anchor.anchor);
-
-  // Takes / Returns from signature
   if (node.signature) {
     const { params: sigParams, returnType } = parseSignatureParams(node.signature);
     if (sigParams.length > 0) {
@@ -105,8 +102,6 @@ export function symbolContract(params: SymbolContractParams): string {
       lines.push(`  ${returnType}`);
     }
   }
-
-  // Throws and Guards from function body
   const fullPath = join(projectRoot, node.file);
   if (existsSync(fullPath) && node.start_line && node.end_line) {
     try {
@@ -119,7 +114,6 @@ export function symbolContract(params: SymbolContractParams): string {
           lines.push(`  - ${t}`);
         }
       }
-
       const guards = extractGuards(fileContent, node.start_line, node.end_line);
       if (guards.length > 0) {
         lines.push("");
@@ -132,21 +126,16 @@ export function symbolContract(params: SymbolContractParams): string {
       // File unreadable — skip throws/guards
     }
   }
-
-  // Test-evidenced behaviors
   const allNeighbors = store.getNeighbors(node.id);
   const testEdges = allNeighbors.filter(
     (nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id,
   );
-
   if (testEdges.length > 0) {
     const allBehaviors: Array<{ testName: string; assertions: string[] }> = [];
-
     for (const te of testEdges) {
       const testNode = te.node;
       const testPath = join(projectRoot, testNode.file);
       if (!existsSync(testPath)) continue;
-
       try {
         const testContent = readFileSync(testPath, "utf-8");
         const behaviors = extractTestAssertions(testContent);
@@ -159,19 +148,24 @@ export function symbolContract(params: SymbolContractParams): string {
         // Test file unreadable — skip
       }
     }
-
     if (allBehaviors.length > 0) {
       lines.push("");
       lines.push(`### Test-evidenced behaviors (from ${testEdges.length} tests)`);
       for (const b of allBehaviors) {
-        lines.push(`  \u2713 ${b.testName}`);
+        lines.push(`  ✓ ${b.testName}`);
         for (const a of b.assertions) {
           lines.push(`    ${a}`);
         }
       }
     }
   }
-
-  const body = lines.join("\n") + "\n";
-  return prependTrustHeader(body, { stats, hasLocalExceptions: anchor.stale });
+  return {
+    body: lines.join("\n") + "\n",
+    hasLocalExceptions: anchor.stale,
+  };
+}
+export function symbolContract(params: SymbolContractParams): string {
+  const stats = params.store.getStatistics(params.projectRoot);
+  const rendered = renderSymbolContractBody(params);
+  return prependTrustHeader(rendered.body, { stats, hasLocalExceptions: rendered.hasLocalExceptions });
 }

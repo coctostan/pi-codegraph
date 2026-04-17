@@ -7,17 +7,24 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 
 function registerTools() {
-  const tools: Array<{ name: string; execute: Function }> = [];
-  const mockPi = {
-    registerTool(tool: { name: string; execute: Function }) {
-      tools.push(tool);
-    },
-    on() {},
-  };
+  const previous = process.env.CODEGRAPH_DEVMODE;
+  process.env.CODEGRAPH_DEVMODE = "1";
 
+  try {
+    const tools: Array<{ name: string; execute: Function }> = [];
+    const mockPi = {
+      registerTool(tool: { name: string; execute: Function }) {
+        tools.push(tool);
+      },
+      on() {},
+    };
   resetStoreForTesting();
-  piCodegraph(mockPi as any);
-  return tools;
+    piCodegraph(mockPi as any);
+    return tools;
+  } finally {
+    if (previous === undefined) delete process.env.CODEGRAPH_DEVMODE;
+    else process.env.CODEGRAPH_DEVMODE = previous;
+  }
 }
 
 function createFreshProject(): string {

@@ -11,7 +11,14 @@ describe("PTC metadata on tool registrations", () => {
     },
   } as any;
 
-  piCodegraph(mockPi);
+  const previous = process.env.CODEGRAPH_DEVMODE;
+  process.env.CODEGRAPH_DEVMODE = "1";
+  try {
+    piCodegraph(mockPi);
+  } finally {
+    if (previous === undefined) delete process.env.CODEGRAPH_DEVMODE;
+    else process.env.CODEGRAPH_DEVMODE = previous;
+  }
 
   const READ_ONLY_TOOLS = [
     "symbol_graph",
@@ -20,6 +27,8 @@ describe("PTC metadata on tool registrations", () => {
     "graph_query",
     "symbol_card",
     "symbol_contract",
+    "graph_overview",
+    "dead_code",
   ];
 
   const MUTATING_TOOLS = ["resolve_edge", "delete_edge"];

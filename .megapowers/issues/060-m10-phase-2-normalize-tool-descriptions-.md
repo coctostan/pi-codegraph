@@ -1,7 +1,7 @@
 ---
 id: 60
 type: feature
-status: open
+status: done
 created: 2026-04-16T15:01:36.274Z
 milestone: M10
 ---

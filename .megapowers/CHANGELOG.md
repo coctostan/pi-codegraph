@@ -83,3 +83,6 @@
 - `getNeighbors` with direction `"both"` no longer returns duplicate entries for self-referential edges; dedup uses the edge composite primary key so distinct edges are preserved (#039)
 - `symbol_graph` now renders all 8 edge kinds (implements, extends, tested_by, co_changes_with, renders, routes_to — previously only calls and imports) with direction-aware section titles; removed `renderImplementationsSuffix` bolt-on; `formatNeighborhood` refactored to accept generic named sections (#040)
 - `delete_edge` tool: agents can now retract incorrect agent-authored edges from the graph; resolves source/target symbols, validates edge kind, checks for existing agent-provenance edge before deletion, and protects structural (non-agent) edges; registered alongside the existing 5 tools with readonly error handling (#044)
+
+### Changed
+- Default tool registration now exposes 7 public tools; `graph_query`, `graph_overview`, and `dead_code` move behind load-time `CODEGRAPH_DEVMODE` gating, `symbol_search` becomes internal-only, and `symbol_graph` gains optional `include:["contract"]` output powered by the shared `symbol_contract` renderer (#061)

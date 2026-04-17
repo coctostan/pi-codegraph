@@ -9,10 +9,12 @@ import {
 } from "../output/anchoring.js";
 import { createSignalComputer, type NodeSignals } from "../output/signals.js";
 import { prependTrustHeader } from "../output/trust.js";
+import { renderSymbolContractBody } from "./symbol-contract.js";
 
 export interface SymbolGraphParams {
   name: string;
   file?: string;
+  include?: Array<"contract">;
   limit?: number;
   store: GraphStore;
   projectRoot: string;
@@ -91,104 +93,106 @@ function sectionTitle(edgeKind: string, direction: "in" | "out"): string {
 }
 
 export function symbolGraph(params: SymbolGraphParams): string {
-  const { name, file, limit = 10, store, projectRoot } = params;
+  const { name, file, include, limit = 10, store, projectRoot } = params;
   const stats = store.getStatistics(projectRoot);
   const nodes = store.findNodes(name, file);
 
-  if (nodes.length === 0) {
-    return prependTrustHeader(`Symbol "${name}" not found`, { stats });
-  }
+  let body: string;
+  let hasLocalExceptions = false;
 
-  if (nodes.length > 1) {
+  if (nodes.length === 0) {
+    body = `Symbol "${name}" not found`;
+  } else if (nodes.length > 1) {
     const lines: string[] = [`Multiple matches for "${name}":\n`];
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
       lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
     }
-    const body = `${lines.join("\n")}\n`;
-    const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
-    return prependTrustHeader(body, { stats, hasLocalExceptions });
-  }
+    body = `${lines.join("\n")}\n`;
+    hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
+  } else {
+    const node = nodes[0]!;
+    const symbolAnchor = computeAnchor(node, projectRoot);
+    const signalComputer = createSignalComputer(store);
+    const allNeighbors = store.getNeighbors(node.id);
+    const computeSignals = (nodeId: string) => signalComputer.compute(nodeId);
 
-  const node = nodes[0]!;
-  const symbolAnchor = computeAnchor(node, projectRoot);
-  const signalComputer = createSignalComputer(store);
-  const allNeighbors = store.getNeighbors(node.id);
-  const computeSignals = (nodeId: string) => signalComputer.compute(nodeId);
+    const buckets = new Map<string, NeighborResult[]>();
+    const unresolvedResults: NeighborResult[] = [];
 
-  // Bucket neighbors by section title
-  const buckets = new Map<string, NeighborResult[]>();
-  const unresolvedResults: NeighborResult[] = [];
+    for (const nr of allNeighbors) {
+      if (nr.node.file.startsWith("__meta__")) {
+        continue;
+      }
+      if (nr.node.file.startsWith("__unresolved__")) {
+        unresolvedResults.push(nr);
+        continue;
+      }
 
-  for (const nr of allNeighbors) {
-    if (nr.node.file.startsWith("__meta__")) {
-      continue; // Internal markers — not real symbols
+      const direction = nr.edge.target === node.id ? "in" : "out";
+      const title = sectionTitle(nr.edge.kind, direction);
+      let bucket = buckets.get(title);
+      if (!bucket) {
+        bucket = [];
+        buckets.set(title, bucket);
+      }
+      bucket.push(nr);
     }
-    if (nr.node.file.startsWith("__unresolved__")) {
-      unresolvedResults.push(nr);
-      continue;
+
+    const sectionOrder = [
+      "Callers", "Callees", "Imports", "Imported By",
+      "Implemented By", "Implements",
+      "Extended By", "Extends",
+      "Tested By", "Tests",
+      "Co-changes With",
+      "Rendered By", "Renders",
+      "Routed From", "Routes To",
+    ];
+
+    const namedSections: NamedSection[] = [];
+
+    for (const title of sectionOrder) {
+      const bucket = buckets.get(title);
+      if (bucket && bucket.length > 0) {
+        namedSections.push({
+          title,
+          section: buildSection(bucket, limit, projectRoot, store, computeSignals),
+        });
+        buckets.delete(title);
+      }
     }
 
-    const direction = nr.edge.target === node.id ? "in" : "out";
-    const title = sectionTitle(nr.edge.kind, direction);
-    let bucket = buckets.get(title);
-    if (!bucket) {
-      bucket = [];
-      buckets.set(title, bucket);
+    for (const [title, bucket] of buckets) {
+      if (bucket.length > 0) {
+        namedSections.push({
+          title,
+          section: buildSection(bucket, limit, projectRoot, store, computeSignals),
+        });
+      }
     }
-    bucket.push(nr);
-  }
 
-  // Build named sections in a stable order
-  const sectionOrder = [
-    "Callers", "Callees", "Imports", "Imported By",
-    "Implemented By", "Implements",
-    "Extended By", "Extends",
-    "Tested By", "Tests",
-    "Co-changes With",
-    "Rendered By", "Renders",
-    "Routed From", "Routes To",
-  ];
-
-  const namedSections: NamedSection[] = [];
-
-  for (const title of sectionOrder) {
-    const bucket = buckets.get(title);
-    if (bucket && bucket.length > 0) {
+    if (unresolvedResults.length > 0) {
       namedSections.push({
-        title,
-        section: buildSection(bucket, limit, projectRoot, store, computeSignals),
-      });
-      buckets.delete(title);
-    }
-  }
-
-  // Unknown edge kinds appended at end
-  for (const [title, bucket] of buckets) {
-    if (bucket.length > 0) {
-      namedSections.push({
-        title,
-        section: buildSection(bucket, limit, projectRoot, store, computeSignals),
+        title: "Unresolved",
+        section: buildSection(unresolvedResults, limit, projectRoot, store),
       });
     }
+
+    body = formatNeighborhood(
+      { name: node.name, kind: node.kind, anchor: symbolAnchor, signals: signalComputer.compute(node.id) },
+      namedSections,
+    );
+
+    hasLocalExceptions =
+      symbolAnchor.stale || namedSections.some((ns) => hasStaleItems(ns.section));
   }
 
-  // Unresolved always last
-  if (unresolvedResults.length > 0) {
-    namedSections.push({
-      title: "Unresolved",
-      section: buildSection(unresolvedResults, limit, projectRoot, store),
-    });
+  if (include?.includes("contract")) {
+    const rendered = renderSymbolContractBody({ name, file, store, projectRoot });
+    body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${rendered.body}`;
+    hasLocalExceptions = hasLocalExceptions || rendered.hasLocalExceptions;
   }
-
-  const body = formatNeighborhood(
-    { name: node.name, kind: node.kind, anchor: symbolAnchor, signals: signalComputer.compute(node.id) },
-    namedSections,
-  );
-
-  const hasLocalExceptions = symbolAnchor.stale
-    || namedSections.some((ns) => hasStaleItems(ns.section));
 
   return prependTrustHeader(body, { stats, hasLocalExceptions });
 }
