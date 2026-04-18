@@ -36,7 +36,7 @@ test("symbolGraph natively renders implements edges without bolt-on suffix", () 
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "MyInterface", store, projectRoot });
+    const output = symbolGraph({ name: "MyInterface", include: ["neighborhood"] as any, store, projectRoot });
 
     // Implemented By should appear natively (from symbol-graph.ts, not bolt-on)
     expect(output).toContain("### Implemented By");

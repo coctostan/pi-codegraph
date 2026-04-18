@@ -69,12 +69,12 @@ test("symbolGraph renders implements edges with direction-aware titles", () => {
     });
 
     // Query the interface — incoming implements → "Implemented By"
-    const ifaceOutput = symbolGraph({ name: "IFoo", store, projectRoot });
+    const ifaceOutput = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(ifaceOutput).toContain("### Implemented By");
     expect(ifaceOutput).toContain("FooImpl");
 
     // Query the class — outgoing implements → "Implements"
-    const classOutput = symbolGraph({ name: "FooImpl", store, projectRoot });
+    const classOutput = symbolGraph({ name: "FooImpl", include: ["neighborhood"] as any, store, projectRoot });
     expect(classOutput).toContain("### Implements");
     expect(classOutput).toContain("IFoo");
 
@@ -102,11 +102,11 @@ test("symbolGraph renders extends edges with direction-aware titles", () => {
       created_at: Date.now(),
     });
 
-    const parentOutput = symbolGraph({ name: "FooImpl", store, projectRoot });
+    const parentOutput = symbolGraph({ name: "FooImpl", include: ["neighborhood"] as any, store, projectRoot });
     expect(parentOutput).toContain("### Extended By");
     expect(parentOutput).toContain("ChildClass");
 
-    const childOutput = symbolGraph({ name: "ChildClass", store, projectRoot });
+    const childOutput = symbolGraph({ name: "ChildClass", include: ["neighborhood"] as any, store, projectRoot });
     expect(childOutput).toContain("### Extends");
     expect(childOutput).toContain("FooImpl");
 
@@ -134,7 +134,7 @@ test("symbolGraph renders tested_by edges with direction-aware titles", () => {
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(output).toContain("### Tested By");
     expect(output).toContain("fooTest");
 
@@ -162,7 +162,7 @@ test("symbolGraph renders co_changes_with edges as Co-changes With", () => {
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(output).toContain("### Co-changes With");
     expect(output).toContain("coFn");
 
@@ -200,7 +200,7 @@ test("symbolGraph renders renders and routes_to edges", () => {
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(output).toContain("### Renders");
     expect(output).toContain("MyComponent");
     expect(output).toContain("### Routes To");
@@ -230,7 +230,7 @@ test("symbolGraph stale check covers all edge kind sections", () => {
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(output).toContain("[stale]");
     expect(output).toContain("stale");
 
@@ -258,7 +258,7 @@ test("symbolGraph output line format is unchanged — anchor name edgeKind confi
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     const implLine = output.split("\n").find((l: string) => l.includes("FooImpl"));
     expect(implLine).toBeDefined();
     expect(implLine).toContain("implements");
@@ -292,7 +292,7 @@ test("symbolGraph section order: Callers before Extends before Tested By", () =>
     // Tested By
     store.addEdge({ source: "src/test.ts::fooTest:1", target: "src/a.ts::IFoo:1", kind: "tested_by", provenance: { source: "coverage", confidence: 0.7, evidence: "cov", content_hash: hashTest }, created_at: Date.now() });
 
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     const callersIdx = output.indexOf("### Callers");
     const extendedByIdx = output.indexOf("### Extended By");
     const testedByIdx = output.indexOf("### Tested By");
@@ -329,7 +329,7 @@ test("symbolGraph renders incoming imports as Imported By", () => {
     });
 
     // Query IFoo — incoming imports → "Imported By"
-    const output = symbolGraph({ name: "IFoo", store, projectRoot });
+    const output = symbolGraph({ name: "IFoo", include: ["neighborhood"] as any, store, projectRoot });
     expect(output).toContain("### Imported By");
     expect(output).toContain("FooImpl");
 

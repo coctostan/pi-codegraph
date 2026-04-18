@@ -86,3 +86,4 @@
 
 ### Changed
 - Default tool registration now exposes 7 public tools; `graph_query`, `graph_overview`, and `dead_code` move behind load-time `CODEGRAPH_DEVMODE` gating, `symbol_search` becomes internal-only, and `symbol_graph` gains optional `include:["contract"]` output powered by the shared `symbol_contract` renderer (#061)
+- `symbol_graph` is now the unified public symbol lookup surface: the default response is a compact card, `include:["neighborhood"]` preserves the legacy graph view, `include:["contract"]` and `include:["source"]` append shared sections, and standalone `symbol_card` / `symbol_contract` registrations were removed (#062)

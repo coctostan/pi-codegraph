@@ -14,8 +14,6 @@ test("the default public tools are registered in the pi extension", async () => 
 
   const expected = [
     "symbol_graph",
-    "symbol_card",
-    "symbol_contract",
     "trace",
     "impact",
     "resolve_edge",

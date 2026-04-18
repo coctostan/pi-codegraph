@@ -1,23 +1,15 @@
 import { expect, test } from "bun:test";
-
-test("pi extension registers symbol_contract tool with correct schema", async () => {
-  const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
+test("pi extension no longer registers symbol_contract and keeps renderSymbolContractBody exported", async () => {
+  const registeredTools: Array<{ name: string }> = [];
   const mockPi = {
-    registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
+    registerTool(tool: { name: string }) {
       registeredTools.push(tool);
     },
     on() {},
   };
-
   const { default: piCodegraph } = await import("../src/index.js");
+  const symbolContractMod = await import("../src/tools/symbol-contract.js");
   piCodegraph(mockPi as any);
-
-  const scTool = registeredTools.find((t) => t.name === "symbol_contract");
-  expect(scTool).toBeDefined();
-
-  const schema = scTool!.parameters as any;
-  expect(schema.properties.name).toBeDefined();
-  expect(schema.properties.file).toBeDefined();
-  expect(schema.required).toContain("name");
-  expect(schema.required).not.toContain("file");
+  expect(registeredTools.find((t) => t.name === "symbol_contract")).toBeUndefined();
+  expect(typeof (symbolContractMod as any).renderSymbolContractBody).toBe("function");
 });

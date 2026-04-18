@@ -37,7 +37,7 @@ test("symbolGraph renders unknown edge kind with generic title instead of droppi
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "alpha", store, projectRoot });
+    const output = symbolGraph({ name: "alpha", include: ["neighborhood"] as any, store, projectRoot });
 
     // Should NOT silently drop the edge
     expect(output).toContain("beta");

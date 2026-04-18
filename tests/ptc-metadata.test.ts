@@ -25,8 +25,6 @@ describe("PTC metadata on tool registrations", () => {
     "impact",
     "trace",
     "graph_query",
-    "symbol_card",
-    "symbol_contract",
     "graph_overview",
     "dead_code",
   ];

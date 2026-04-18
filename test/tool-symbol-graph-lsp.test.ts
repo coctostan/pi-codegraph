@@ -197,7 +197,7 @@ test("tool wiring: symbol_graph invokes resolver and persists lsp caller edge be
       on() {},
     };
     mod.default(mockPi as any);
-    const result = await exec!("tc1", { name: "shared", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
+    const result = await exec!("tc1", { name: "shared", file: "src/api.ts", include: ["neighborhood"] }, undefined, undefined, { cwd: projectRoot });
     const store = mod.getSharedStoreForTesting()!;
     const target = store.findNodes("shared", "src/api.ts")[0]!;
     const inbound = store.getNeighbors(target.id, { direction: "in", kind: "calls" }).filter((n) => n.edge.provenance.source === "lsp");
@@ -309,7 +309,7 @@ test("tool path: interface symbol_graph resolves implementations, persists edge,
       on() {},
     };
     mod.default(mockPi as any);
-    const result = await exec!("tc-intf", { name: "IWorker", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
+    const result = await exec!("tc-intf", { name: "IWorker", file: "src/api.ts", include: ["neighborhood"] }, undefined, undefined, { cwd: projectRoot });
     const store = mod.getSharedStoreForTesting()!;
     const ifaceNode = store.findNodes("IWorker", "src/api.ts")[0]!;
     const implIn = store
@@ -547,7 +547,7 @@ test("symbol_graph Implemented By section includes agent-provenance implements e
 
     // Second call — marker is already set so resolveImplementations is skipped.
     // The suffix is rendered from whatever implements edges are in the store.
-    const result2 = await exec!("tc-a2", { name: "IWorker", file: "src/api.ts" }, undefined, undefined, { cwd: projectRoot });
+    const result2 = await exec!("tc-a2", { name: "IWorker", file: "src/api.ts", include: ["neighborhood"] }, undefined, undefined, { cwd: projectRoot });
     expect(result2.content[0].text).toContain("Implemented By");
     expect(result2.content[0].text).toContain("Worker");
   } finally {
