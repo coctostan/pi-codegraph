@@ -90,3 +90,4 @@
 
 ### Fixed
 - Clarified the unified `symbol_graph` surface contract: the registered schema/docs now explicitly allow only `"neighborhood"`, `"contract"`, and `"source"` for `include`, while README and regression tests document that test signals are part of the default compact card and `"tests"` is not a valid include value (#066)
+- `impact` now returns Trust-wrapped diagnostics for empty/missing `symbols` and invalid `changeType` inputs instead of silent empty output or a direct-call crash (#065)

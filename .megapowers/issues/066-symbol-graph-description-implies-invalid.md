@@ -1,7 +1,7 @@
 ---
 id: 66
 type: bugfix
-status: in-progress
+status: done
 created: 2026-04-18T18:07:04.578Z
 priority: 3
 ---
