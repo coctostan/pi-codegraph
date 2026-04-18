@@ -1,7 +1,7 @@
 ---
 id: 62
 type: feature
-status: in-progress
+status: done
 created: 2026-04-16T15:01:36.275Z
 milestone: M10
 ---

@@ -30,7 +30,10 @@ const SymbolGraphParams = Type.Object({
         Type.Literal("contract"),
         Type.Literal("source"),
       ]),
-      { description: "Optional extra sections to append to the response" },
+      {
+        description:
+          'Optional extra sections. Allowed values: "neighborhood", "contract", "source". "tests" is not a valid include value.',
+      },
     ),
   ),
 });
@@ -175,7 +178,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
-    description: "Return a symbol's callers, callees, tests, and key signals.\nWhen to use: You need structural context for a named symbol.",
+    description: "Return a compact symbol summary with relationships, test signals, and key metadata.\nWhen to use: You need structural context for a named symbol.",
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;

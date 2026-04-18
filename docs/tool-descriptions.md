@@ -11,7 +11,7 @@ Tool descriptions exist to help the model decide whether to call a tool. Keep th
 6. Do not restate parameters that the TypeBox schema already documents.
 
 ## Good
-- `Return a symbol's callers, callees, tests, and key signals.`
+- `Return a compact symbol summary with relationships, test signals, and key metadata.`
   `When to use: You need structural context for a named symbol.`
 - `Run a Cypher subset query against the graph.`
   `When to use: You need an ad hoc graph slice that is easier to express as a query.`
