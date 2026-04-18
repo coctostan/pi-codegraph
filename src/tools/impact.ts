@@ -137,6 +137,23 @@ export function impact(params: {
 }): string {
   const stats = params.store.getStatistics(params.projectRoot);
 
+  // Defensive: validate symbols parameter (#065)
+  if (!params.symbols || params.symbols.length === 0) {
+    return prependTrustHeader(
+      "Error: 'symbols' parameter is required. Provide one or more symbol names to analyze impact.\n\nExample: impact({ symbols: [\"functionName\"], changeType: \"behavior_change\" })\n",
+      { stats },
+    );
+  }
+
+  // Defensive: validate changeType (#065)
+  const validChangeTypes: ChangeType[] = ["signature_change", "removal", "behavior_change", "addition"];
+  if (!validChangeTypes.includes(params.changeType)) {
+    return prependTrustHeader(
+      `Error: Invalid changeType "${params.changeType}". Must be one of: ${validChangeTypes.join(", ")}\n`,
+      { stats },
+    );
+  }
+
   for (const symbol of params.symbols) {
     const resolved = resolveUniqueSymbol({
       name: symbol,

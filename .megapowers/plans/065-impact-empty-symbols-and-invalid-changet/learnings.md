@@ -1,0 +1,5 @@
+- Internal tool functions still need defensive validation even when the registered tool schema already validates most inputs; direct callers bypass that boundary.
+- `symbols: []` is not equivalent to "no dependents found". Without an explicit guard, it collapses into a misleading empty-success path.
+- For this codebase, preserving the Trust-header contract matters as much as the error text; changing output shape would have regressed adjacent tests.
+- Runtime allowlists are worth keeping next to string-literal unions when user-visible diagnostics must enumerate valid values.
+- A focused regression file for invalid inputs made the red/green cycle fast and kept impact-adjacent regression checks targeted.

@@ -1,28 +1,28 @@
 {
   "version": 1,
-  "activeIssue": "067-align-tool-schemas-docs-and-validators-f",
-  "workflow": "feature",
+  "activeIssue": "065-impact-empty-symbols-and-invalid-changet",
+  "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1776542020017
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1776550097857
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1776542731540
+      "timestamp": 1776550324381
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1776545039674
+      "timestamp": 1776550932057
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1776547475863
+      "timestamp": 1776551114789
     },
     {
       "from": "verify",
@@ -32,12 +32,12 @@
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1776548753344
+      "timestamp": 1776551404049
     }
   ],
   "planMode": null,
-  "planIteration": 3,
-  "currentTaskIndex": 10,
+  "planIteration": 1,
+  "currentTaskIndex": 1,
   "completedTasks": [
     1,
     2,
@@ -65,6 +65,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/067-align-tool-schemas-docs-and-validators-f",
+  "branchName": "fix/065-impact-empty-symbols-and-invalid-changet",
   "baseBranch": "main"
 }
