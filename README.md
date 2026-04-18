@@ -66,7 +66,9 @@ Once registered, the 5 default public tools are available to the agent automatic
 ## Tools
 ### Public
 #### `symbol_graph`
-Return a symbol's callers, callees, tests, and key signals.
+Return a compact symbol summary with relationships, test signals, and key metadata.
+By default, `symbol_graph({ name: "validateToken" })` already includes test signals in the compact card.
+Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.
 ```
 symbol_graph({ name: "validateToken" })
 symbol_graph({ name: "validateToken", file: "src/auth.ts" })

@@ -1,0 +1,5 @@
+- Consolidated tool surfaces are high-risk for contract drift: schema literals, top-level descriptions, README examples, and exact-string tests all need to move together.
+- In this codebase, `renderSymbolCardBody()` is the source of truth for default compact-card content, while `symbolGraph()` controls only optional appended sections. Mixing those concepts in docs is what caused the bug.
+- Negative assertions in doc tests are valuable here. Keeping explicit checks that stale wording and `include: ["tests"]` examples never reappear is stronger than only checking the positive path.
+- The shipping helper currently defaults to generic PR metadata. When PR quality matters, the underlying helper API is the safer integration point than the thin CLI wrapper.
+- Workflow state files under `.megapowers/` are part of the repository surface, so done-phase shipping needs to account for issue-status/state diffs in addition to code changes.
