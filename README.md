@@ -79,6 +79,7 @@ symbol_graph({ name: "validateToken", include: ["neighborhood", "contract", "sou
 ```
 #### `resolve_edge`
 Create an evidence-backed edge in the symbol graph.
+Allowed `kind` values: `"calls"`, `"imports"`, `"implements"`, `"extends"`, `"tested_by"`, `"co_changes_with"`, `"renders"`, `"routes_to"`.
 ```
 resolve_edge({
   source: "AuthController",
@@ -89,13 +90,18 @@ resolve_edge({
 ```
 #### `delete_edge`
 Delete an agent-created edge from the symbol graph.
+Allowed `kind` values: "calls", "imports", "implements", "extends", "tested_by", "co_changes_with", "renders", "routes_to".
 ```
 delete_edge({ source: "AuthController", target: "TokenService", kind: "calls" })
 ```
 #### `impact`
 Return the classified blast radius for a set of changed symbols.
+Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`.
 ```
 impact({ symbols: ["validateToken"], changeType: "signature_change" })
+impact({ symbols: ["validateToken"], changeType: "removal" })
+impact({ symbols: ["validateToken"], changeType: "behavior_change" })
+impact({ symbols: ["validateToken"], changeType: "addition" })
 ```
 #### `trace`
 Return the execution path starting from an entry point. Coverage-backed when available.
@@ -121,8 +127,10 @@ graph_overview({})
 
 #### `dead_code`
 Find unreferenced exported symbols or check whether a symbol is still referenced.
+Optional `kind` filter accepts a node kind. Allowed values: `"function"`, `"class"`, `"interface"`, `"module"`, `"endpoint"`, `"test"`.
 ```
 dead_code({})
+dead_code({ kind: "function" })
 ```
 
 ### Internal

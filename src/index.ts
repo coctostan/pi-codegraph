@@ -9,7 +9,9 @@ import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
 import { resolveEdge } from "./tools/resolve-edge.js";
+import { VALID_EDGE_KINDS as RESOLVE_EDGE_KINDS } from "./tools/resolve-edge.js";
 import { deleteEdge } from "./tools/delete-edge.js";
+import { VALID_EDGE_KINDS as DELETE_EDGE_KINDS } from "./tools/delete-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
@@ -41,7 +43,13 @@ const SymbolGraphParams = Type.Object({
 const ResolveEdgeParams = Type.Object({
   source: Type.String({ description: "Source symbol name" }),
   target: Type.String({ description: "Target symbol name" }),
-  kind: Type.String({ description: "Edge kind (calls, imports, implements, extends, ...)" }),
+  kind: Type.Union(
+    RESOLVE_EDGE_KINDS.map((k) => Type.Literal(k)),
+    {
+      description:
+        'Edge kind. Allowed values: "calls", "imports", "implements", "extends", "tested_by", "co_changes_with", "renders", "routes_to".',
+    },
+  ),
   evidence: Type.String({ description: "Free-text evidence explaining why this edge exists" }),
   sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
   targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
@@ -58,7 +66,10 @@ const ImpactParams = Type.Object({
       Type.Literal("behavior_change"),
       Type.Literal("addition"),
     ],
-    { description: "Kind of change" },
+    {
+      description:
+        'Kind of change. Allowed values: "signature_change", "removal", "behavior_change", "addition".',
+    },
   ),
   maxDepth: Type.Optional(
     Type.Number({ description: "Maximum traversal depth (default 5)" }),
@@ -77,7 +88,13 @@ const GraphQueryParams = Type.Object({
 const DeleteEdgeParams = Type.Object({
   source: Type.String({ description: "Source symbol name" }),
   target: Type.String({ description: "Target symbol name" }),
-  kind: Type.String({ description: "Edge kind (calls, imports, implements, extends, ...)" }),
+  kind: Type.Union(
+    DELETE_EDGE_KINDS.map((k) => Type.Literal(k)),
+    {
+      description:
+        'Edge kind. Allowed values: "calls", "imports", "implements", "extends", "tested_by", "co_changes_with", "renders", "routes_to".',
+    },
+  ),
   sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
   targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
 });
@@ -88,7 +105,12 @@ const GraphOverviewParams = Type.Object({});
 const DeadCodeParams = Type.Object({
   name: Type.Optional(Type.String({ description: "Symbol name to check (omit for sweep mode)" })),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
-  kind: Type.Optional(Type.String({ description: "Filter by node kind (function, class, interface, etc.)" })),
+  kind: Type.Optional(
+    Type.String({
+      description:
+        'Filter by node kind. Allowed values: "function", "class", "interface", "module", "endpoint", "test".',
+    }),
+  ),
   glob: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
 });
 

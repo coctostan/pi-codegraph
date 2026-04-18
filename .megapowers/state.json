@@ -10,7 +10,7 @@
       "timestamp": 1776550097857
     },
     {
-      "from": "diagnose",
+      "from": "spec",
       "to": "plan",
       "timestamp": 1776550324381
     },
@@ -26,6 +26,11 @@
     },
     {
       "from": "verify",
+      "to": "code-review",
+      "timestamp": 1776548262211
+    },
+    {
+      "from": "code-review",
       "to": "done",
       "timestamp": 1776551404049
     }
@@ -35,11 +40,24 @@
   "currentTaskIndex": 1,
   "completedTasks": [
     1,
-    2
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 11,
+    "state": "test-written",
+    "skipped": false
+  },
   "doneActions": [
-    "generate-bugfix-summary",
+    "generate-docs",
     "write-changelog",
     "capture-learnings",
     "push-and-pr",

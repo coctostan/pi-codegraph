@@ -1,0 +1,5 @@
+- Closed-set parameter drift is easiest to prevent when the schema literal set, parameter description, README wording, and validator message are all locked by tests instead of relying on one layer as the source of truth.
+- README drift tests should validate example values, not just prose coverage; otherwise invalid examples can survive while the descriptive text still looks correct.
+- When two tools intentionally share the same enum set, tests should still bind each tool to its own exported constant so future divergence is caught at the actual source file.
+- Open-ended wording like `...` and `etc.` is not harmless in agent-facing docs; it materially increases first-call validation failures by implying more values than the runtime accepts.
+- Review-time fixes can strengthen the regression net without changing production behavior; the quote-style expansion in the README scanner is a good example of a low-risk, high-value guard.
