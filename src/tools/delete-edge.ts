@@ -2,7 +2,7 @@ import type { GraphStore } from "../graph/store.js";
 import type { GraphNode, EdgeKind } from "../graph/types.js";
 import { computeAnchor } from "../output/anchoring.js";
 
-const VALID_EDGE_KINDS: EdgeKind[] = [
+export const VALID_EDGE_KINDS: EdgeKind[] = [
   "calls",
   "imports",
   "implements",
@@ -13,7 +13,7 @@ const VALID_EDGE_KINDS: EdgeKind[] = [
   "routes_to",
 ];
 
-function isValidEdgeKind(kind: string): kind is EdgeKind {
+export function isValidEdgeKind(kind: string): kind is EdgeKind {
   return VALID_EDGE_KINDS.includes(kind as EdgeKind);
 }
 
