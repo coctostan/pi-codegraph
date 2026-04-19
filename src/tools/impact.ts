@@ -66,6 +66,7 @@ function compareDetails(a: ImpactDetail, b: ImpactDetail): number {
 export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[] {
   const { symbols, changeType, store, maxDepth = 5, signalComputer: providedSignalComputer } = params;
   if (changeType === "addition") return [];
+  if (!symbols || symbols.length === 0) return [];
 
   const queue: QueueItem[] = [];
   const seen = new Map<string, { depth: number; chainConfidence: number }>();
@@ -136,6 +137,31 @@ export function impact(params: {
   maxDepth?: number;
 }): string {
   const stats = params.store.getStatistics(params.projectRoot);
+
+  // Defensive: validate symbols parameter. The pi-tool dispatch layer (src/index.ts
+  // ImpactParams TypeBox schema) already rejects missing/empty arrays, but impact()
+  // is also called directly from tests and potential future embedders, so we
+  // re-validate here to produce an explicit diagnostic instead of a TypeError
+  // (undefined) or a silent empty Trust-header response ([]).
+  if (!params.symbols || params.symbols.length === 0) {
+    return prependTrustHeader(
+      "Error: 'symbols' parameter is required. Provide one or more symbol names to analyze impact.\n\nExample: impact({ symbols: [\"functionName\"], changeType: \"behavior_change\" })\n",
+      { stats },
+    );
+  }
+
+  // Runtime mirror of the ChangeType string-union (src/tools/impact.ts:7).
+  // The TypeBox ImpactParams schema in src/index.ts rejects invalid values on the
+  // tool-dispatch path, but direct callers (tests, future embedders) would
+  // otherwise see classify() return null for every neighbor, yielding a silent
+  // empty result indistinguishable from "no dependents found".
+  const validChangeTypes: ChangeType[] = ["signature_change", "removal", "behavior_change", "addition"];
+  if (!validChangeTypes.includes(params.changeType)) {
+    return prependTrustHeader(
+      `Error: Invalid changeType "${params.changeType}". Must be one of: ${validChangeTypes.join(", ")}\n`,
+      { stats },
+    );
+  }
 
   for (const symbol of params.symbols) {
     const resolved = resolveUniqueSymbol({

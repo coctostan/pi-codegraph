@@ -1,0 +1,5 @@
+- The public tool function contract matters more than the TypeScript signature: `impact()` was exported and directly imported by tests, so relying on TypeBox validation at `src/index.ts` was not sufficient defense.
+- Silent empty output is a dangerous failure mode for agent-facing tools because it is indistinguishable from a legitimate no-result case; explicit diagnostics are better than clever fallthroughs.
+- The `collectImpactDetails()` empty-input behavior already happened incidentally via an empty queue, but making it an explicit guard is still worthwhile because it turns an implementation accident into a maintained invariant.
+- The shipping helper stages all tracked modifications during finalization, so workflow-state files need to be considered separately from code changes before creating a PR.
+- `symbol_graph` and `trace` were useful for wrap-up evidence because they confirmed the actual entrypoint and helper signatures without relying on stale plan text.

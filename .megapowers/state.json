@@ -1,37 +1,37 @@
 {
   "version": 1,
-  "activeIssue": "066-symbol-graph-description-implies-invalid",
+  "activeIssue": "065-impact-empty-symbols-and-invalid-changet",
   "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1776536017127
+      "timestamp": 1776550097857
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1776536241932
+      "timestamp": 1776550324381
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1776538307082
+      "timestamp": 1776550932057
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1776538547109
+      "timestamp": 1776551114789
     },
     {
       "from": "verify",
       "to": "done",
-      "timestamp": 1776538971094
+      "timestamp": 1776551404049
     }
   ],
   "planMode": null,
-  "planIteration": 2,
+  "planIteration": 1,
   "currentTaskIndex": 1,
   "completedTasks": [
     1,
@@ -47,6 +47,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/066-symbol-graph-description-implies-invalid",
+  "branchName": "fix/065-impact-empty-symbols-and-invalid-changet",
   "baseBranch": "main"
 }
