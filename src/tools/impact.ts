@@ -33,6 +33,16 @@ interface QueueItem {
   chainConfidence: number;
 }
 
+const VALID_CHANGE_TYPES = ["signature_change", "removal", "behavior_change", "addition"] as const;
+
+function isValidChangeType(changeType: string): changeType is ChangeType {
+  return VALID_CHANGE_TYPES.includes(changeType as ChangeType);
+}
+
+function formatInvalidChangeTypeMessage(changeType: string): string {
+  return `changeType: invalid value "${changeType}" — must be one of: ${VALID_CHANGE_TYPES.join(", ")}\n`;
+}
+
 function classify(changeType: ChangeType, depth: number): ImpactClassification | null {
   if (changeType === "addition") return null;
   if (changeType === "behavior_change") return "behavioral";
@@ -66,6 +76,8 @@ function compareDetails(a: ImpactDetail, b: ImpactDetail): number {
 export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[] {
   const { symbols, changeType, store, maxDepth = 5, signalComputer: providedSignalComputer } = params;
   if (changeType === "addition") return [];
+  if (!symbols || symbols.length === 0) return [];
+  if (!isValidChangeType(changeType)) throw new Error(formatInvalidChangeTypeMessage(changeType));
 
   const queue: QueueItem[] = [];
   const seen = new Map<string, { depth: number; chainConfidence: number }>();
@@ -136,6 +148,20 @@ export function impact(params: {
   maxDepth?: number;
 }): string {
   const stats = params.store.getStatistics(params.projectRoot);
+
+  if (!params.symbols || params.symbols.length === 0) {
+    return prependTrustHeader(
+      `symbols: 'symbols' is required — provide one or more symbol names to analyze.\n\nExample: impact({ symbols: ["functionName"], changeType: "behavior_change" })\n`,
+      { stats },
+    );
+  }
+
+  if (!isValidChangeType(params.changeType)) {
+    return prependTrustHeader(
+      formatInvalidChangeTypeMessage(params.changeType),
+      { stats },
+    );
+  }
 
   for (const symbol of params.symbols) {
     const resolved = resolveUniqueSymbol({

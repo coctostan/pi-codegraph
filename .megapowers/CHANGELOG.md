@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Fixed
+- `impact` / `collectImpact` now surface input errors instead of swallowing them: empty or `undefined` `symbols` and invalid `changeType` literals are rejected with explicit Trust-header-wrapped diagnostics at the tool boundary and a clean `Error` (or silent `[]` for empty symbols) at the internal layer; `collectImpact({ symbols: undefined })` no longer throws a raw `TypeError` (#065)
+
 ### Added
 - Conditional Trust header: fresh read-only tool calls no longer emit `## Trust` header; non-fresh statuses (`stale`, `mixed`, `heuristic`, `runtime-backed`) still render the full header (#059)
 - `CODEGRAPH_DEVMETA` env flag gates the `_meta: tokens_saved` footer on all read-only tools; reads env per call so toggling mid-session takes effect immediately (#059)
