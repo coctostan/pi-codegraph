@@ -31,17 +31,10 @@ test("audited closed-value parameter descriptions contain no open-ended suffixes
     const tools = await registered();
 
     const impact = tools.find((t) => t.name === "impact");
-    const resolveEdge = tools.find((t) => t.name === "resolve_edge");
-    const deleteEdge = tools.find((t) => t.name === "delete_edge");
-    const deadCode = tools.find((t) => t.name === "dead_code");
-    if (!impact || !resolveEdge || !deleteEdge || !deadCode) {
-      throw new Error("one or more audited tools not registered");
+    if (!impact) {
+      throw new Error("impact tool not registered");
     }
-
     check(impact.parameters.properties.changeType.description, "impact.changeType");
-    check(resolveEdge.parameters.properties.kind.description, "resolve_edge.kind");
-    check(deleteEdge.parameters.properties.kind.description, "delete_edge.kind");
-    check(deadCode.parameters.properties.kind.description, "dead_code.kind");
   } finally {
     if (prev === undefined) delete process.env.CODEGRAPH_DEVMODE;
     else process.env.CODEGRAPH_DEVMODE = prev;

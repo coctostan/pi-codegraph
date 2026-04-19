@@ -6,10 +6,8 @@
 ┌──────────────────────────────────────────────────────────┐
 │                      pi extension                        │
 │                                                          │
-│  Public: symbol_graph | resolve_edge | delete_edge |    │
-│          impact | trace                                 │
-│  Dev:    graph_query | graph_overview | dead_code       │
-│          (registered only when CODEGRAPH_DEVMODE=1)     │
+│  Public: symbol_graph | impact | trace                   │
+│  Dev:    (none registered today)                         │
 │  Internal: symbol_search                                │
 │                                                          │
 │  ┌─────────────────────────────────────────────────────┐  │
@@ -19,7 +17,7 @@
 │                         │                                  │
 │  ┌──────────────────────▼──────────────────────────────┐  │
 │  │                  Query Engine                        │  │
-│  │     Cypher queries against the graph store           │  │
+│  │     Traversal queries against the graph store        │  │
 │  │     Result ranking / truncation for token budget     │  │
 │  └──────────────────────┬──────────────────────────────┘  │
 │                         │                                  │
@@ -49,16 +47,14 @@
 │  │  │Test       │ │Co-change                         │  │  │
 │  │  │coverage   │ │(git log)                         │  │  │
 │  │  └───────────┘ └─────────────────────────────────┘  │  │
-│  │  ┌───────────────────────────────────────────────┐  │  │
-│  │  │Agent-resolved edges (via resolve_edge tool)   │  │  │
-│  │  └───────────────────────────────────────────────┘  │  │
 │  └─────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 ```
 
-Default registration exposes 5 public tools. `symbol_graph` is the unified public symbol lookup surface; shared compact/source and contract renderers live in `src/tools/symbol-card.ts` and `src/tools/symbol-contract.ts`. `graph_query`, `graph_overview`, and `dead_code` register only when `CODEGRAPH_DEVMODE=1`. `symbol_search` remains internal-only for same-process callers.
+Default registration exposes 3 public tools. `symbol_graph` is the unified public symbol lookup surface; shared compact/source and contract renderers live in `src/tools/symbol-card.ts` and `src/tools/symbol-contract.ts`. Phase 5 removed the zero-usage dev-only tools and the zero-usage mutating tools; no tools register under `CODEGRAPH_DEVMODE=1` today. `symbol_search` remains internal-only for same-process callers.
 
 ## Indexing Pipeline
+
 Indexing happens in stages. Each stage is independent and can run incrementally.
 
 ### Stage 1: Structure Extraction (tree-sitter)
@@ -176,7 +172,6 @@ Content hashes on every node determine staleness. If a file hasn't changed, its 
 
 **Cons:**
 - Complex graph patterns (variable-length paths with filters) get awkward in SQL
-- No native Cypher — `graph_query` would need a Cypher-to-SQL translator or accept raw SQL
 
 **Schema sketch:**
 ```sql
@@ -212,7 +207,7 @@ CREATE INDEX idx_nodes_name ON nodes(name);
 ### Option B: KuzuDB (embedded graph database)
 
 **Pros:**
-- Native Cypher support — `graph_query` passes through directly
+- Native Cypher support
 - Purpose-built for graph traversal, faster for complex patterns
 - Embedded, no server — same local-first philosophy
 - Handles variable-length path queries naturally
@@ -224,12 +219,13 @@ CREATE INDEX idx_nodes_name ON nodes(name);
 
 ### Decision
 
-**Start with SQLite.** It's simpler, dependency-free, and sufficient for the v1 query patterns (1-3 hop traversals, symbol neighborhood lookups). If `graph_query` needs complex pattern matching that SQLite can't handle elegantly, migrate to KuzuDB. The graph model is the same either way — only the query engine changes.
+**Start with SQLite.** It's simpler, dependency-free, and sufficient for the v1 query patterns (1-3 hop traversals, symbol neighborhood lookups).
 
 ## Output Layer
 Tool description authoring rules live in docs/tool-descriptions.md.
 
 Every tool response passes through the output layer before returning. It does two things:
+
 ### 1. Hashline Anchoring
 
 For every node in a result, read the current file content and produce the hashline anchor for the node's line range. This means results are always fresh — if a file changed since indexing, the anchors reflect the current state (and stale edges are flagged).
@@ -247,24 +243,16 @@ Large neighborhoods (symbol with 40+ callers) can't dump everything into context
 ```
 pi-codegraph/
 ├── src/
-│   ├── index.ts                 # pi extension entry point — 5 public tools by default, 3 dev-mode-only tools
+│   ├── index.ts                 # pi extension entry point — 3 public tools by default
 │   ├── tools/
 │   │   ├── symbol-graph.ts      # symbol_graph tool
-│   │   ├── resolve-edge.ts      # resolve_edge tool
-│   │   ├── delete-edge.ts       # delete_edge tool
 │   │   ├── impact.ts            # impact tool
 │   │   ├── trace.ts             # trace tool
-│   │   ├── graph-query.ts       # graph_query tool (dev mode only)
 │   │   ├── symbol-card.ts       # shared compact/source renderers for symbol_graph
 │   │   ├── symbol-contract.ts   # shared contract renderer for symbol_graph
-│   │   ├── graph-overview.ts    # graph_overview tool (dev mode only)
-│   │   ├── dead-code.ts         # dead_code tool (dev mode only)
 │   │   ├── symbol-search.ts     # symbol_search helper (internal only)
-│   │   ├── graph-query-parser.ts   # Cypher subset parser
-│   │   ├── graph-query-compiler.ts # Query → SQL compiler
-│   │   ├── graph-query-render.ts   # Query result renderer
-│   │   ├── symbol-resolution.ts    # shared disambiguation logic
-│   │   └── token-tracker.ts        # optional dev-only token meta footer
+│   │   ├── symbol-resolution.ts # shared disambiguation logic
+│   │   └── token-tracker.ts     # optional dev-only token meta footer
 │   ├── indexer/
 │   │   ├── pipeline.ts          # orchestrates indexing stages
 │   │   ├── tree-sitter.ts       # Stage 1: structure extraction

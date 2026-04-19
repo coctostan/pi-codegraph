@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { collectNaiveFiles } from "../src/tools/token-tracker.js";
+import { isRemoved } from "./phase5-decision-matrix.js";
 
 test("collectNaiveFiles for symbol_graph returns target + neighbor files", () => {
   const store = new SqliteGraphStore();
@@ -25,15 +26,17 @@ test("collectNaiveFiles for impact returns downstream files", () => {
   } finally { store.close(); }
 });
 
-test("collectNaiveFiles for graph_overview returns all indexed files", () => {
-  const store = new SqliteGraphStore();
-  try {
-    store.setFileHash("src/a.ts", "h1");
-    store.setFileHash("src/b.ts", "h2");
-    const files = collectNaiveFiles("graph_overview", {}, store);
-    expect(files.sort()).toEqual(["src/a.ts", "src/b.ts"]);
-  } finally { store.close(); }
-});
+if (!isRemoved("graph_overview")) {
+  test("collectNaiveFiles for graph_overview returns all indexed files", () => {
+    const store = new SqliteGraphStore();
+    try {
+      store.setFileHash("src/a.ts", "h1");
+      store.setFileHash("src/b.ts", "h2");
+      const files = collectNaiveFiles("graph_overview", {}, store);
+      expect(files.sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    } finally { store.close(); }
+  });
+}
 
 test("collectNaiveFiles for trace returns traced path files", () => {
   const store = new SqliteGraphStore();

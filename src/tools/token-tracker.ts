@@ -107,15 +107,6 @@ export function collectNaiveFiles(
       break;
     }
 
-    case "graph_query":
-    case "graph_overview":
-    case "dead_code": {
-      const allFiles = store.listFiles();
-      for (const f of allFiles) {
-        if (!f.startsWith("__")) files.add(f);
-      }
-      break;
-    }
   }
 
   return Array.from(files);
