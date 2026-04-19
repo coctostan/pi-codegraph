@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-
+import { expectedDefaultPublicTools } from "./phase5-decision-matrix.js";
 test("the default public tools are registered in the pi extension", async () => {
   const tools: Array<{ name: string }> = [];
   const mockPi = {
@@ -8,19 +8,9 @@ test("the default public tools are registered in the pi extension", async () => 
     },
     on() {},
   };
-
   const { default: piCodegraph } = await import("../src/index.js");
   piCodegraph(mockPi as any);
-
-  const expected = [
-    "symbol_graph",
-    "trace",
-    "impact",
-    "resolve_edge",
-    "delete_edge",
-  ];
-
-  for (const name of expected) {
+  for (const name of expectedDefaultPublicTools) {
     expect(tools.find((tool) => tool.name === name)).toBeDefined();
   }
 });

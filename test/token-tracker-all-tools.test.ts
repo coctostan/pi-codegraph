@@ -6,11 +6,9 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { resetSession, appendTokenMeta } from "../src/tools/token-tracker.js";
 import { impact } from "../src/tools/impact.js";
-import { graphOverview } from "../src/tools/graph-overview.js";
-import { deadCode } from "../src/tools/dead-code.js";
-
-beforeEach(() => { resetSession(); });
-
+beforeEach(() => {
+  resetSession();
+});
 function makeTestEnv() {
   const projectRoot = join(tmpdir(), `pi-cg-meta-all-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
@@ -22,7 +20,6 @@ function makeTestEnv() {
   store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: hashA, is_exported: true });
   return { projectRoot, store, cleanup: () => { store.close(); rmSync(projectRoot, { recursive: true, force: true }); } };
 }
-
 test("appendTokenMeta works with impact", () => {
   const { projectRoot, store, cleanup } = makeTestEnv();
   try {
@@ -30,17 +27,22 @@ test("appendTokenMeta works with impact", () => {
     const output = appendTokenMeta("impact", { symbols: ["foo"] }, text, store, projectRoot);
     expect(output).toContain("_meta:");
     expect(output).toContain("session_calls:1");
-  } finally { cleanup(); }
+  } finally {
+    cleanup();
+  }
 });
 
-test("session accumulates across multiple tool calls", () => {
+test("session accumulates across repeated kept tool calls", () => {
   const { projectRoot, store, cleanup } = makeTestEnv();
   try {
-    const t1 = graphOverview({ store, projectRoot });
-    const o1 = appendTokenMeta("graph_overview", {}, t1, store, projectRoot);
-    expect(o1).toContain("session_calls:1");
-    const t2 = deadCode({ store, projectRoot });
-    const o2 = appendTokenMeta("dead_code", {}, t2, store, projectRoot);
-    expect(o2).toContain("session_calls:2");
-  } finally { cleanup(); }
+    const first = impact({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot });
+    const firstOutput = appendTokenMeta("impact", { symbols: ["foo"] }, first, store, projectRoot);
+    expect(firstOutput).toContain("session_calls:1");
+
+    const second = impact({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot });
+    const secondOutput = appendTokenMeta("impact", { symbols: ["foo"] }, second, store, projectRoot);
+    expect(secondOutput).toContain("session_calls:2");
+  } finally {
+    cleanup();
+  }
 });

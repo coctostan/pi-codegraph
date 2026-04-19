@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Removed
+- **M10 Phase 5 (dead-code cut):** removed five zero-usage tools from the registered surface — `resolve_edge`, `delete_edge`, `graph_query`, `graph_overview`, `dead_code` — including registrations, schemas, source modules, README/ARCHITECTURE entries, and dedicated test files. No deprecation shim, alias, or warning text. Final surface: 3 public tools (`symbol_graph`, `impact`, `trace`), 0 dev-mode tools, 1 internal helper (`symbol_search`). Surface tests now read from a single decision matrix (`test/phase5-decision-matrix.ts`) so docs, registration, and assertions can no longer drift (#063)
+
 ### Added
 - Conditional Trust header: fresh read-only tool calls no longer emit `## Trust` header; non-fresh statuses (`stale`, `mixed`, `heuristic`, `runtime-backed`) still render the full header (#059)
 - `CODEGRAPH_DEVMETA` env flag gates the `_meta: tokens_saved` footer on all read-only tools; reads env per call so toggling mid-session takes effect immediately (#059)

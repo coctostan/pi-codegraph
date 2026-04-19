@@ -2,22 +2,14 @@ import { Type, type TSchema } from "@sinclair/typebox";
 import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { accessSync, constants, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { devModeEnabled } from "./config/dev-mode.js";
 import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
-import { resolveEdge } from "./tools/resolve-edge.js";
-import { VALID_EDGE_KINDS as RESOLVE_EDGE_KINDS } from "./tools/resolve-edge.js";
-import { deleteEdge } from "./tools/delete-edge.js";
-import { VALID_EDGE_KINDS as DELETE_EDGE_KINDS } from "./tools/delete-edge.js";
 import { symbolGraph } from "./tools/symbol-graph.js";
 import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
-import { graphQuery } from "./tools/graph-query.js";
-import { graphOverview } from "./tools/graph-overview.js";
-import { deadCode } from "./tools/dead-code.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
 import { suppressFreshTrustHeader } from "./output/read-only-ceremony.js";
@@ -40,20 +32,6 @@ const SymbolGraphParams = Type.Object({
   ),
 });
 
-const ResolveEdgeParams = Type.Object({
-  source: Type.String({ description: "Source symbol name" }),
-  target: Type.String({ description: "Target symbol name" }),
-  kind: Type.Union(
-    RESOLVE_EDGE_KINDS.map((k) => Type.Literal(k)),
-    {
-      description:
-        'Edge kind. Allowed values: "calls", "imports", "implements", "extends", "tested_by", "co_changes_with", "renders", "routes_to".',
-    },
-  ),
-  evidence: Type.String({ description: "Free-text evidence explaining why this edge exists" }),
-  sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
-  targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
-});
 
 const ImpactParams = Type.Object({
   symbols: Type.Array(Type.String({ description: "Changed symbol name" }), {
@@ -79,39 +57,6 @@ const ImpactParams = Type.Object({
 const TraceParams = Type.Object({
   entry: Type.String({ description: "Entry symbol or endpoint name" }),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
-});
-
-const GraphQueryParams = Type.Object({
-  query: Type.String({ description: "Cypher subset query to execute against the graph" }),
-});
-
-const DeleteEdgeParams = Type.Object({
-  source: Type.String({ description: "Source symbol name" }),
-  target: Type.String({ description: "Target symbol name" }),
-  kind: Type.Union(
-    DELETE_EDGE_KINDS.map((k) => Type.Literal(k)),
-    {
-      description:
-        'Edge kind. Allowed values: "calls", "imports", "implements", "extends", "tested_by", "co_changes_with", "renders", "routes_to".',
-    },
-  ),
-  sourceFile: Type.Optional(Type.String({ description: "Source file path to disambiguate" })),
-  targetFile: Type.Optional(Type.String({ description: "Target file path to disambiguate" })),
-});
-
-
-const GraphOverviewParams = Type.Object({});
-
-const DeadCodeParams = Type.Object({
-  name: Type.Optional(Type.String({ description: "Symbol name to check (omit for sweep mode)" })),
-  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
-  kind: Type.Optional(
-    Type.String({
-      description:
-        'Filter by node kind. Allowed values: "function", "class", "interface", "module", "endpoint", "test".',
-    }),
-  ),
-  glob: Type.Optional(Type.String({ description: "Filter by file glob pattern (e.g. src/tools/*)" })),
 });
 
 
@@ -196,7 +141,6 @@ function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: T
   pi.registerTool(tool);
 }
 export default function piCodegraph(pi: ExtensionAPI): void {
-  const devMode = devModeEnabled();
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
@@ -235,70 +179,6 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerTool({
-    name: "resolve_edge",
-    label: "Resolve Edge",
-    description: "Create an evidence-backed edge in the symbol graph.\nWhen to use: The graph is missing a relationship you can justify from code or docs.",
-    parameters: ResolveEdgeParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      let output: string;
-      try {
-        output = resolveEdge({
-          source: params.source,
-          target: params.target,
-          sourceFile: params.sourceFile,
-          targetFile: params.targetFile,
-          kind: params.kind,
-          evidence: params.evidence,
-          store,
-          projectRoot,
-        });
-      } catch (err: any) {
-        const msg = err?.message ?? String(err);
-        if (msg.includes("readonly")) {
-          output = "Cannot write edge: database is readonly. Re-index the project to enable writes.";
-        } else {
-          throw err;
-        }
-      }
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
-
-  pi.registerTool({
-    name: "delete_edge",
-    label: "Delete Edge",
-    description: "Delete an agent-created edge from the symbol graph.\nWhen to use: An agent-added relationship is incorrect or obsolete.",
-    parameters: DeleteEdgeParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const projectRoot = ctx.cwd;
-      const store = getOrCreateStore(projectRoot);
-      await ensureIndexed(projectRoot, store);
-      let output: string;
-      try {
-        output = deleteEdge({
-          source: params.source,
-          target: params.target,
-          sourceFile: params.sourceFile,
-          targetFile: params.targetFile,
-          kind: params.kind,
-          store,
-          projectRoot,
-        });
-      } catch (err: any) {
-        const msg = err?.message ?? String(err);
-        if (msg.includes("readonly")) {
-          output = "Cannot delete edge: database is readonly. Re-index the project to enable writes.";
-        } else {
-          throw err;
-        }
-      }
-      return { content: [{ type: "text", text: output }], details: undefined };
-    },
-  });
 
   registerReadOnlyTool(pi, {
     name: "impact",
@@ -336,58 +216,5 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
-
-  if (devMode) {
-    registerReadOnlyTool(pi, {
-      name: "graph_query",
-      label: "Graph Query",
-      description:
-        "Run a Cypher subset query against the graph.\nWhen to use: You need an ad hoc graph slice that is easier to express as a query.",
-      parameters: GraphQueryParams,
-      async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-        const projectRoot = ctx.cwd;
-        const store = getOrCreateStore(projectRoot);
-        await ensureIndexed(projectRoot, store);
-        const text = graphQuery({ query: params.query, store, projectRoot });
-        const output = finalizeReadOnlyOutput("graph_query", {}, text, store, projectRoot);
-        return { content: [{ type: "text", text: output }], details: undefined };
-      },
-    });
-  }
-
-
-  if (devMode) {
-    registerReadOnlyTool(pi, {
-      name: "graph_overview",
-      label: "Graph Overview",
-      description: "Return a high-level overview of the indexed codebase.\nWhen to use: You need hotspots, distributions, and suggested starting points.",
-      parameters: GraphOverviewParams,
-      async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-        const projectRoot = ctx.cwd;
-        const store = getOrCreateStore(projectRoot);
-        await ensureIndexed(projectRoot, store);
-        const text = graphOverview({ store, projectRoot });
-        const output = finalizeReadOnlyOutput("graph_overview", {}, text, store, projectRoot);
-        return { content: [{ type: "text", text: output }], details: undefined };
-      },
-    });
-  }
-
-  if (devMode) {
-    registerReadOnlyTool(pi, {
-      name: "dead_code",
-      label: "Dead Code",
-      description: "Find unreferenced exported symbols or check whether a symbol is still referenced.\nWhen to use: You are looking for cleanup candidates.",
-      parameters: DeadCodeParams,
-      async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-        const projectRoot = ctx.cwd;
-        const store = getOrCreateStore(projectRoot);
-        await ensureIndexed(projectRoot, store);
-        const text = deadCode({ name: params.name, file: params.file, kind: params.kind, glob: params.glob, store, projectRoot });
-        const output = finalizeReadOnlyOutput("dead_code", { name: params.name }, text, store, projectRoot);
-        return { content: [{ type: "text", text: output }], details: undefined };
-      },
-    });
-  }
 
 }

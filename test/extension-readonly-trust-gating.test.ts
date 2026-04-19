@@ -5,6 +5,7 @@ import { join } from "node:path";
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
+import { isRemoved } from "./phase5-decision-matrix.js";
 
 function registerTools() {
   const previous = process.env.CODEGRAPH_DEVMODE;
@@ -113,6 +114,7 @@ test("non-fresh trace tool calls still render the Trust header", async () => {
   }
 });
 
+if (!isRemoved("graph_query")) {
 test("readonly reindex output still renders the indexing-failed note", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-trust-readonly-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
@@ -189,3 +191,4 @@ test("readonly reindex output still renders the indexing-failed note when the db
     rmSync(projectRoot, { recursive: true, force: true });
   }
 });
+}

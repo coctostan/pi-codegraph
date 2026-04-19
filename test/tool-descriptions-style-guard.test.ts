@@ -24,22 +24,13 @@ async function registeredWith(devMode: boolean) {
 
 test("registration surface gated on CODEGRAPH_DEVMODE", async () => {
   const def = (await registeredWith(false)).map((t) => t.name).sort();
-  const expectedDefault = ["delete_edge", "impact", "resolve_edge", "symbol_graph", "trace"];
+  const expectedDefault = ["impact", "symbol_graph", "trace"];
   if (JSON.stringify(def) !== JSON.stringify(expectedDefault)) {
     throw new Error(`default surface drifted: ${JSON.stringify(def)}`);
   }
 
   const dev = (await registeredWith(true)).map((t) => t.name).sort();
-  const expectedDev = [
-    "dead_code",
-    "delete_edge",
-    "graph_overview",
-    "graph_query",
-    "impact",
-    "resolve_edge",
-    "symbol_graph",
-    "trace",
-  ];
+  const expectedDev = ["impact", "symbol_graph", "trace"];
   if (JSON.stringify(dev) !== JSON.stringify(expectedDev)) {
     throw new Error(`dev surface drifted: ${JSON.stringify(dev)}`);
   }
@@ -47,7 +38,7 @@ test("registration surface gated on CODEGRAPH_DEVMODE", async () => {
 
 test("audited tool top-level descriptions contain no inline examples or enumerations", async () => {
   const tools = await registeredWith(true);
-  const audited = new Set(["impact", "resolve_edge", "delete_edge", "dead_code"]);
+  const audited = new Set(["impact"]);
   for (const t of tools) {
     if (!audited.has(t.name)) continue;
     const d = t.description;

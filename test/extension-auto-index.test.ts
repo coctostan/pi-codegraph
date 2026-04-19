@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("extension shares singleton store instance across symbol_graph and resolve_edge", async () => {
+test("extension shares singleton store instance across symbol_graph and impact", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-singleton-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(
@@ -14,32 +14,27 @@ test("extension shares singleton store instance across symbol_graph and resolve_
   try {
     const mod = await import("../src/index.js");
     if (typeof mod.resetStoreForTesting === "function") mod.resetStoreForTesting();
-
     let sgExecute: Function | undefined;
-    let reExecute: Function | undefined;
+    let impactExecute: Function | undefined;
     const mockPi = {
       registerTool(tool: { name: string; execute: Function }) {
         if (tool.name === "symbol_graph") sgExecute = tool.execute;
-        if (tool.name === "resolve_edge") reExecute = tool.execute;
+        if (tool.name === "impact") impactExecute = tool.execute;
       },
       on() {},
     };
-
     mod.default(mockPi as any);
     const ctx = { cwd: projectRoot };
-
     await sgExecute!("call-1", { name: "alpha" }, undefined, undefined, ctx);
     const first = mod.getSharedStoreForTesting();
-
-    await reExecute!(
+    await impactExecute!(
       "call-2",
-      { source: "beta", target: "alpha", kind: "calls", evidence: "beta calls alpha" },
+      { symbols: ["alpha"], changeType: "behavior_change" },
       undefined,
       undefined,
       ctx,
     );
     const second = mod.getSharedStoreForTesting();
-
     expect(first).toBeDefined();
     expect(second).toBe(first);
   } finally {
