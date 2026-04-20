@@ -1,0 +1,705 @@
+bun test v1.3.11 (af24e281)
+
+tests/ptc-metadata.test.ts:
+(pass) PTC metadata on tool registrations > symbol_graph has ptc metadata with correct shape [0.85ms]
+(pass) PTC metadata on tool registrations > impact has ptc metadata with correct shape
+(pass) PTC metadata on tool registrations > trace has ptc metadata with correct shape
+
+test/signature-extract-interface.test.ts:
+(pass) extractFile preserves interface header and members in signature [7.89ms]
+
+test/indexer-coverage-stage.test.ts:
+(pass) indexProject coverage stage creates coverage tested_by edges and deterministic test trace [66.16ms]
+(pass) indexProject coverage stage does not duplicate tested_by edges on rerun [37.90ms]
+
+test/phase5-graph-query-surface.test.ts:
+(pass) pi extension omits graph_query when Phase 5 marks it for deletion [0.21ms]
+
+test/token-tracker-all-tools.test.ts:
+(pass) appendTokenMeta works with impact [2.60ms]
+(pass) session accumulates across repeated kept tool calls [1.66ms]
+
+test/closed-enum-no-open-suffix.test.ts:
+(pass) audited closed-value parameter descriptions contain no open-ended suffixes [0.22ms]
+
+test/last-index-error-clear-on-health.test.ts:
+(pass) RC-D: lastIndexError clears on store-health evidence > finalizeReadOnlyOutput clears transient lastIndexError but preserves 'readonly database' [216.04ms]
+
+test/tool-descriptions-style-guard.test.ts:
+(pass) registration surface gated on CODEGRAPH_DEVMODE [0.17ms]
+(pass) audited tool top-level descriptions contain no inline examples or enumerations [0.10ms]
+
+test/tool-symbol-card-extends-implements.test.ts:
+(pass) symbolCard shows extends and implements in Key Relationships [2.02ms]
+
+test/tool-impact-trust-header.test.ts:
+(pass) impact prepends the shared trust header and marks stale-file scenarios as stale [1.96ms]
+
+test/readonly-graceful-degradation.test.ts:
+(pass) Bug #038: readonly database graceful degradation > writes to a readonly store produce the exact bug error message [7.26ms]
+(pass) Bug #038: readonly database graceful degradation > reads from a readonly store work perfectly [7.22ms]
+(pass) Bug #038: readonly database graceful degradation > symbol_graph read logic works on readonly store [5.87ms]
+(pass) Bug #038: readonly database graceful degradation > ensureIndexed catches readonly errors and allows subsequent reads [108.43ms]
+(pass) Bug #038: readonly database graceful degradation > symbol_graph lazy resolver (resolveMissingCallers) does not crash on readonly DB [23.49ms]
+(pass) Bug #038: readonly database graceful degradation > tool output trust header indicates indexing-failed when DB is readonly [109.22ms]
+
+test/indexer-ast-grep-react.test.ts:
+(pass) applyRuleMatches emits renders from smallest containing function [0.52ms]
+(pass) enclosing_function boundaries are inclusive and tie-break is deterministic [0.47ms]
+
+test/tool-symbol-search.test.ts:
+(pass) symbolSearch returns ranked results for a partial name match [1.13ms]
+(pass) symbolSearch returns empty for no matches [0.26ms]
+(pass) symbolSearch returns empty for empty query [0.39ms]
+(pass) symbolSearch includes signature when present [0.30ms]
+(pass) symbolSearch respects limit parameter [0.47ms]
+(pass) symbolSearch default limit is 20 [0.78ms]
+
+test/tool-symbol-graph.test.ts:
+(pass) symbolGraph returns full neighborhood for a unique symbol match [3.15ms]
+(pass) symbolGraph returns not found message for unknown symbol [1.22ms]
+(pass) symbolGraph returns disambiguation list when multiple nodes match [1.29ms]
+(pass) symbolGraph resolves ambiguity when file filter narrows to one match [0.58ms]
+(pass) symbolGraph truncates each neighbor category independently to limit [1.41ms]
+(pass) symbolGraph excludes incoming imports edges from the Imports section [1.41ms]
+(pass) symbolGraph shows outgoing imports edges in the Imports section [1.47ms]
+
+test/tool-trace-trust-runtime.test.ts:
+(pass) trace prepends a runtime-backed trust header and degrades to mixed when a stored coverage step goes stale [3.80ms]
+
+test/tool-symbol-card-not-found.test.ts:
+(pass) symbolCard returns not-found message with trust header for unknown symbol [1.20ms]
+
+test/output-rank-neighbors.test.ts:
+(pass) rankNeighbors sorts by confidence descending and truncates to limit [0.38ms]
+(pass) rankNeighbors breaks confidence ties by created_at descending (newer first) [0.07ms]
+(pass) rankNeighbors returns all items with omitted=0 when within limit
+
+test/lsp-stage-guarded-writes.test.ts:
+(pass) RC-A/LSP: unresolved-branch writes are guarded > one addEdge throw does not abort the stage; remaining edges still written [7.65ms]
+(pass) RC-A/LSP: unresolved-branch writes are guarded > confirmed-branch: one addEdge throw does not abort the stage [7.21ms]
+
+test/indexer-namespace-imports.test.ts:
+(pass) extractFile extracts namespace import and resolves qualified calls [0.54ms]
+(pass) extractFile does not treat non-namespace member calls as qualified calls [0.27ms]
+
+test/graph-store-delete-agent-edges.test.ts:
+(pass) deleteFile preserves agent edges while still deleting file nodes and hash [0.79ms]
+
+test/output-signals.test.ts:
+(pass) createSignalComputer computes AC-aligned fan-in/out, role, coverage, framework, and co-change signals [1.66ms]
+
+test/indexer-index-project.test.ts:
+(pass) indexProject indexes .ts files under root, excludes node_modules, and persists nodes/edges + file hashes [130.10ms]
+(pass) indexProject deletes missing files and continues when a file cannot be read [38.60ms]
+(pass) indexProject re-indexes a changed file: removes old nodes and stores new ones (criterion 23) [57.54ms]
+(pass) indexProject runs LSP stage and upgrades unresolved call edge to lsp provenance [30.50ms]
+(pass) indexProject treats empty sg stdout as a no-match Stage 3 result [13.85ms]
+
+test/tool-trace-stale.test.ts:
+(pass) trace marks stale and unresolved stored steps without failing the whole trace [1.49ms]
+
+test/output-readonly-ceremony.test.ts:
+(pass) suppressFreshTrustHeader strips only fresh trust headers
+
+test/phase5-delete-edge-surface.test.ts:
+(pass) pi extension omits delete_edge when Phase 5 marks it for deletion [0.16ms]
+
+test/tool-trace-ambiguous.test.ts:
+(pass) trace returns a disambiguation list when entry matches multiple symbols [1.26ms]
+
+test/indexer-reexports.test.ts:
+(pass) extractFile extracts re-export with original name [0.84ms]
+(pass) extractFile extracts re-export with alias using original name [0.15ms]
+(pass) extractFile extracts multiple re-exports from barrel file [0.06ms]
+
+test/extension-stale-db-refresh.test.ts:
+(pass) extension refreshes a persisted stale graph before symbol_graph responds [2018.87ms]
+
+test/tool-symbol-search-cache.test.ts:
+(pass) symbolSearch cache invalidates when graph changes [0.73ms]
+(pass) symbolSearch cache reuses index when graph unchanged [0.36ms]
+
+test/tool-symbol-graph-all-edge-kinds.test.ts:
+(pass) symbolGraph renders implements edges with direction-aware titles [2.25ms]
+(pass) symbolGraph renders extends edges with direction-aware titles [1.94ms]
+(pass) symbolGraph renders tested_by edges with direction-aware titles [1.65ms]
+(pass) symbolGraph renders co_changes_with edges as Co-changes With [1.61ms]
+(pass) symbolGraph renders renders and routes_to edges [1.36ms]
+(pass) symbolGraph stale check covers all edge kind sections [1.55ms]
+(pass) symbolGraph output line format is unchanged — anchor name edgeKind confidence source [1.41ms]
+(pass) symbolGraph section order: Callers before Extends before Tested By [1.78ms]
+(pass) symbolGraph renders incoming imports as Imported By [1.23ms]
+
+test/indexer-pipeline-git-stage.test.ts:
+(pass) indexProject runs git co-change stage and returns timings [119.55ms]
+
+test/indexer-ast-grep-rules.test.ts:
+(pass) Bun.YAML.parse API is available
+(pass) loadRules reports explicit runtime error when Bun.YAML.parse is unavailable [0.93ms]
+(pass) loadRules merges bundled + project-local rules and accepts generic selectors [0.77ms]
+(pass) loadRules enforces exactly one from_* and one to_* selector [0.61ms]
+(pass) loadRules rejects rules that specify both to_capture and to_template [0.52ms]
+(pass) loadRules rejects rules that specify neither from_capture nor from_context [0.84ms]
+(pass) loadRules rejects invalid from_context values with offending file path [0.56ms]
+(pass) loadRules wraps YAML parse errors with offending file path [1.19ms]
+(pass) loadRules rejects unsupported edge_kind values with offending file path [0.52ms]
+
+test/tool-placeholders.test.ts:
+(pass) current tool modules export callable functions [0.23ms]
+
+test/graph-store-query-rows.test.ts:
+(pass) SqliteGraphStore.queryRows executes parameterized SELECT queries [0.45ms]
+
+test/graph-store-exported-flag.test.ts:
+(pass) SqliteGraphStore persists is_exported on nodes and exposes schema column [0.24ms]
+
+test/smoke.test.ts:
+(pass) scaffold smoke > src/index.ts loads and exports default function [0.04ms]
+
+test/tool-symbol-contract-ambiguous.test.ts:
+(pass) symbolContract returns disambiguation list when multiple nodes match [1.40ms]
+
+test/graph-store.test.ts:
+(pass) graph store modules load [0.84ms]
+(pass) SqliteGraphStore constructor accepts default dbPath [0.16ms]
+(pass) SqliteGraphStore initializes schema_version=1 [3.98ms]
+(pass) addNode + getNode round-trip, upsert, and unknown returns null [0.43ms]
+(pass) addEdge + getNeighbors supports in/out/both and kind filters [0.55ms]
+(pass) getNodesByFile returns matching nodes and [] for missing files [0.29ms]
+(pass) deleteFile removes file nodes and all touching edges, preserves unrelated data [0.43ms]
+(pass) getFileHash returns null initially; setFileHash round-trips and overwrites [0.20ms]
+(pass) data persists after close() and reopen with same db path [3.89ms]
+(pass) edges table schema uses provenance_source column, not provenance [0.15ms]
+(pass) addEdge provenance round-trips correctly through getNeighbors
+(pass) getUnresolvedEdges returns only edges whose target starts with __unresolved__:: [0.30ms]
+(pass) getEdgesBySource returns all edges for a source ordered by created_at ASC [0.26ms]
+(pass) deleteEdge removes only the matching (source, target, kind, provenanceSource) row [0.25ms]
+
+test/tsserver-client.test.ts:
+(pass) constructor prefers local node_modules/.bin/tsserver when no override is given [1.54ms]
+(pass) AC2/AC3: idle shutdown then respawn on next request [534.25ms]
+(pass) AC5: pending requests are rejected if process crashes [256.60ms]
+(pass) AC6: request timeout rejects without killing process [368.95ms]
+(pass) AC7: concurrent requests are serialized (max in-flight is 1) [307.39ms]
+(pass) AC8: shutdown() cleans up process and pending timers [250.02ms]
+
+test/tool-symbol-contract-generic-sig.test.ts:
+(pass) symbolContract correctly parses signature with nested generic type params [1.89ms]
+
+test/indexer-git-incremental.test.ts:
+(pass) runGitCoChangeStage skips re-analysis when HEAD has not changed [106.79ms]
+(pass) runGitCoChangeStage clears and rebuilds when HEAD changes [144.40ms]
+
+test/tool-symbol-graph-no-bolt-on.test.ts:
+(pass) symbolGraph natively renders implements edges without bolt-on suffix [1.63ms]
+(pass) renderImplementationsSuffix is no longer exported from index.ts [0.08ms]
+
+test/output-anchoring.test.ts:
+(pass) output module exports computeAnchor and rules directory exists [0.08ms]
+
+test/tool-trace-coverage.test.ts:
+(pass) trace returns stored coverage traces for tests and deterministically selects one covering test for a production symbol [1.72ms]
+
+test/contract-extractor-assertions.test.ts:
+(pass) extractTestAssertions extracts expect().toBe() [0.28ms]
+(pass) extractTestAssertions extracts expect().toThrow() [0.22ms]
+(pass) extractTestAssertions extracts expect().toContain() [0.11ms]
+(pass) extractTestAssertions extracts expect().toHaveLength() [0.08ms]
+(pass) extractTestAssertions groups by test name [0.16ms]
+(pass) extractTestAssertions returns empty for no assertions [0.02ms]
+(pass) extractTestAssertions handles it() blocks [0.07ms]
+
+test/tool-symbol-card-no-signature.test.ts:
+(pass) symbolCard shows 'not available' when node has no signature [1.68ms]
+
+test/token-tracker-symbol-graph-integration.test.ts:
+(pass) appendTokenMeta appends _meta line with token stats to tool output [1.44ms]
+
+test/pipeline-stage-error-accounting.test.ts:
+(pass) RC-A accounting: stage write failures bump result.errors > LSP stage write failure increments errors, does not abort pipeline [30.63ms]
+
+test/token-tracker-session-reset.test.ts:
+(pass) resetStoreForTesting also resets token tracker session [0.10ms]
+
+test/extension-devmode-tools.test.ts:
+(pass) piCodegraph hides all dev-only tools by default and never re-registers them after env changes [0.08ms]
+(pass) piCodegraph registers exactly the kept dev-only tools for every approved CODEGRAPH_DEVMODE truthy value [0.13ms]
+
+test/tool-symbol-card-wiring.test.ts:
+(pass) pi extension no longer registers symbol_card and keeps internal renderers exported [0.03ms]
+
+test/indexer-placeholders.test.ts:
+(pass) indexer modules export placeholder functions [0.06ms]
+
+test/tool-symbol-contract-wiring.test.ts:
+(pass) pi extension no longer registers symbol_contract and keeps renderSymbolContractBody exported
+
+test/tool-symbol-card-render-body.test.ts:
+(pass) renderSymbolCardBody returns the compact card base view without Source or Exported [1.89ms]
+
+test/tool-symbol-graph-default-card.test.ts:
+(pass) symbolGraph defaults to a compact card and include:[] matches omitted include [1.87ms]
+(pass) symbolGraph keeps not-found and ambiguous handling explicit in the default card base [0.73ms]
+
+test/graph-store-statistics.test.ts:
+(pass) getStatistics returns node counts grouped by kind [0.37ms]
+(pass) getStatistics returns edge counts grouped by kind and provenance source [0.31ms]
+(pass) getStatistics returns file counts (total tracked) [0.35ms]
+
+test/extension-readonly-trust-gating.test.ts:
+(pass) fresh symbol_graph tool calls omit the Trust header but keep provenance and signal lines [220.95ms]
+(pass) non-fresh trace tool calls still render the Trust header [125.87ms]
+
+test/signature-round-trip.test.ts:
+(pass) signature round-trips through findNodes [0.51ms]
+(pass) signature round-trips through getNodesByFile [0.40ms]
+(pass) signature round-trips through getNeighbors [0.27ms]
+(pass) nodes without signature have undefined signature field [0.25ms]
+
+test/tool-symbol-card-ambiguous.test.ts:
+(pass) symbolCard returns disambiguation list when multiple nodes match [2.00ms]
+
+test/indexer-exported-symbols.test.ts:
+(pass) extractFile marks exported symbols with is_exported metadata [0.38ms]
+
+test/output-compute-anchor.test.ts:
+(pass) computeAnchor returns file:line:hash format with stale=false for fresh file [0.47ms]
+(pass) computeAnchor returns stale=true when file content hash differs from node [0.48ms]
+(pass) computeAnchor returns stale=true with ? hash when file does not exist [0.36ms]
+
+test/graph-store-find-nodes.test.ts:
+(pass) findNodes returns all nodes matching a name across files [0.45ms]
+(pass) findNodes returns empty array for nonexistent name [0.27ms]
+(pass) findNodes filters by file when file parameter is provided [0.21ms]
+
+test/output-format-neighborhood.test.ts:
+(pass) formatNeighborhood produces header and populated sections, omits empty ones [0.06ms]
+(pass) formatNeighborhood shows (N more omitted) when a category is truncated [0.07ms]
+(pass) formatNeighborhood suffixes stale entries with [stale] [0.06ms]
+(pass) formatNeighborhood shows Unresolved section for __unresolved__ nodes
+(pass) formatNeighborhood accepts named sections array and renders them in order [0.03ms]
+
+test/tool-symbol-card-source.test.ts:
+(pass) symbolCard includes ### Source section with hashlined content [1.44ms]
+(pass) symbolCard Source section shows 'source unavailable' when file does not exist [0.94ms]
+(pass) symbolCard Source section shows 'source unavailable' when end_line is null [0.72ms]
+(pass) symbolCard Source section header includes [stale] when content hash mismatches [1.04ms]
+(pass) symbolCard truncates source when maxSourceLines is provided [1.34ms]
+
+test/signature-extract-arrow.test.ts:
+(pass) extractFile produces signature for typed arrow function [0.48ms]
+(pass) extractFile produces signature for arrow function without return type [0.02ms]
+(pass) extractFile produces signature for arrow function with no types
+(pass) extractFile produces signature for async arrow function
+
+test/repro-084-interface-handling.test.ts:
+(pass) repro #076: symbolGraph contract output for interfaces should list interface members [2.93ms]
+(pass) repro #077: resolveImplementations should not add an implements edge from a return-site match [2.21ms]
+
+test/extension-impact.test.ts:
+(pass) computeAnchor returns existing anchor format file:line:hash and stale flag [0.88ms]
+(pass) impact() emits anchored structured lines and empty string for no-impact [1.23ms]
+(pass) pi extension default export registers tool name "impact" with symbols/changeType schema [0.10ms]
+
+test/tool-symbol-contract-no-tests.test.ts:
+(pass) symbolContract omits test-evidenced behaviors section when no tested_by edges exist [1.02ms]
+
+test/tool-trace-static-mode-header.test.ts:
+(pass) trace marks static fallback paths as heuristic without changing step lines [1.37ms]
+
+test/repro-037-validation-gaps.test.ts:
+(pass) rankNeighbors negative limit guard > limit=-1 is treated as default (10), returns all when count < 10 [0.07ms]
+(pass) rankNeighbors negative limit guard > limit=-100 is treated as default (10) [0.05ms]
+(pass) rankNeighbors negative limit guard > limit=0 still returns none (existing behavior preserved)
+
+test/indexer-dynamic-imports.test.ts:
+(pass) extractFile extracts dynamic import as low-confidence import edge [0.31ms]
+(pass) extractFile ignores dynamic import with non-string-literal argument [0.13ms]
+
+test/docs-closed-enum-drift.test.ts:
+(pass) README impact section mentions every changeType value [0.11ms]
+
+test/tool-impact-ranking.test.ts:
+(pass) collectImpactDetails ranks dependents and carries weakest-link chain confidence [1.13ms]
+(pass) collectImpactDetails prioritizes untested before tested ahead of depth [0.66ms]
+
+test/tool-impact-output-signals.test.ts:
+(pass) impact appends always-on why annotations with chain confidence [1.24ms]
+
+test/signature-extract-function.test.ts:
+(pass) extractFile produces signature for typed function declaration [0.22ms]
+(pass) extractFile produces signature for function with no return type [0.07ms]
+(pass) extractFile produces signature for function with no type annotations [0.05ms]
+(pass) extractFile produces signature for function with no params [0.10ms]
+(pass) extractFile produces signature for exported function [0.07ms]
+(pass) extractFile produces signature for function with optional param [0.13ms]
+
+test/signature-extract-generics.test.ts:
+(pass) extractFile produces signature for generic function [0.09ms]
+(pass) extractFile produces signature for generic function with constraint [0.17ms]
+(pass) extractFile produces signature for generic arrow function [0.09ms]
+(pass) extractFile produces signature for multi-type-param function [0.07ms]
+
+test/output-trust-header.test.ts:
+(pass) trust header uses a compact shared contract without indexed-at timestamps [0.03ms]
+
+test/tool-symbol-contract-not-found.test.ts:
+(pass) symbolContract returns not-found message with trust header for unknown symbol [0.85ms]
+
+test/tool-symbol-graph-include-schema.test.ts:
+(pass) symbol_graph accepts include values for neighborhood, contract, and source and keeps default output byte-identical [1.68ms]
+
+test/tool-impact-ambiguous.test.ts:
+(pass) impact returns a disambiguation list instead of aggregating all ambiguous symbol matches [1.73ms]
+
+test/tool-symbol-graph-stale-agent.test.ts:
+(pass) symbolGraph marks stale agent edges with [stale] [1.39ms]
+
+test/indexer-index-result-shape.test.ts:
+(pass) indexProject result shape remains backward-compatible for summary counts [23.99ms]
+
+test/tool-symbol-graph-unknown-edge-kind.test.ts:
+(pass) symbolGraph renders unknown edge kind with generic title instead of dropping it [1.39ms]
+
+test/indexer-lsp.test.ts:
+(pass) resolves unresolved calls edge by evidence name + resolved file/line [0.49ms]
+(pass) AC20: upgrades confirmed tree-sitter edge when definition matches existing target node [0.02ms]
+(pass) partial results are preserved when tsserver crashes mid-stage [0.75ms]
+(pass) AC21: running the LSP stage twice produces no duplicate edges (idempotent) [0.09ms]
+
+test/graph-store-list-files.test.ts:
+(pass) SqliteGraphStore.listFiles returns indexed files and reflects deleteFile [0.40ms]
+
+test/typecheck.test.ts:
+(pass) tsc --noEmit passes with no type errors [992.91ms]
+
+test/tool-symbol-graph-render-neighborhood-body.test.ts:
+(pass) renderLegacyNeighborhoodBody is exported and matches the current standalone neighborhood output [1.41ms]
+
+test/graph-store-indexes.test.ts:
+(pass) SQLite store has index on nodes(name) for findNodes/symbol_graph queries [0.63ms]
+(pass) SQLite store has index on edges(kind) for graph_query kind filters [0.01ms]
+(pass) SQLite store preserves existing indexes on nodes(file), edges(source), edges(target)
+
+test/phase5-graph-overview-surface.test.ts:
+(pass) pi extension omits graph_overview when Phase 5 marks it for deletion
+
+test/tool-symbol-card-meta-filter.test.ts:
+(pass) symbolCard filters out __meta__ and __unresolved__ neighbors from relationships [1.02ms]
+
+test/tool-impact-empty-symbols.test.ts:
+(pass) impact() returns error message when symbols is empty array [1.27ms]
+(pass) impact() returns error message when symbols is undefined [0.55ms]
+(pass) impact() returns error message for invalid changeType [0.44ms]
+
+test/extension-readonly-devmeta.test.ts:
+(pass) CODEGRAPH_DEVMETA gates _meta per call without restart [623.81ms]
+
+test/graph-store-staleness.test.ts:
+(pass) getStatistics reports stale files when content hash no longer matches disk [1.21ms]
+(pass) getStatistics reports 0 stale when no projectRoot provided [0.24ms]
+
+test/symbol-graph-include-lock.test.ts:
+(pass) symbol_graph.include wording and literal set from #066 are unchanged [0.16ms]
+
+test/git-stage-guarded-writes.test.ts:
+(pass) RC-A/git: runGitCoChangeStage writes are guarded > addEdge throw during co-change write does not abort the stage [109.07ms]
+
+test/tool-symbol-search-filters.test.ts:
+(pass) symbolSearch kind filter excludes non-matching kinds [0.87ms]
+(pass) symbolSearch file glob filter narrows results [0.39ms]
+(pass) symbolSearch kind filter with no matches returns empty [0.08ms]
+(pass) symbolSearch file glob filter with no matches returns empty [0.51ms]
+
+test/extension-trace-description.test.ts:
+(pass) pi extension registers trace with the approved description [0.35ms]
+
+test/tool-symbol-graph-trust-header.test.ts:
+(pass) symbolGraph prepends the shared trust header and keeps stale row markers local [1.98ms]
+
+test/tool-symbol-card-happy.test.ts:
+(pass) symbolCard renders full card with signature, relationships, and signals [1.60ms]
+
+test/tool-symbol-card-no-tests.test.ts:
+(pass) symbolCard omits Covering Tests section when symbol has no tested_by edges [0.63ms]
+
+test/contract-extractor-guards.test.ts:
+(pass) extractGuards finds if (!x) return pattern [0.34ms]
+(pass) extractGuards finds if (x == null) return pattern [0.07ms]
+(pass) extractGuards finds if (x === undefined) return pattern
+(pass) extractGuards returns empty array when no guards [0.02ms]
+(pass) extractGuards finds multiple guards
+
+test/indexer-git-no-repo.test.ts:
+(pass) runGitCoChangeStage completes without error in a non-git directory [8.19ms]
+(pass) runGitCoChangeStage completes without error in a git repo with no commits [18.94ms]
+(pass) runGitCoChangeStage suppresses git CLI noise for non-git and empty repos [51.82ms]
+
+test/tool-symbol-graph-source-include.test.ts:
+(pass) include:['source'] appends the shared source section to the compact card base [1.01ms]
+(pass) include:['neighborhood','source'] keeps neighborhood as the active base and appends source after it [1.76ms]
+(pass) include:['contract','source'] appends contract then source after the active base [1.03ms]
+(pass) include:['source'] returns a single explicit not-found output [0.78ms]
+(pass) include:['source'] returns a single explicit ambiguity output [0.99ms]
+(pass) symbolCard routes its Source section through renderSymbolSourceSection for AC 15 [0.53ms]
+
+test/repro-041-trace-static-arbitrary-first.test.ts:
+(pass) trace static mode includes all callees, not just the alphabetically-first one [4.17ms]
+
+test/extension-symbol-search.test.ts:
+(pass) symbol_search is no longer registered in the extension surface
+(pass) symbolSearch remains exported for internal callers [0.73ms]
+
+test/dev-mode.test.ts:
+(pass) devModeEnabled accepts the approved truthy values and rejects disabled values [0.07ms]
+
+test/tool-symbol-card-neighbor-sigs.test.ts:
+(pass) symbolCard shows neighbor signatures in Key Relationships [1.06ms]
+(pass) symbolCard omits signature line for neighbors without a signature [1.16ms]
+
+test/tool-impact-performance.test.ts:
+(pass) impact renders 120 annotated dependents under one second [19.61ms]
+
+test/phase5-dead-code-surface.test.ts:
+(pass) pi extension omits dead_code when Phase 5 marks it for deletion [0.40ms]
+
+test/graph-store-coverage-traces.test.ts:
+(pass) SqliteGraphStore saves, replaces, and loads per-test coverage traces with stored content hashes [0.91ms]
+
+test/extension-tool-descriptions.test.ts:
+(pass) pi extension registers the approved descriptions for the default public tools [0.19ms]
+
+test/read-source-snippet.test.ts:
+(pass) readSourceSnippet returns hashlined source for a valid node [0.81ms]
+(pass) readSourceSnippet returns null when file does not exist on disk [0.37ms]
+(pass) readSourceSnippet returns null when end_line is null [0.41ms]
+(pass) readSourceSnippet truncates when source exceeds maxLines [0.54ms]
+(pass) readSourceSnippet sets stale=true when content hash mismatches [0.48ms]
+(pass) readSourceSnippet sets stale=false when content hash matches [0.51ms]
+
+test/tool-trace-static-cycle.test.ts:
+(pass) trace static DFS terminates on recursive call cycles and includes all reachable nodes once [1.61ms]
+
+test/ensure-indexed-mutex.test.ts:
+(pass) RC-E: ensureIndexed coalesces parallel calls > N=4 parallel tool invocations run indexProject exactly once, and resetStoreForTesting restores the override + in-flight state [25.98ms]
+
+test/tool-symbol-contract-happy.test.ts:
+(pass) symbolContract renders full contract with takes, returns, throws, guards, and test behaviors [2.55ms]
+
+test/indexer-tsx.test.ts:
+(pass) ITsServerClient contract used by indexProject is explicit
+(pass) indexProject indexes TSX function components [30.65ms]
+
+test/indexer-coverage-parser.test.ts:
+(pass) parseCoverageReports normalizes coverage deterministically, ignores unsupported URLs, and skips malformed entries without aborting [1.67ms]
+
+test/extension-wiring.test.ts:
+(pass) pi extension registers symbol_graph tool with correct schema [0.23ms]
+(pass) pi extension registers trace tool with correct schema [0.08ms]
+
+test/contract-extractor-throws.test.ts:
+(pass) extractThrows finds throw new Error with string literal [0.19ms]
+(pass) extractThrows finds throw new CustomError
+(pass) extractThrows finds plain throw expression
+(pass) extractThrows returns empty array when no throws
+(pass) extractThrows finds multiple throws [0.17ms]
+
+test/graph-store-statistics-sentinel.test.ts:
+(pass) getStatistics excludes __sentinel__ keys from file counts and stale detection [0.99ms]
+
+test/phase5-resolve-edge-surface.test.ts:
+(pass) pi extension omits resolve_edge when Phase 5 marks it for deletion [0.01ms]
+
+test/tool-impact-implements-edges.test.ts:
+(pass) collectImpact follows inbound `implements` edges: interface change reaches implementors and their callers [1.19ms]
+(pass) collectImpact deduplicates a node that both `calls` and `implements` a changed seed (AC #074.5) [0.47ms]
+
+test/signature-extract-class.test.ts:
+(pass) extractFile produces signature for class with constructor and heritage
+(pass) extractFile produces signature for class without constructor
+(pass) extractFile produces signature for class with no heritage and no constructor
+(pass) extractFile produces signature for class with implements only
+(pass) extractFile produces signature for class with extends only [0.66ms]
+
+test/tool-symbol-contract-no-body.test.ts:
+(pass) symbolContract omits throws/guards when source file does not exist [0.83ms]
+
+test/tool-symbol-graph-contract-include.test.ts:
+(pass) symbolGraph appends the standalone symbol_contract body when include contains contract [2.75ms]
+(pass) symbolGraph keeps unknown-symbol contract lookups explicit without duplicating the empty state [1.12ms]
+(pass) symbolGraph keeps ambiguous contract lookups explicit without duplicating the ambiguity block [1.01ms]
+
+test/indexer-coverage-mapping.test.ts:
+(pass) mapCoverageToNodes resolves same-file overlapping nodes and prefers the smallest span [0.62ms]
+
+test/tool-symbol-graph-legacy-neighborhood.test.ts:
+(pass) symbol_graph schema accepts only neighborhood, contract, and source includes [0.14ms]
+(pass) include:['neighborhood'] returns the byte-identical legacy body and stays the active base when combined [1.92ms]
+
+test/tool-impact-empty-diagnostic.test.ts:
+(pass) impact() entry-point seed — fanIn 0, no callers — emits entry-point diagnostic [1.05ms]
+(pass) impact() interface seed without implementors — emits interface diagnostic [0.54ms]
+(pass) impact() genuinely isolated symbol (non-entry, non-interface, no inbound) falls back to isolated diagnostic [0.93ms]
+(pass) impact() multiple seeds with mixed empty categories — one line per seed (stable order) [1.13ms]
+
+test/docs-symbol-graph-unified-surface.test.ts:
+(pass) public docs explain symbol_graph include values without implying tests is valid [0.60ms]
+
+test/tool-trace-trust-heuristic.test.ts:
+(pass) trace prepends the shared trust header for static heuristic paths without changing mode semantics [1.29ms]
+
+test/tool-impact.test.ts:
+(pass) collectImpact classifies direct and transitive dependents by change type [1.18ms]
+(pass) collectImpact respects maxDepth [0.30ms]
+(pass) collectImpact returns no dependents for addition [0.20ms]
+(pass) collectImpact terminates on cycles without duplicates [0.90ms]
+(pass) collectImpact terminates on a 3-node cycle without duplicates [0.67ms]
+(pass) collectImpact classification matrix (AC 34) across all change types [0.06ms]
+
+test/signature-schema.test.ts:
+(pass) GraphNode signature field exists and SQLite column is nullable [0.43ms]
+(pass) signature column is added via migration on existing databases [3.59ms]
+
+test/token-tracker.test.ts:
+(pass) estimateNaiveCost sums file sizes and divides by 4 [0.92ms]
+(pass) estimateNaiveCost ignores missing files [0.44ms]
+(pass) trackCall accumulates session stats
+(pass) resetSession clears accumulated stats
+(pass) formatMetaLine includes per-call and session stats
+
+test/indexer-ast-grep-express-integration.test.ts:
+(pass) sg binary is available for Stage 3 subprocess integration [5.79ms]
+(pass) runAstGrepIndexStage passes only changed files to scanFn [0.42ms]
+(pass) runAstGrepIndexStage passes exactly provided changed files to scanFn [0.91ms]
+(pass) SqliteGraphStore.deleteFile removes endpoint nodes and Stage-3 routes_to edges [0.47ms]
+(pass) bundled rules path resolves and bundled files exist
+(pass) pipeline Stage 3 minimal Express integration creates endpoint node id and routes_to edge [33.31ms]
+(pass) pipeline Stage 3 indexes express routes, replaces changed matches, keeps unchanged reruns stable, and cleans removed-file artifacts [69.89ms]
+
+test/repro-039-self-referential-dedup.test.ts:
+(pass) self-referential edge should not produce duplicate caller entries [1.01ms]
+(pass) getNeighbors returns duplicate rows for self-referential edges with direction=both
+
+test/indexer-ast-grep-scan.test.ts:
+(pass) Bun.spawn exists in this runtime
+(pass) Bun.spawn process contract exposes stdout/stderr/exited used by defaultExec [1.90ms]
+(pass) runScan uses sg CLI args and normalizes --json output [0.16ms]
+(pass) defaultExec launch failure path is wrapped with actionable sg message
+(pass) runScan wraps subprocess launch failures
+(pass) runScan returns [] when sg exits successfully with empty stdout
+(pass) runScan returns [] when sg stdout is whitespace-only
+(pass) runScan still rejects malformed non-empty JSON output
+
+test/ast-grep-guarded-writes.test.ts:
+(pass) RC-A/ast-grep: applyRuleMatches writes are guarded > routes_to: addNode throw does not abort the stage [5.16ms]
+(pass) RC-A/ast-grep: applyRuleMatches writes are guarded > renders: addEdge throw does not abort the stage [5.56ms]
+
+test/tool-trace-signals.test.ts:
+(pass) trace appends inline role tags to coverage and static step lines without changing mode header [1.74ms]
+
+test/indexer-ast-grep-express.test.ts:
+(pass) GraphStore contract used by Stage 3 exists [0.37ms]
+(pass) applyRuleMatches creates endpoint nodes and routes_to edges [0.37ms]
+(pass) template rendering supports additional capture keys (e.g. {HANDLER})
+
+test/indexer-extract-file.test.ts:
+(pass) extractFile returns module node with stable id and SHA-256 content hash [0.26ms]
+(pass) extractFile extracts non-exported function declarations (criterion 1)
+(pass) extractFile extracts function declarations and arrow function assignments
+(pass) extractFile extracts class and interface declarations
+(pass) extractFile extracts import edges for named, aliased, and default imports [0.55ms]
+(pass) extractFile resolves aliased import calls to the original exported name [0.16ms]
+(pass) extractFile extracts calls edges for bare calls + constructors, ignoring method calls [0.21ms]
+(pass) extractFile returns empty nodes/edges (but no throw) when the parse has errors [0.06ms]
+(pass) extractFile records call-site coordinates in calls evidence (bare call)
+(pass) extractFile records constructor call-site coordinates in calls evidence (new expression)
+
+test/indexer-ast-grep-react-integration.test.ts:
+(pass) pipeline Stage 3 indexes same-file renders edges from TSX fixture [33.00ms]
+(pass) same-file-only lookup excludes cross-file target when local target is absent [31.87ms]
+
+test/tool-symbol-contract-no-signature.test.ts:
+(pass) symbolContract omits Takes and Returns when node has no signature [1.25ms]
+
+test/signature-extract-module.test.ts:
+(pass) module node has no signature (undefined, not empty string) [0.11ms]
+(pass) function node without any type annotations still gets a param-only signature [0.05ms]
+
+test/tool-impact-083-repro.test.ts:
+(pass) BUG #073: impact on an entry-point symbol returns the entry-point diagnostic [1.28ms]
+(pass) BUG #073 + #074: impact on an interface with implementors returns the implementor chain (not the interface diagnostic) [1.16ms]
+(pass) BUG #074: impact on an interface traverses implements edges via collectImpact [0.79ms]
+
+test/tool-impact-empty-output.test.ts:
+(pass) impact() returns diagnostic message for non-existent symbol (#042) [0.86ms]
+(pass) impact() returns diagnostic message for addition change type (#043) [0.87ms]
+
+test/ensure-indexed-error-message.test.ts:
+(pass) batch 072: indexingFailedNote surfaces the real error message > non-readonly indexing failure is reported verbatim in tool output [104.06ms]
+
+test/bm25-tokenizer.test.ts:
+(pass) tokenize splits camelCase into lowercase terms
+(pass) tokenize splits snake_case into lowercase terms [0.01ms]
+(pass) tokenize splits whitespace [0.01ms]
+(pass) tokenize handles mixed camelCase, snake_case, and whitespace
+(pass) tokenize lowercases all terms
+(pass) tokenize returns empty array for empty string
+(pass) tokenize handles single word
+(pass) tokenize handles all-uppercase abbreviations [0.03ms]
+
+test/tool-symbol-graph-signals.test.ts:
+(pass) symbolGraph renders inline role tags on header and resolved neighbors [1.89ms]
+
+test/token-tracker-wiring-check.test.ts:
+(pass) the default public tools are registered in the pi extension
+
+test/tool-trace-static-fallback.test.ts:
+(pass) trace falls back to a deterministic static call path when no coverage trace exists [1.56ms]
+
+test/indexing-failed-note-age.test.ts:
+(pass) RC-D: indexingFailedNote includes an age > helper renders 'indexing-failed (<N>s ago): <msg>' and preserves the prefix
+
+test/bm25-index.test.ts:
+(pass) BM25Index scores exact name match highest
+(pass) BM25Index returns results sorted by score descending
+(pass) BM25Index respects field weights: name > signature > file
+(pass) BM25Index multi-term query scores documents matching more terms higher
+(pass) BM25Index returns empty array for query with no matches
+(pass) BM25Index respects limit parameter [0.28ms]
+(pass) BM25Index search returns empty for empty query [0.01ms]
+
+test/indexer-git-cochange.test.ts:
+(pass) runGitCoChangeStage creates co_changes_with edges for file pairs exceeding threshold [121.73ms]
+(pass) runGitCoChangeStage applies recency weighting (recent commits count more) [127.38ms]
+
+test/extension-auto-index.test.ts:
+(pass) extension shares singleton store instance across symbol_graph and impact [330.61ms]
+(pass) extension auto-indexes project on first tool call when DB is empty [126.69ms]
+
+test/token-tracker-naive-files.test.ts:
+(pass) collectNaiveFiles for symbol_graph returns target + neighbor files [0.52ms]
+(pass) collectNaiveFiles for impact returns downstream files [0.21ms]
+(pass) collectNaiveFiles for trace returns traced path files [0.36ms]
+
+test/tool-trace-endpoint.test.ts:
+(pass) trace resolves endpoint entries through routes_to edges to the same deterministic coverage-backed trace policy [2.15ms]
+
+test/tool-symbol-graph-lsp.test.ts:
+(pass) resolveMissingCallers persists callers and writes marker; second run skips references() [0.52ms]
+(pass) resolveMissingCallers ignores self-reference at declaration location
+(pass) resolveMissingCallers re-resolves after file re-index (stale marker edge cleared) [1.06ms]
+(pass) tool wiring: symbol_graph invokes resolver and persists lsp caller edge before render [350.78ms]
+(pass) resolveImplementations persists implements edges and marker; second run skips implementations() [0.91ms]
+(pass) resolveImplementations removes stale persisted lsp implements edges when marker already exists [0.62ms]
+(pass) tool path: interface symbol_graph resolves implementations, persists edge, and renders Implemented By section [282.61ms]
+(pass) non-interface symbol_graph output remains unchanged (no Implemented By section) [127.30ms]
+(pass) resolveMissingCallers: transient error does NOT set marker — next call retries [0.55ms]
+(pass) resolveMissingCallers: startup error DOES set marker — second call is skipped [0.13ms]
+(pass) resolveMissingCallers: error catch block does NOT create fake lsp-provenance edges [0.60ms]
+(pass) symbol_graph Implemented By section includes agent-provenance implements edges [478.45ms]
+
+ 385 pass
+ 0 fail
+ 1127 expect() calls
+Ran 385 tests across 157 files. [9.96s]

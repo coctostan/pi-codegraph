@@ -1,0 +1,33 @@
+ENTRY_OUTPUT_START
+## Trust
+status: fresh
+evidence: lsp,tree-sitter  stale-files: 0/0
+No dependents found — 'entryPoint' is an entry point with no callers.
+
+ENTRY_OUTPUT_END
+INTERFACE_OUTPUT_START
+## Trust
+status: mixed
+evidence: lsp,tree-sitter  stale-files: 0/0
+src/iface.ts:2:3fd2  MyStore  breaking  depth:1 [stale]  [fan-in:1, fan-out:0, roles:leaf, coverage:untested, co-change:0.00, chain-confidence:0.90]
+src/iface.ts:3:a81b  useStore  behavioral  depth:2 [stale]  [fan-in:0, fan-out:1, roles:entry-point, coverage:untested, co-change:0.00, chain-confidence:0.80]
+
+INTERFACE_OUTPUT_END
+COLLECT_IMPACT_START
+[
+  {
+    "nodeId": "src/iface.ts::MyStore:2",
+    "name": "MyStore",
+    "file": "src/iface.ts",
+    "depth": 1,
+    "classification": "breaking"
+  },
+  {
+    "nodeId": "src/iface.ts::useStore:3",
+    "name": "useStore",
+    "file": "src/iface.ts",
+    "depth": 2,
+    "classification": "behavioral"
+  }
+]
+COLLECT_IMPACT_END

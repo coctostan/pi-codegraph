@@ -86,7 +86,9 @@ export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[
     const current = queue.shift()!;
     if (current.depth >= maxDepth) continue;
 
-    const inbound = dedupeInboundByStrongestEdge(store.getNeighbors(current.id, { direction: "in", kind: "calls" }));
+    const inboundCalls = store.getNeighbors(current.id, { direction: "in", kind: "calls" });
+    const inboundImplements = store.getNeighbors(current.id, { direction: "in", kind: "implements" });
+    const inbound = dedupeInboundByStrongestEdge([...inboundCalls, ...inboundImplements]);
 
     for (const neighbor of inbound) {
       const depth = current.depth + 1;
@@ -126,6 +128,34 @@ export function collectImpact(params: CollectImpactParams): ImpactItem[] {
     depth,
     classification,
   }));
+}
+
+function buildEmptyImpactDiagnostic(
+  symbols: string[],
+  store: GraphStore,
+  signalComputer: SignalComputer,
+  maxDepth: number,
+): string {
+  const lines: string[] = [];
+  for (const symbol of symbols) {
+    const matches = store.findNodes(symbol);
+    const node = matches.length === 1 ? matches[0]! : null;
+    if (!node) {
+      lines.push(`No dependents found for '${symbol}' within depth ${maxDepth}.`);
+      continue;
+    }
+    const signals = signalComputer.compute(node.id, []);
+    if (node.kind === "interface") {
+      lines.push(
+        `No call-edge dependents found for interface '${node.name}'. Consider checking implementors via symbol_graph.`,
+      );
+    } else if (signals.roles.includes("entry-point")) {
+      lines.push(`No dependents found — '${node.name}' is an entry point with no callers.`);
+    } else {
+      lines.push(`No dependents found for '${node.name}' within depth ${maxDepth}.`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 export function impact(params: {
@@ -180,7 +210,10 @@ export function impact(params: {
     signalComputer,
   });
 
-  if (hits.length === 0) return prependTrustHeader("", { stats });
+  if (hits.length === 0) {
+    const body = buildEmptyImpactDiagnostic(params.symbols, params.store, signalComputer, params.maxDepth ?? 5);
+    return prependTrustHeader(body, { stats });
+  }
 
   let hasLocalExceptions = false;
   const lines = hits.flatMap((hit) => {

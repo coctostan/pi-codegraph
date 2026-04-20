@@ -1,7 +1,7 @@
 ---
 id: 84
 type: bugfix
-status: in-progress
+status: done
 created: 2026-04-20T10:33:24.205Z
 sources: [76, 77]
 ---

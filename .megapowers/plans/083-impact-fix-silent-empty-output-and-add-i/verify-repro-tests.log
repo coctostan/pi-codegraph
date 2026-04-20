@@ -1,0 +1,11 @@
+bun test v1.3.11 (af24e281)
+
+test/tool-impact-083-repro.test.ts:
+(pass) BUG #073: impact on an entry-point symbol returns the entry-point diagnostic [5.27ms]
+(pass) BUG #073 + #074: impact on an interface with implementors returns the implementor chain (not the interface diagnostic) [6.86ms]
+(pass) BUG #074: impact on an interface traverses implements edges via collectImpact [2.38ms]
+
+ 3 pass
+ 0 fail
+ 9 expect() calls
+Ran 3 tests across 1 file. [26.00ms]
