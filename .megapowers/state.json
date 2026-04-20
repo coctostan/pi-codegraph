@@ -1,59 +1,16 @@
 {
   "version": 1,
-  "activeIssue": "072-harden-ensureindexed-error-path-real-mes",
+  "activeIssue": "084-interface-handling-fix-contract-output-a",
   "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1776644186579
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1776644398973
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1776676876422
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1776679384514
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1776679660607
-    }
-  ],
+  "phase": "reproduce",
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 4,
-  "currentTaskIndex": 9,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
   "branchName": "fix/072-harden-ensureindexed-error-path-real-mes",
   "baseBranch": "main"
