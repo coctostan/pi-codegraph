@@ -1,0 +1,15 @@
+# Learnings — 072: Harden ensureIndexed Error Path
+
+- **A hardcoded error string is a silent lie detector.** `indexingFailedNote` discarded the real `lastIndexError.message` and emitted a fixed string — the kind of bug that passes every existing test because no test was asserting the *wrong* string was absent. Reproducing the lie explicitly (assert `not.toContain("readonly database")` for a non-readonly failure) was the key unlock.
+
+- **Guarding the lookup but not the write is a common asymmetry.** `runLspIndexStage` correctly wrapped `client.definition()` in try/catch but left the subsequent `store.deleteEdge` + `store.addEdge` unguarded. The lookup is the expensive or fallible operation, so it gets the guard; the write feels cheap and infallible until SQLite disagrees. Auditing every stage for this asymmetry is worth doing explicitly when adding new pipeline stages.
+
+- **Module-level sticky state needs both a timestamp and a clear trigger.** `lastIndexError: Error | null` with no TTL and no clear-on-health hook means every transient failure sticks until the next full successful indexing cycle. Adding `{ error, setAt }` and a post-output hook solves two problems in one: agents see the real age, and transient errors self-heal on the next successful read.
+
+- **A promise-based mutex is simpler than it looks.** A single `indexingInFlight: Promise<void> | null` at module scope, with `if (indexingInFlight) return indexingInFlight` as the guard and `finally { indexingInFlight = null }` as the cleanup, costs 5 lines and eliminates the entire write-race class. The key insight: parallel awaiters all share the *same* promise object, so they all settle together when the single run completes.
+
+- **Test overrides must be reset with the same function that resets everything else.** The `indexProjectImpl` override and `indexingInFlight` promise are both new module-level state introduced by this batch. If `resetStoreForTesting` hadn't been updated to clear both, tests would contaminate each other across runs. Making one reset function the canonical authority over all module state keeps isolation requirements auditable in one place.
+
+- **The `errors +=` accounting pattern is load-bearing.** Before this fix, `result.errors` only reflected tree-sitter + `deleteFile` failures — the later stages were binary: silent success or thrown exception. Returning error counts from each stage and accumulating them lets `ensureIndexed`'s `result.errors > 0 && !dbIsWritable()` branch distinguish partial-success from total failure correctly, without needing to inspect which stage failed.
+
+- **Monkey-patching prototype methods is the sharpest fault-injection tool for SQLite-backed tests.** `SqliteGraphStore.prototype.addEdge = function(...) { ... }` lets a test inject a fault at exactly the right call index without spinning up a real readonly filesystem or a broken SQLite instance. The restore pattern (`try { ... } finally { proto.method = original }`) is compact and safe across async tests.

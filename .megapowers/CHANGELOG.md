@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Fixed
+- **Harden `ensureIndexed` error path (batch #068–#071):** fixed a chain of four interacting defects that caused a transient write failure during first-run indexing to produce a permanent `indexing-failed: graph may be stale (readonly database)` note on every tool output — even when the DB was writable. RC-A: all async indexer stages (LSP, git, ast-grep) now wrap per-edge writes in `try/catch { errors++; }` so a single transient failure continues the loop instead of aborting the pipeline. RC-C: `indexingFailedNote` now surfaces the real `lastIndexError.message` with an age signal (`indexing-failed (Ns ago): <msg>`) instead of a hardcoded string. RC-D: `lastIndexError` upgraded to `{ error, setAt }` with a clear-on-health hook in `finalizeReadOnlyOutput` so transient errors self-heal on the next successful read; `"readonly database"` literal remains persistent. RC-E: `ensureIndexed` uses an `indexingInFlight` promise mutex so N parallel tool calls produce exactly one `indexProject` invocation. Adds 10 new tests across 8 test files. (#072)
+
 ### Removed
 - **M10 Phase 5 (dead-code cut):** removed five zero-usage tools from the registered surface — `resolve_edge`, `delete_edge`, `graph_query`, `graph_overview`, `dead_code` — including registrations, schemas, source modules, README/ARCHITECTURE entries, and dedicated test files. No deprecation shim, alias, or warning text. Final surface: 3 public tools (`symbol_graph`, `impact`, `trace`), 0 dev-mode tools, 1 internal helper (`symbol_search`). Surface tests now read from a single decision matrix (`test/phase5-decision-matrix.ts`) so docs, registration, and assertions can no longer drift (#063)
 

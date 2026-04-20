@@ -107,22 +107,19 @@ export async function indexProject(
   const lspStart = performance.now();
   const client = options.lspClientFactory ? options.lspClientFactory(projectRoot) : new TsServerClient(projectRoot);
   try {
-    await runLspIndexStage(store, projectRoot, client);
+    errors += await runLspIndexStage(store, projectRoot, client);
   } finally {
     await client.shutdown().catch(() => {});
   }
   timings["lsp"] = Math.round(performance.now() - lspStart);
-
   const astGrepStart = performance.now();
-  await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  errors += await runAstGrepIndexStage(store, projectRoot, changedFiles);
   timings["ast-grep"] = Math.round(performance.now() - astGrepStart);
-
   const coverageStart = performance.now();
   runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
   timings["coverage"] = Math.round(performance.now() - coverageStart);
-
   const gitStart = performance.now();
-  await runGitCoChangeStage(store, projectRoot);
+  errors += await runGitCoChangeStage(store, projectRoot);
   timings["git"] = Math.round(performance.now() - gitStart);
 
   return { indexed, skipped, removed, errors, timings };

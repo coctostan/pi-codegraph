@@ -76,41 +76,41 @@ export async function runGitCoChangeStage(
   store: GraphStore,
   projectRoot: string,
   options: GitCoChangeOptions = {},
-): Promise<void> {
+): Promise<number> {
+  let errors = 0;
   const head = getCurrentHead(projectRoot);
-  if (!head) return;
-
+  if (!head) return errors;
   const lastHead = store.getFileHash(GIT_HEAD_KEY);
-  if (lastHead === head) return;
-
+  if (lastHead === head) return errors;
   const oldEdges = store.queryRows<{ source: string; target: string }>(
     "SELECT source, target FROM edges WHERE kind = 'co_changes_with' AND provenance_source = 'git'",
   );
   for (const edge of oldEdges) {
-    store.deleteEdge(edge.source, edge.target, "co_changes_with", "git");
+    try {
+      store.deleteEdge(edge.source, edge.target, "co_changes_with", "git");
+    } catch {
+      errors++;
+    }
   }
-
   const minCount = options.minCoChangeCount ?? 2;
   const windowDays = options.windowDays ?? 365;
-
   const commits = parseGitLog(projectRoot);
   if (commits.length === 0) {
-    store.setFileHash(GIT_HEAD_KEY, head);
-    return;
+    try {
+      store.setFileHash(GIT_HEAD_KEY, head);
+    } catch {
+      errors++;
+    }
+    return errors;
   }
-
   const now = Date.now();
   const halfLifeDays = windowDays / 4;
-
   const trackedFiles = new Set(store.listFiles());
   const pairCounts = new Map<string, { count: number; weightedScore: number }>();
-
   for (const commit of commits) {
     const relevantFiles = commit.files.filter((f) => trackedFiles.has(f)).sort();
     if (relevantFiles.length < 2) continue;
-
     const weight = computeDecayWeight(commit.dateIso, now, halfLifeDays);
-
     for (let i = 0; i < relevantFiles.length; i++) {
       for (let j = i + 1; j < relevantFiles.length; j++) {
         const key = `${relevantFiles[i]}|${relevantFiles[j]}`;
@@ -121,30 +121,35 @@ export async function runGitCoChangeStage(
       }
     }
   }
-
   for (const [key, data] of pairCounts) {
     if (data.count < minCount) continue;
-
     const [fileA, fileB] = key.split("|");
     const nodeA = store.findNodes(fileA!)[0];
     const nodeB = store.findNodes(fileB!)[0];
     if (!nodeA || !nodeB) continue;
-
     const evidence = `co_changes: ${data.count}, recency_score: ${data.weightedScore.toFixed(1)}, window: ${windowDays}d`;
-
-    store.addEdge({
-      source: nodeA.id,
-      target: nodeB.id,
-      kind: "co_changes_with",
-      provenance: {
-        source: "git",
-        confidence: Math.min(0.9, 0.3 + data.count * 0.1),
-        evidence,
-        content_hash: nodeA.content_hash,
-      },
-      created_at: Date.now(),
-    });
+    try {
+      store.addEdge({
+        source: nodeA.id,
+        target: nodeB.id,
+        kind: "co_changes_with",
+        provenance: {
+          source: "git",
+          confidence: Math.min(0.9, 0.3 + data.count * 0.1),
+          evidence,
+          content_hash: nodeA.content_hash,
+        },
+        created_at: Date.now(),
+      });
+    } catch {
+      errors++;
+    }
   }
 
-  store.setFileHash(GIT_HEAD_KEY, head);
+  try {
+    store.setFileHash(GIT_HEAD_KEY, head);
+  } catch {
+    errors++;
+  }
+  return errors;
 }

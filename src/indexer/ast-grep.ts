@@ -184,7 +184,8 @@ function renderTemplate(template: string, meta: Record<string, string | string[]
   });
 }
 
-function applyRoutesToMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): void {
+function applyRoutesToMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): number {
+  let errors = 0;
   for (const match of matches) {
     const rawMethod = metaValue(match.metaVariables, "METHOD");
     const rawPath = metaValue(match.metaVariables, "PATH");
@@ -192,7 +193,6 @@ function applyRoutesToMatches(store: GraphStore, rule: AstGrepRule, matches: SgM
     const method = rawMethod.toUpperCase();
     const path = rawPath.replace(/^['"]|['"]$/g, "");
     const endpointId = renderTemplate(rule.produces.to_template!, { ...match.metaVariables, METHOD: method, PATH: path });
-
     for (const handlerName of metaValues(match.metaVariables, rule.produces.from_capture ?? "")) {
       const handlerNode = store.findNodes(handlerName, match.file)[0];
       if (!handlerNode) continue;
@@ -205,21 +205,26 @@ function applyRoutesToMatches(store: GraphStore, rule: AstGrepRule, matches: SgM
         end_line: match.line,
         content_hash: handlerNode.content_hash,
       };
-      store.addNode(endpointNode);
-      store.addEdge({
-        source: handlerNode.id,
-        target: endpointId,
-        kind: "routes_to",
-        provenance: {
-          source: "ast-grep",
-          confidence: rule.produces.confidence,
-          evidence: `${rule.name}@${match.file}:${match.line}:${match.column}`,
-          content_hash: handlerNode.content_hash,
-        },
-        created_at: Date.now(),
-      });
+      try {
+        store.addNode(endpointNode);
+        store.addEdge({
+          source: handlerNode.id,
+          target: endpointId,
+          kind: "routes_to",
+          provenance: {
+            source: "ast-grep",
+            confidence: rule.produces.confidence,
+            evidence: `${rule.name}@${match.file}:${match.line}:${match.column}`,
+            content_hash: handlerNode.content_hash,
+          },
+          created_at: Date.now(),
+        });
+      } catch {
+        errors++;
+      }
     }
   }
+  return errors;
 }
 
 function smallestContainingFunction(nodes: import("../graph/types.js").GraphNode[], line: number): import("../graph/types.js").GraphNode | null {
@@ -233,7 +238,8 @@ function smallestContainingFunction(nodes: import("../graph/types.js").GraphNode
   )[0]!;
 }
 
-function applyRendersMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): void {
+function applyRendersMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): number {
+  let errors = 0;
   for (const match of matches) {
     const targetName = metaValue(match.metaVariables, rule.produces.to_capture ?? "");
     if (!targetName) continue;
@@ -241,36 +247,43 @@ function applyRendersMatches(store: GraphStore, rule: AstGrepRule, matches: SgMa
     if (!sourceNode) continue;
     const targetNode = store.findNodes(targetName, match.file)[0];
     if (!targetNode) continue;
-    store.addEdge({
-      source: sourceNode.id,
-      target: targetNode.id,
-      kind: "renders",
-      provenance: {
-        source: "ast-grep",
-        confidence: rule.produces.confidence,
-        evidence: `${rule.name}@${match.file}:${match.line}:${match.column}`,
-        content_hash: sourceNode.content_hash,
-      },
-      created_at: Date.now(),
-    });
+    try {
+      store.addEdge({
+        source: sourceNode.id,
+        target: targetNode.id,
+        kind: "renders",
+        provenance: {
+          source: "ast-grep",
+          confidence: rule.produces.confidence,
+          evidence: `${rule.name}@${match.file}:${match.line}:${match.column}`,
+          content_hash: sourceNode.content_hash,
+        },
+        created_at: Date.now(),
+      });
+    } catch {
+      errors++;
+    }
   }
+  return errors;
 }
-export function applyRuleMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): void {
+export function applyRuleMatches(store: GraphStore, rule: AstGrepRule, matches: SgMatch[]): number {
   if (rule.produces.edge_kind === "routes_to") return applyRoutesToMatches(store, rule, matches);
   if (rule.produces.edge_kind === "renders") return applyRendersMatches(store, rule, matches);
+  return 0;
 }
-
 export async function runAstGrepIndexStage(
   store: GraphStore,
   projectRoot: string,
   files: string[],
   scanFn: typeof runScan = runScan,
-): Promise<void> {
-  if (files.length === 0) return;
+): Promise<number> {
+  let errors = 0;
+  if (files.length === 0) return errors;
   const bundledDir = fileURLToPath(new URL("../rules/", import.meta.url));
   const rules = loadRules({ bundledDir, projectRoot });
   for (const rule of rules) {
     const matches = await scanFn(projectRoot, rule, files);
-    applyRuleMatches(store, rule, matches);
+    errors += applyRuleMatches(store, rule, matches);
   }
+  return errors;
 }
