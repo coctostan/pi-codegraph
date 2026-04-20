@@ -161,17 +161,33 @@ function extractClassSignature(node: SyntaxNode, name: string): string {
   return parts.join(" ");
 }
 
+function extractInterfaceMembers(node: SyntaxNode): string[] {
+  const body = node.childForFieldName("body");
+  if (!body) return [];
+
+  return body.namedChildren
+    .filter(
+      (member: SyntaxNode) =>
+        member.type === "method_signature" ||
+        member.type === "property_signature" ||
+        member.type === "index_signature" ||
+        member.type === "call_signature",
+    )
+    .map((member: SyntaxNode) => member.text.replace(/;\s*$/, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
 function extractInterfaceSignature(node: SyntaxNode, name: string): string {
   const extendsClause = node.namedChildren.find((c: SyntaxNode) => c.type === "extends_type_clause");
-  if (extendsClause) {
+  const header = (() => {
+    if (!extendsClause) return `interface ${name}`;
     const types = extendsClause.namedChildren
       .filter((c: SyntaxNode) => c.type === "type_identifier" || c.type === "generic_type")
       .map((c: SyntaxNode) => c.text);
-    if (types.length > 0) {
-      return `interface ${name} extends ${types.join(", ")}`;
-    }
-  }
-  return `interface ${name}`;
+    return types.length > 0 ? `interface ${name} extends ${types.join(", ")}` : `interface ${name}`;
+  })();
+
+  const members = extractInterfaceMembers(node);
+  return members.length > 0 ? [header, ...members].join("\n") : header;
 }
 
 

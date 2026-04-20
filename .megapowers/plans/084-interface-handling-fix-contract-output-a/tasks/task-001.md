@@ -1,57 +1,88 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import type { GraphStore } from "../graph/store.js";
-import { computeAnchor } from "../output/anchoring.js";
-import { prependTrustHeader } from "../output/trust.js";
-import { extractThrows, extractGuards, extractTestAssertions } from "../indexer/contract-extractor.js";
+---
+id: 1
+title: Render interface members in symbol_graph contracts
+status: approved
+depends_on: []
+no_test: false
+files_to_modify:
+  - src/tools/symbol-contract.ts
+  - test/repro-084-interface-handling.test.ts
+files_to_create: []
+---
 
-export interface SymbolContractParams {
-  name: string;
-  file?: string;
-  store: GraphStore;
-  projectRoot: string;
-}
-function parseSignatureParams(signature: string): { params: string[]; returnType: string | null } {
-  let s = signature;
-  if (s.startsWith("<")) {
-    let depth = 0;
-    for (let i = 0; i < s.length; i++) {
-      if (s[i] === "<") depth++;
-      else if (s[i] === ">") {
-        depth--;
-        if (depth === 0) {
-          s = s.slice(i + 1);
-          break;
-        }
-      }
-    }
+### Task 1: Render interface members in `symbol_graph` contracts
+
+**Files:**
+- Modify: `src/tools/symbol-contract.ts`
+- Test: `test/repro-084-interface-handling.test.ts`
+
+**Step 1 — Write the failing test**
+Replace the existing `repro #076` test in `test/repro-084-interface-handling.test.ts` with this copy-pasteable block so the repro covers both interface methods and interface fields from the original report:
+
+```ts
+test("repro #076: symbolGraph contract output for interfaces should list interface members", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-repro-076-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+
+  const storeFile = [
+    "export interface GraphStatistics {",
+    "  nodes: Record<string, number>;",
+    "  edges: Record<string, Record<string, number>>;",
+    "  files: { total: number; stale: number };",
+    "}",
+    "",
+    "export interface GraphStore {",
+    "  addNode(node: GraphNode): void;",
+    "  getNode(id: string): GraphNode | null;",
+    "}",
+    "",
+  ].join("\n");
+  writeFileSync(join(projectRoot, "src", "store.ts"), storeFile);
+
+  const store = new SqliteGraphStore();
+  try {
+    addIndexedFile(store, "src/store.ts", storeFile);
+
+    const graphStoreOutput = symbolGraph({
+      name: "GraphStore",
+      file: "src/store.ts",
+      include: ["contract"],
+      store,
+      projectRoot,
+    });
+
+    expect(graphStoreOutput).toContain("## Contract: GraphStore");
+    expect(graphStoreOutput).toContain("### Methods");
+    expect(graphStoreOutput).toContain("addNode(node: GraphNode): void");
+    expect(graphStoreOutput).toContain("getNode(id: string): GraphNode | null");
+
+    const graphStatisticsOutput = symbolGraph({
+      name: "GraphStatistics",
+      file: "src/store.ts",
+      include: ["contract"],
+      store,
+      projectRoot,
+    });
+
+    expect(graphStatisticsOutput).toContain("## Contract: GraphStatistics");
+    expect(graphStatisticsOutput).toContain("### Fields");
+    expect(graphStatisticsOutput).toContain("nodes: Record<string, number>");
+    expect(graphStatisticsOutput).toContain("files: { total: number; stale: number }");
+  } finally {
+    store.close();
+    rmSync(projectRoot, { recursive: true, force: true });
   }
-  const arrowIdx = s.indexOf(" => ");
-  const returnType = arrowIdx >= 0 ? s.slice(arrowIdx + 4).trim() : null;
-  const paramsPart = arrowIdx >= 0 ? s.slice(0, arrowIdx).trim() : s.trim();
-  const inner = paramsPart.startsWith("(") && paramsPart.endsWith(")")
-    ? paramsPart.slice(1, -1).trim()
-    : paramsPart;
-  if (!inner) return { params: [], returnType };
-  // Split params respecting nested generics
-  const params: string[] = [];
-  let depth = 0;
-  let current = "";
-  for (const ch of inner) {
-    if (ch === "<" || ch === "(") depth++;
-    else if (ch === ">" || ch === ")") depth--;
-    else if (ch === "," && depth === 0) {
-      params.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += ch;
-  }
-  if (current.trim()) params.push(current.trim());
+});
+```
 
-  return { params, returnType };
-}
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/repro-084-interface-handling.test.ts -t 'repro #076'`
+Expected: FAIL — `error: expect(received).toContain(expected)` with `Expected to contain: "### Methods"` and the received contract body still showing `### Takes` / `interface GraphStore`.
 
+**Step 3 — Write minimal implementation**
+In `src/tools/symbol-contract.ts`, add interface-member helpers and update `renderSymbolContractBody` so interface contracts render from the interface source span instead of feeding `interface Foo` into `parseSignatureParams`.
+
+```ts
 interface InterfaceContractSections {
   methods: string[];
   fields: string[];
@@ -87,6 +118,7 @@ function splitInterfaceMembers(body: string): string[] {
       current = "";
       continue;
     }
+
     current += ch;
   }
 
@@ -114,19 +146,6 @@ function extractInterfaceSectionsFromSource(
   };
 }
 
-function extractInterfaceSectionsFromSignature(signature: string): InterfaceContractSections {
-  const members = signature
-    .split("\n")
-    .slice(1)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  return {
-    methods: members.filter((member) => member.includes("(")),
-    fields: members.filter((member) => !member.includes("(")),
-  };
-}
-
 function pushInterfaceContractSections(lines: string[], sections: InterfaceContractSections): void {
   if (sections.methods.length > 0) {
     lines.push("");
@@ -140,10 +159,7 @@ function pushInterfaceContractSections(lines: string[], sections: InterfaceContr
     for (const field of sections.fields) lines.push(`  ${field}`);
   }
 }
-export interface RenderedSymbolContract {
-  body: string;
-  hasLocalExceptions: boolean;
-}
+
 export function renderSymbolContractBody(params: SymbolContractParams): RenderedSymbolContract {
   const { name, file, store, projectRoot } = params;
   const nodes = store.findNodes(name, file);
@@ -161,6 +177,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
     const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
     return { body, hasLocalExceptions };
   }
+
   const node = nodes[0]!;
   const anchor = computeAnchor(node, projectRoot);
   const lines: string[] = [];
@@ -177,22 +194,9 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
     }
   }
 
-  let interfaceSections: InterfaceContractSections | null = null;
-  if (node.kind === "interface" && node.signature) {
-    const fromSignature = extractInterfaceSectionsFromSignature(node.signature);
-    if (fromSignature.methods.length > 0 || fromSignature.fields.length > 0) {
-      interfaceSections = fromSignature;
-    }
-  }
-  if (!interfaceSections && node.kind === "interface" && fileContent && node.start_line && node.end_line) {
-    const fromSource = extractInterfaceSectionsFromSource(fileContent, node.start_line, node.end_line);
-    if (fromSource.methods.length > 0 || fromSource.fields.length > 0) {
-      interfaceSections = fromSource;
-    }
-  }
-
-  if (interfaceSections) {
-    pushInterfaceContractSections(lines, interfaceSections);
+  if (node.kind === "interface" && fileContent && node.start_line && node.end_line) {
+    const sections = extractInterfaceSectionsFromSource(fileContent, node.start_line, node.end_line);
+    pushInterfaceContractSections(lines, sections);
   } else if (node.signature) {
     const { params: sigParams, returnType } = parseSignatureParams(node.signature);
     if (sigParams.length > 0) {
@@ -225,6 +229,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
       // File unreadable — skip throws/guards
     }
   }
+
   const allNeighbors = store.getNeighbors(node.id);
   const testEdges = allNeighbors.filter(
     (nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id,
@@ -254,13 +259,18 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
       }
     }
   }
+
   return {
     body: lines.join("\n") + "\n",
     hasLocalExceptions: anchor.stale,
   };
 }
-export function symbolContract(params: SymbolContractParams): string {
-  const stats = params.store.getStatistics(params.projectRoot);
-  const rendered = renderSymbolContractBody(params);
-  return prependTrustHeader(rendered.body, { stats, hasLocalExceptions: rendered.hasLocalExceptions });
-}
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/repro-084-interface-handling.test.ts -t 'repro #076'`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all passing
