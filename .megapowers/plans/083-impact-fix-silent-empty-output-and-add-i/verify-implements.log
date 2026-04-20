@@ -1,0 +1,10 @@
+bun test v1.3.11 (af24e281)
+
+test/tool-impact-implements-edges.test.ts:
+(pass) collectImpact follows inbound `implements` edges: interface change reaches implementors and their callers [7.37ms]
+(pass) collectImpact deduplicates a node that both `calls` and `implements` a changed seed (AC #074.5) [0.74ms]
+
+ 2 pass
+ 0 fail
+ 7 expect() calls
+Ran 2 tests across 1 file. [122.00ms]

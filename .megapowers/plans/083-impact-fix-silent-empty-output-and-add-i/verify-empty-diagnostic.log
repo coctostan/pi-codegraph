@@ -1,0 +1,12 @@
+bun test v1.3.11 (af24e281)
+
+test/tool-impact-empty-diagnostic.test.ts:
+(pass) impact() entry-point seed — fanIn 0, no callers — emits entry-point diagnostic [7.73ms]
+(pass) impact() interface seed without implementors — emits interface diagnostic [1.27ms]
+(pass) impact() genuinely isolated symbol (non-entry, non-interface, no inbound) falls back to isolated diagnostic [1.75ms]
+(pass) impact() multiple seeds with mixed empty categories — one line per seed (stable order) [2.05ms]
+
+ 4 pass
+ 0 fail
+ 12 expect() calls
+Ran 4 tests across 1 file. [27.00ms]

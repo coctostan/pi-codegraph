@@ -2,16 +2,56 @@
   "version": 1,
   "activeIssue": "083-impact-fix-silent-empty-output-and-add-i",
   "workflow": "bugfix",
-  "phase": "reproduce",
-  "phaseHistory": [],
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1776689499545
+    },
+    {
+      "from": "diagnose",
+      "to": "plan",
+      "timestamp": 1776689630137
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1776712371297
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1776713951043
+    },
+    {
+      "from": "verify",
+      "to": "done",
+      "timestamp": 1776714531015
+    }
+  ],
   "planMode": null,
-  "planIteration": 0,
-  "currentTaskIndex": 0,
-  "completedTasks": [],
-  "tddTaskState": null,
-  "doneActions": [],
-  "doneChecklistShown": false,
+  "planIteration": 2,
+  "currentTaskIndex": 2,
+  "completedTasks": [
+    1,
+    2,
+    3
+  ],
+  "tddTaskState": {
+    "taskIndex": 3,
+    "state": "test-written",
+    "skipped": false
+  },
+  "doneActions": [
+    "generate-bugfix-summary",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "fix/084-interface-handling-fix-contract-output-a",
+  "branchName": "fix/083-impact-fix-silent-empty-output-and-add-i",
   "baseBranch": "main"
 }
