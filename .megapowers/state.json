@@ -1,63 +1,16 @@
 {
   "version": 1,
-  "activeIssue": "084-interface-handling-fix-contract-output-a",
+  "activeIssue": "083-impact-fix-silent-empty-output-and-add-i",
   "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1776682769899
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1776683075432
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1776684486210
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1776685167370
-    },
-    {
-      "from": "verify",
-      "to": "implement",
-      "timestamp": 1776686058047
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1776686657684
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1776687101633
-    }
-  ],
+  "phase": "reproduce",
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 1,
+  "planIteration": 0,
   "currentTaskIndex": 0,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    1
-  ],
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
   "branchName": "fix/084-interface-handling-fix-contract-output-a",
   "baseBranch": "main"
