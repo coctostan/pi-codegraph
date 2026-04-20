@@ -55,7 +55,23 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function classImplementsInterface(projectRoot: string, file: string, className: string, interfaceName: string): boolean {
+function signatureImplementsInterface(signature: string | undefined, interfaceName: string): boolean {
+  if (!signature) return false;
+  const rx = new RegExp(`\\bimplements\\b[^\\{]*\\b${escapeRegex(interfaceName)}\\b`);
+  return rx.test(signature);
+}
+
+function classImplementsInterface(
+  projectRoot: string,
+  file: string,
+  className: string,
+  interfaceName: string,
+  signature?: string,
+): boolean {
+  if (signature != null) {
+    return signatureImplementsInterface(signature, interfaceName);
+  }
+
   try {
     const content = readFileSync(join(projectRoot, file), "utf8");
     const rx = new RegExp(
@@ -125,31 +141,51 @@ export async function resolveImplementations(
   projectRoot: string,
   client: ITsServerClient,
 ): Promise<void> {
-  if (hasMarker(store, "implementations", node)) return;
+  const syncDeclaredImplementations = () => {
+    const declared = new Map<string, GraphNode>();
+    const classFiles = new Set(store.listFiles());
+    for (const row of store.queryRows<{ file: string }>("SELECT DISTINCT file FROM nodes WHERE kind = ?", ["class"])) {
+      classFiles.add(row.file);
+    }
 
-  const col = findSymbolColumn(projectRoot, node.file, node.start_line, node.name);
-  const addFallbackImplementations = () => {
-    for (const file of store.listFiles()) {
+    for (const file of classFiles) {
       for (const classNode of store.getNodesByFile(file).filter((n) => n.kind === "class")) {
-        if (!classImplementsInterface(projectRoot, classNode.file, classNode.name, node.name)) continue;
+        if (!classImplementsInterface(projectRoot, classNode.file, classNode.name, node.name, classNode.signature)) continue;
+        declared.set(classNode.id, classNode);
         const exists = store
           .getEdgesBySource(classNode.id)
-          .some((e) => e.kind === "implements" && e.target === node.id);
-        if (exists) continue;
-        store.addEdge({
-          source: classNode.id,
-          target: node.id,
-          kind: "implements",
-          provenance: {
-            source: "lsp",
-            confidence: 0.9,
-            evidence: `${classNode.file}:${classNode.start_line}:1`,
-            content_hash: classNode.content_hash,
-          },
-          created_at: Date.now(),
-        });
+          .some((e) => e.kind === "implements" && e.target === node.id && e.provenance.source === "lsp");
+        if (!exists) {
+          store.addEdge({
+            source: classNode.id,
+            target: node.id,
+            kind: "implements",
+            provenance: {
+              source: "lsp",
+              confidence: 0.9,
+              evidence: `${classNode.file}:${classNode.start_line}:1`,
+              content_hash: classNode.content_hash,
+            },
+            created_at: Date.now(),
+          });
+        }
       }
     }
+
+    for (const neighbor of store.getNeighbors(node.id, { direction: "in", kind: "implements" })) {
+      if (neighbor.edge.provenance.source !== "lsp") continue;
+      if (declared.has(neighbor.node.id)) continue;
+      store.deleteEdge(neighbor.edge.source, neighbor.edge.target, neighbor.edge.kind, neighbor.edge.provenance.source);
+    }
+  };
+
+  if (hasMarker(store, "implementations", node)) {
+    syncDeclaredImplementations();
+    return;
+  }
+  const col = findSymbolColumn(projectRoot, node.file, node.start_line, node.name);
+  const addFallbackImplementations = () => {
+    syncDeclaredImplementations();
     setMarker(store, "implementations", node);
   };
   let impls;
@@ -159,19 +195,16 @@ export async function resolveImplementations(
     addFallbackImplementations();
     return;
   }
-
   if (!impls || impls.length === 0) {
     addFallbackImplementations();
     return;
   }
-
   for (const implLoc of impls) {
     const implNode = store
       .getNodesByFile(implLoc.file)
       .find((n) => n.kind === "class" && n.start_line <= implLoc.line && (n.end_line === null || n.end_line >= implLoc.line));
-
     if (!implNode) continue;
-
+    if (!classImplementsInterface(projectRoot, implNode.file, implNode.name, node.name, implNode.signature)) continue;
     const exists = store.getEdgesBySource(implNode.id).some((e) => e.kind === "implements" && e.target === node.id);
     if (exists) continue;
     store.addEdge({
@@ -187,6 +220,6 @@ export async function resolveImplementations(
       created_at: Date.now(),
     });
   }
-
+  syncDeclaredImplementations();
   setMarker(store, "implementations", node);
 }

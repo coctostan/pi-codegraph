@@ -1,119 +1,93 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import type { GraphStore } from "../graph/store.js";
-import { computeAnchor } from "../output/anchoring.js";
-import { prependTrustHeader } from "../output/trust.js";
-import { extractThrows, extractGuards, extractTestAssertions } from "../indexer/contract-extractor.js";
+---
+id: 2
+title: Persist interface members in extracted signatures
+status: approved
+depends_on:
+  - 1
+no_test: false
+files_to_modify:
+  - src/indexer/tree-sitter.ts
+  - src/tools/symbol-contract.ts
+  - test/signature-extract-interface.test.ts
+files_to_create: []
+---
 
-export interface SymbolContractParams {
-  name: string;
-  file?: string;
-  store: GraphStore;
-  projectRoot: string;
-}
-function parseSignatureParams(signature: string): { params: string[]; returnType: string | null } {
-  let s = signature;
-  if (s.startsWith("<")) {
-    let depth = 0;
-    for (let i = 0; i < s.length; i++) {
-      if (s[i] === "<") depth++;
-      else if (s[i] === ">") {
-        depth--;
-        if (depth === 0) {
-          s = s.slice(i + 1);
-          break;
-        }
-      }
-    }
-  }
-  const arrowIdx = s.indexOf(" => ");
-  const returnType = arrowIdx >= 0 ? s.slice(arrowIdx + 4).trim() : null;
-  const paramsPart = arrowIdx >= 0 ? s.slice(0, arrowIdx).trim() : s.trim();
-  const inner = paramsPart.startsWith("(") && paramsPart.endsWith(")")
-    ? paramsPart.slice(1, -1).trim()
-    : paramsPart;
-  if (!inner) return { params: [], returnType };
-  // Split params respecting nested generics
-  const params: string[] = [];
-  let depth = 0;
-  let current = "";
-  for (const ch of inner) {
-    if (ch === "<" || ch === "(") depth++;
-    else if (ch === ">" || ch === ")") depth--;
-    else if (ch === "," && depth === 0) {
-      params.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += ch;
-  }
-  if (current.trim()) params.push(current.trim());
+### Task 2: Persist interface members in extracted signatures [depends: 1]
 
-  return { params, returnType };
-}
+**Files:**
+- Modify: `src/indexer/tree-sitter.ts`
+- Modify: `src/tools/symbol-contract.ts`
+- Test: `test/signature-extract-interface.test.ts`
 
-interface InterfaceContractSections {
-  methods: string[];
-  fields: string[];
-}
+**Step 1 — Write the failing test**
+Replace `test/signature-extract-interface.test.ts` with a single focused regression that locks the stored interface signature format to header + members:
 
-function splitInterfaceMembers(body: string): string[] {
-  const members: string[] = [];
-  let current = "";
-  let braceDepth = 0;
-  let parenDepth = 0;
-  let bracketDepth = 0;
-  let angleDepth = 0;
+```ts
+import { expect, test } from "bun:test";
+import { extractFile } from "../src/indexer/tree-sitter.js";
 
-  for (const ch of body) {
-    if (ch === "{") braceDepth++;
-    else if (ch === "}") braceDepth = Math.max(0, braceDepth - 1);
-    else if (ch === "(") parenDepth++;
-    else if (ch === ")") parenDepth = Math.max(0, parenDepth - 1);
-    else if (ch === "[") bracketDepth++;
-    else if (ch === "]") bracketDepth = Math.max(0, bracketDepth - 1);
-    else if (ch === "<") angleDepth++;
-    else if (ch === ">") angleDepth = Math.max(0, angleDepth - 1);
+test("extractFile preserves interface header and members in signature", () => {
+  const code = [
+    "export interface Combined extends Foo, Bar {",
+    "  find(name: string, file?: string): GraphNode[];",
+    "  files: { total: number; stale: number };",
+    "}",
+  ].join("\n");
 
-    if (
-      ch === ";" &&
-      braceDepth === 0 &&
-      parenDepth === 0 &&
-      bracketDepth === 0 &&
-      angleDepth === 0
-    ) {
-      const member = current.trim();
-      if (member) members.push(member.replace(/\s+/g, " ").trim());
-      current = "";
-      continue;
-    }
-    current += ch;
-  }
+  const result = extractFile("src/a.ts", code);
+  const ifaceNode = result.nodes.find((n) => n.name === "Combined");
 
-  const trailing = current.trim();
-  if (trailing) members.push(trailing.replace(/\s+/g, " ").trim());
-  return members.filter(Boolean);
+  expect(ifaceNode).toBeDefined();
+  expect(ifaceNode!.signature).toBe([
+    "interface Combined extends Foo, Bar",
+    "find(name: string, file?: string): GraphNode[]",
+    "files: { total: number; stale: number }",
+  ].join("\n"));
+});
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/signature-extract-interface.test.ts -t 'extractFile preserves interface header and members in signature'`
+Expected: FAIL — `error: expect(received).toBe(expected)` with the received value still equal to just `"interface Combined extends Foo, Bar"`.
+
+**Step 3 — Write minimal implementation**
+In `src/indexer/tree-sitter.ts`, serialize interface members into the stored signature, and in `src/tools/symbol-contract.ts`, prefer the stored multiline signature before falling back to the source parser from Task 1.
+
+```ts
+// src/indexer/tree-sitter.ts
+function extractInterfaceMembers(node: SyntaxNode): string[] {
+  const body = node.childForFieldName("body");
+  if (!body) return [];
+
+  return body.namedChildren
+    .filter(
+      (member: SyntaxNode) =>
+        member.type === "method_signature" ||
+        member.type === "property_signature" ||
+        member.type === "index_signature" ||
+        member.type === "call_signature",
+    )
+    .map((member: SyntaxNode) => member.text.replace(/;\s*$/, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 }
 
-function extractInterfaceSectionsFromSource(
-  fileContent: string,
-  startLine: number,
-  endLine: number,
-): InterfaceContractSections {
-  const snippet = fileContent.split(/\r?\n/).slice(startLine - 1, endLine).join("\n");
-  const bodyStart = snippet.indexOf("{");
-  const bodyEnd = snippet.lastIndexOf("}");
-  if (bodyStart === -1 || bodyEnd === -1 || bodyEnd <= bodyStart) {
-    return { methods: [], fields: [] };
-  }
+function extractInterfaceSignature(node: SyntaxNode, name: string): string {
+  const extendsClause = node.namedChildren.find((c: SyntaxNode) => c.type === "extends_type_clause");
+  const header = (() => {
+    if (!extendsClause) return `interface ${name}`;
+    const types = extendsClause.namedChildren
+      .filter((c: SyntaxNode) => c.type === "type_identifier" || c.type === "generic_type")
+      .map((c: SyntaxNode) => c.text);
+    return types.length > 0 ? `interface ${name} extends ${types.join(", ")}` : `interface ${name}`;
+  })();
 
-  const members = splitInterfaceMembers(snippet.slice(bodyStart + 1, bodyEnd));
-  return {
-    methods: members.filter((member) => member.includes("(")),
-    fields: members.filter((member) => !member.includes("(")),
-  };
+  const members = extractInterfaceMembers(node);
+  return members.length > 0 ? [header, ...members].join("\n") : header;
 }
+```
 
+```ts
+// src/tools/symbol-contract.ts
 function extractInterfaceSectionsFromSignature(signature: string): InterfaceContractSections {
   const members = signature
     .split("\n")
@@ -127,23 +101,6 @@ function extractInterfaceSectionsFromSignature(signature: string): InterfaceCont
   };
 }
 
-function pushInterfaceContractSections(lines: string[], sections: InterfaceContractSections): void {
-  if (sections.methods.length > 0) {
-    lines.push("");
-    lines.push("### Methods");
-    for (const method of sections.methods) lines.push(`  ${method}`);
-  }
-
-  if (sections.fields.length > 0) {
-    lines.push("");
-    lines.push("### Fields");
-    for (const field of sections.fields) lines.push(`  ${field}`);
-  }
-}
-export interface RenderedSymbolContract {
-  body: string;
-  hasLocalExceptions: boolean;
-}
 export function renderSymbolContractBody(params: SymbolContractParams): RenderedSymbolContract {
   const { name, file, store, projectRoot } = params;
   const nodes = store.findNodes(name, file);
@@ -161,6 +118,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
     const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
     return { body, hasLocalExceptions };
   }
+
   const node = nodes[0]!;
   const anchor = computeAnchor(node, projectRoot);
   const lines: string[] = [];
@@ -225,6 +183,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
       // File unreadable — skip throws/guards
     }
   }
+
   const allNeighbors = store.getNeighbors(node.id);
   const testEdges = allNeighbors.filter(
     (nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id,
@@ -254,13 +213,18 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
       }
     }
   }
+
   return {
     body: lines.join("\n") + "\n",
     hasLocalExceptions: anchor.stale,
   };
 }
-export function symbolContract(params: SymbolContractParams): string {
-  const stats = params.store.getStatistics(params.projectRoot);
-  const rendered = renderSymbolContractBody(params);
-  return prependTrustHeader(rendered.body, { stats, hasLocalExceptions: rendered.hasLocalExceptions });
-}
+```
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/signature-extract-interface.test.ts -t 'extractFile preserves interface header and members in signature'`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+Expected: all passing

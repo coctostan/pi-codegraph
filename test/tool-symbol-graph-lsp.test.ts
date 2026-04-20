@@ -229,6 +229,7 @@ test("resolveImplementations persists implements edges and marker; second run sk
     start_line: 1,
     end_line: 4,
     content_hash: "h-impl",
+    signature: "class Worker implements IWorker",
   };
   store.addNode(iface);
   store.addNode(impl);
@@ -257,6 +258,85 @@ test("resolveImplementations persists implements edges and marker; second run sk
   expect(out).toHaveLength(1);
   expect(out[0]!.provenance.confidence).toBe(0.9);
   expect(calls).toBe(1);
+
+  store.close();
+});
+
+test("resolveImplementations removes stale persisted lsp implements edges when marker already exists", async () => {
+  const store = new SqliteGraphStore();
+
+  const iface = {
+    id: nodeId("src/api.ts", "GraphStatistics", 2),
+    kind: "interface" as const,
+    name: "GraphStatistics",
+    file: "src/api.ts",
+    start_line: 2,
+    end_line: 5,
+    content_hash: "h-api",
+  };
+  const impl = {
+    id: nodeId("src/impl.ts", "SqliteGraphStore", 1),
+    kind: "class" as const,
+    name: "SqliteGraphStore",
+    file: "src/impl.ts",
+    start_line: 1,
+    end_line: 10,
+    content_hash: "h-impl",
+    signature: "class SqliteGraphStore implements GraphStore",
+  };
+  store.addNode(iface);
+  store.addNode(impl);
+  store.addEdge({
+    source: impl.id,
+    target: iface.id,
+    kind: "implements",
+    provenance: {
+      source: "lsp",
+      confidence: 0.9,
+      evidence: "src/impl.ts:9:12",
+      content_hash: impl.content_hash,
+    },
+    created_at: Date.now(),
+  });
+
+  const markerId = `__meta__::resolver::implementations::${iface.id}`;
+  store.addNode({
+    id: markerId,
+    kind: "module",
+    name: markerId,
+    file: "__meta__/resolver",
+    start_line: 1,
+    end_line: 1,
+    content_hash: "meta",
+    is_exported: false,
+  });
+  store.addEdge({
+    source: markerId,
+    target: iface.id,
+    kind: "imports",
+    provenance: { source: "lsp", confidence: 1, evidence: "resolved:implementations", content_hash: "meta" },
+    created_at: Date.now(),
+  });
+
+  const client: ITsServerClient = {
+    async implementations(): Promise<LspLocation[]> {
+      return [{ file: "src/impl.ts", line: 9, col: 12 }];
+    },
+    async definition() {
+      return null;
+    },
+    async references() {
+      return [];
+    },
+    async shutdown() {},
+  };
+
+  await resolveImplementations(iface, store, "/project", client);
+
+  const out = store
+    .getEdgesBySource(impl.id)
+    .filter((e) => e.kind === "implements" && e.target === iface.id && e.provenance.source === "lsp");
+  expect(out).toHaveLength(0);
 
   store.close();
 });
