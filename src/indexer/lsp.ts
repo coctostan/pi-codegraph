@@ -39,9 +39,9 @@ export async function runLspIndexStage(
   store: GraphStore,
   _projectRoot: string,
   client: ITsServerClient,
-): Promise<void> {
+): Promise<number> {
+  let errors = 0;
   const unresolved = store.getUnresolvedEdges().filter((e) => e.kind === "calls" && e.provenance.source === "tree-sitter");
-
   const confirmed: GraphEdge[] = [];
   for (const file of store.listFiles()) {
     for (const node of store.getNodesByFile(file)) {
@@ -52,42 +52,43 @@ export async function runLspIndexStage(
       }
     }
   }
-
   const work = [...unresolved, ...confirmed];
-
   for (const edge of work) {
     const sourceNode = store.getNode(edge.source);
     if (!sourceNode) continue;
     const parsed = parseEvidence(edge.provenance.evidence);
     if (!parsed) continue;
-
     let loc;
     try {
       loc = await client.definition(sourceNode.file, parsed.line, parsed.col);
     } catch (err) {
-      if (isStartupError(err)) return;
+      if (isStartupError(err)) return errors;
       continue;
     }
-
     if (!loc) continue;
-
     if (isUnresolvedTarget(edge.target)) {
       const targetNode = store
         .getNodesByFile(loc.file)
         .find((n) => n.name === parsed.name && n.start_line === loc.line);
       if (!targetNode) continue;
-      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
-      store.addEdge(makeLspEdge(edge.source, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      try {
+        store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
+        store.addEdge(makeLspEdge(edge.source, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      } catch {
+        errors++;
+      }
       continue;
     }
-
     const existingTarget = store.getNode(edge.target);
     if (!existingTarget) continue;
-
     const sameTarget = existingTarget.file === loc.file && existingTarget.start_line === loc.line;
     if (!sameTarget) continue;
-
-    store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
-    store.addEdge(makeLspEdge(edge.source, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+    try {
+      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
+      store.addEdge(makeLspEdge(edge.source, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+    } catch {
+      errors++;
+    }
   }
+  return errors;
 }

@@ -61,20 +61,42 @@ const TraceParams = Type.Object({
 
 
 let sharedStore: GraphStore | null = null;
-let lastIndexError: Error | null = null;
+interface IndexErrorRecord {
+  error: Error;
+  setAt: number;
+}
 
+let lastIndexError: IndexErrorRecord | null = null;
+let indexingInFlight: Promise<void> | null = null;
+type IndexProjectFn = typeof indexProject;
+let indexProjectImpl: IndexProjectFn = indexProject;
 export function getSharedStoreForTesting(): GraphStore | null {
   return sharedStore;
 }
-
 export function getLastIndexErrorForTesting(): Error | null {
-  return lastIndexError;
+  return lastIndexError ? lastIndexError.error : null;
+}
+
+export function setLastIndexErrorForTesting(error: Error | null, setAt: number = Date.now()): void {
+  lastIndexError = error ? { error, setAt } : null;
+}
+
+export function getIndexingFailedNoteForTesting(now: number = Date.now()): string {
+  if (!lastIndexError) return "";
+  const ageSeconds = Math.max(0, Math.floor((now - lastIndexError.setAt) / 1000));
+  return `indexing-failed (${ageSeconds}s ago): ${lastIndexError.error.message}\n`;
+}
+
+export function setIndexProjectForTesting(fn: IndexProjectFn | null): void {
+  indexProjectImpl = fn ?? indexProject;
 }
 
 export function resetStoreForTesting(): void {
   if (sharedStore) sharedStore.close();
   sharedStore = null;
   lastIndexError = null;
+  indexingInFlight = null;
+  indexProjectImpl = indexProject;
   resetSession();
   _resetSearchCache();
 }
@@ -99,22 +121,27 @@ function dbIsWritable(projectRoot: string): boolean {
 }
 
 async function ensureIndexed(projectRoot: string, store: GraphStore): Promise<void> {
-  try {
-    const result = await indexProject(projectRoot, store);
-    if (result.errors > 0 && !dbIsWritable(projectRoot)) {
-      lastIndexError = new Error("readonly database");
-    } else {
-      lastIndexError = null;
+  if (indexingInFlight) return indexingInFlight;
+  indexingInFlight = (async () => {
+    try {
+      const result = await indexProjectImpl(projectRoot, store);
+      if (result.errors > 0 && !dbIsWritable(projectRoot)) {
+        lastIndexError = { error: new Error("readonly database"), setAt: Date.now() };
+      } else {
+        lastIndexError = null;
+      }
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      lastIndexError = { error, setAt: Date.now() };
+    } finally {
+      indexingInFlight = null;
     }
-  } catch (err) {
-    lastIndexError = err instanceof Error ? err : new Error(String(err));
-    // Indexing failed (likely readonly DB) — degrade gracefully and serve stale graph data.
-  }
+  })();
+  return indexingInFlight;
 }
 
 function indexingFailedNote(): string {
-  if (!lastIndexError) return "";
-  return "indexing-failed: graph may be stale (readonly database)\n";
+  return getIndexingFailedNoteForTesting();
 }
 
 function finalizeReadOnlyOutput(
@@ -126,6 +153,20 @@ function finalizeReadOnlyOutput(
 ): string {
   const withoutFreshHeader = suppressFreshTrustHeader(toolOutput);
   const withIndexingNote = indexingFailedNote() + withoutFreshHeader;
+  // Reaching this point means the tool's read path against the store
+  // succeeded and produced output. Clear transient (non-readonly)
+  // lastIndexError AFTER the note is built so THIS tool output still
+  // carries the accurate error message (Task 1's contract), but the NEXT
+  // tool call starts with a clean flag. The "readonly database" literal is
+  // verified-persistent via ensureIndexed's `result.errors > 0 &&
+  // !dbIsWritable(projectRoot)` branch and must stay set across tool calls.
+  if (
+    lastIndexError &&
+    lastIndexError.error.message !== "readonly database" &&
+    withoutFreshHeader.trim().length > 0
+  ) {
+    lastIndexError = null;
+  }
   return appendTokenMetaIfEnabled(toolName, params, withIndexingNote, store, projectRoot);
 }
 
