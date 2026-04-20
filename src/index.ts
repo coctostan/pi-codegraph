@@ -12,7 +12,7 @@ import { impact } from "./tools/impact.js";
 import { trace } from "./tools/trace.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
-import { suppressFreshTrustHeader } from "./output/read-only-ceremony.js";
+import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-ceremony.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -29,6 +29,12 @@ const SymbolGraphParams = Type.Object({
           'Optional extra sections. Allowed values: "neighborhood", "contract", "source". "tests" is not a valid include value.',
       },
     ),
+  ),
+  suppressTrustHeader: Type.Optional(
+    Type.Boolean({
+      description:
+        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
+    }),
   ),
 });
 
@@ -52,11 +58,23 @@ const ImpactParams = Type.Object({
   maxDepth: Type.Optional(
     Type.Number({ description: "Maximum traversal depth (default 5)" }),
   ),
+  suppressTrustHeader: Type.Optional(
+    Type.Boolean({
+      description:
+        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
+    }),
+  ),
 });
 
 const TraceParams = Type.Object({
   entry: Type.String({ description: "Entry symbol or endpoint name" }),
   file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  suppressTrustHeader: Type.Optional(
+    Type.Boolean({
+      description:
+        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
+    }),
+  ),
 });
 
 
@@ -150,20 +168,17 @@ function finalizeReadOnlyOutput(
   toolOutput: string,
   store: GraphStore,
   projectRoot: string,
+  suppressTrustHeader: boolean = false,
 ): string {
-  const withoutFreshHeader = suppressFreshTrustHeader(toolOutput);
-  const withIndexingNote = indexingFailedNote() + withoutFreshHeader;
-  // Reaching this point means the tool's read path against the store
-  // succeeded and produced output. Clear transient (non-readonly)
-  // lastIndexError AFTER the note is built so THIS tool output still
-  // carries the accurate error message (Task 1's contract), but the NEXT
-  // tool call starts with a clean flag. The "readonly database" literal is
-  // verified-persistent via ensureIndexed's `result.errors > 0 &&
-  // !dbIsWritable(projectRoot)` branch and must stay set across tool calls.
+  const afterFreshStrip = suppressFreshTrustHeader(toolOutput);
+  const afterHeaderStrip = suppressTrustHeader ? stripTrustHeader(afterFreshStrip) : afterFreshStrip;
+  // suppressTrustHeader strips only the shared Trust block; indexingFailedNote()
+  // and appendTokenMetaIfEnabled() still wrap the remaining body.
+  const withIndexingNote = indexingFailedNote() + afterHeaderStrip;
   if (
     lastIndexError &&
     lastIndexError.error.message !== "readonly database" &&
-    withoutFreshHeader.trim().length > 0
+    afterHeaderStrip.trim().length > 0
   ) {
     lastIndexError = null;
   }
@@ -215,7 +230,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         store,
         projectRoot,
       });
-      const output = finalizeReadOnlyOutput("symbol_graph", { name: params.name, file: params.file }, text, store, projectRoot);
+      const output = finalizeReadOnlyOutput(
+        "symbol_graph",
+        { name: params.name, file: params.file },
+        text,
+        store,
+        projectRoot,
+        params.suppressTrustHeader === true,
+      );
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -237,7 +259,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         maxDepth: params.maxDepth,
       });
-      const output = finalizeReadOnlyOutput("impact", { symbols: params.symbols }, text, store, projectRoot);
+      const output = finalizeReadOnlyOutput(
+        "impact",
+        { symbols: params.symbols },
+        text,
+        store,
+        projectRoot,
+        params.suppressTrustHeader === true,
+      );
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
@@ -253,7 +282,14 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
       const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
-      const output = finalizeReadOnlyOutput("trace", { entry: params.entry, file: params.file }, text, store, projectRoot);
+      const output = finalizeReadOnlyOutput(
+        "trace",
+        { entry: params.entry, file: params.file },
+        text,
+        store,
+        projectRoot,
+        params.suppressTrustHeader === true,
+      );
       return { content: [{ type: "text", text: output }], details: undefined };
     },
   });
