@@ -1,3 +1,178 @@
+# Plan
+
+### Task 1: Repair trace class fallback and symbol lookup messaging
+
+### Task 1: Repair trace class fallback and symbol lookup messaging
+
+**Files:**
+- Modify: `src/tools/trace.ts`
+- Test: `test/repro-079-trace-class-entry-point.test.ts`
+- Test: `test/repro-080-trace-not-found-message.test.ts`
+- Regression: `test/tool-trace-static-fallback.test.ts`
+- Regression: `test/tool-trace-ambiguous.test.ts`
+
+**Step 1 — Write the failing test**
+When the test imports existing symbols, use the real current signatures lifted from source:
+
+```ts
+export interface TraceParams {
+  entry: string;
+  file?: string;
+  store: GraphStore;
+  projectRoot: string;
+}
+
+export function trace(params: TraceParams): string
+export function extractFile(file: string, content: string): ExtractionResult
+```
+
+Use the existing reproduction tests as the red regression harness. Keep them exactly as below.
+
+`test/repro-079-trace-class-entry-point.test.ts`
+
+```ts
+import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { extractFile } from "../src/indexer/tree-sitter.js";
+import { trace } from "../src/tools/trace.js";
+
+test("trace does not stop at a class entry point that has methods", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-repro-079-${Date.now()}`);
+  const file = "src/store.ts";
+  const content = [
+    "export class SqliteGraphStore {",
+    "  constructor() {}",
+    "  getNode() { return 1; }",
+    "  findNodes() { return 2; }",
+    "}",
+  ].join("\n") + "\n";
+
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, file), content);
+
+  const extracted = extractFile(file, content);
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode(extracted.module);
+    for (const node of extracted.nodes) store.addNode(node);
+    for (const edge of extracted.edges) store.addEdge(edge);
+
+    const output = trace({ entry: "SqliteGraphStore", file, store, projectRoot });
+    expect(output).not.toMatch(/SqliteGraphStore\s+class .*leaf/);
+    expect(output).toMatch(/constructor|class entry:/);
+  } finally {
+    store.close();
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+```
+
+`test/repro-080-trace-not-found-message.test.ts`
+
+```ts
+import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { extractFile } from "../src/indexer/tree-sitter.js";
+import { trace } from "../src/tools/trace.js";
+
+function setupWalkFixture() {
+  const projectRoot = join(tmpdir(), `pi-cg-repro-080-${Date.now()}`);
+  const file = "src/walk.ts";
+  const content = "export function walk() {}\n";
+
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, file), content);
+
+  const extracted = extractFile(file, content);
+  const store = new SqliteGraphStore();
+  store.addNode(extracted.module);
+  for (const node of extracted.nodes) store.addNode(node);
+  for (const edge of extracted.edges) store.addEdge(edge);
+
+  return {
+    file,
+    projectRoot,
+    store,
+    cleanup() {
+      store.close();
+      rmSync(projectRoot, { recursive: true, force: true });
+    },
+  };
+}
+
+test("trace labels a missing entry as a symbol lookup failure", () => {
+  const fixture = setupWalkFixture();
+  try {
+    const output = trace({ entry: "runPipeline", store: fixture.store, projectRoot: fixture.projectRoot });
+
+    expect(output).toContain('Symbol "runPipeline" not found');
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("trace suggests the real symbol location when the file filter misses", () => {
+  const fixture = setupWalkFixture();
+  try {
+    const directOutput = trace({ entry: "walk", file: fixture.file, store: fixture.store, projectRoot: fixture.projectRoot });
+    const wrongFileOutput = trace({
+      entry: "walk",
+      file: "src/does-not-exist.ts",
+      store: fixture.store,
+      projectRoot: fixture.projectRoot,
+    });
+
+    expect(directOutput).toContain("walk");
+    expect(wrongFileOutput).toContain("src/walk.ts");
+    expect(wrongFileOutput).not.toContain('Entry "walk" not found');
+  } finally {
+    fixture.cleanup();
+  }
+});
+```
+
+Do not edit `test/tool-trace-static-fallback.test.ts` or `test/tool-trace-ambiguous.test.ts`; they are the unchanged controls for Fixed-When #2 and #5.
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/repro-079-trace-class-entry-point.test.ts test/repro-080-trace-not-found-message.test.ts test/tool-trace-static-fallback.test.ts test/tool-trace-ambiguous.test.ts`
+
+Expected: FAIL — Bun reports these three live failures while the two control tests stay green:
+
+```text
+error: expect(received).toContain(expected)
+
+Expected to contain: "Symbol \"runPipeline\" not found"
+Received: "## Trust\nstatus: fresh\nevidence: none  stale-files: 0/0\nEntry \"runPipeline\" not found"
+```
+
+```text
+error: expect(received).toContain(expected)
+
+Expected to contain: "src/walk.ts"
+Received: "## Trust\nstatus: fresh\nevidence: none  stale-files: 0/0\nEntry \"walk\" not found"
+```
+
+```text
+error: expect(received).not.toMatch(expected)
+
+Expected substring or pattern: not /SqliteGraphStore\s+class .*leaf/
+Received: "## Trust\nstatus: heuristic\nevidence: none  stale-files: 0/0\nmode: static (heuristic, no runtime evidence)\nsrc/store.ts:1:3f9c  SqliteGraphStore  class [entry-point, leaf, untested]\n"
+```
+
+**Step 3 — Write minimal implementation**
+Keep the fix trace-local. Do **not** change `src/tools/symbol-resolution.ts`, because `impact()` also uses that resolver and the bug is specific to `trace()`’s not-found handling and class fallback.
+
+Replace `src/tools/trace.ts` with:
+
+```ts
 import type { GraphStore } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
 import { computeAnchor } from "../output/anchoring.js";
@@ -189,3 +364,22 @@ export function trace(params: TraceParams): string {
   const body = `${[formatModeHeader("static", staticStale), ...staticSteps.map((step) => step.line)].join("\n")}\n`;
   return prependTrustHeader(body, { stats, mode: "heuristic", hasLocalExceptions: staticStale });
 }
+```
+
+This implementation intentionally solves both mismatches in one file:
+- class entries stop rendering as `[leaf]` and emit a class-specific redirect line instead of pretending the class is a terminal trace step;
+- missing entries use `Symbol`, and file-filter misses retry `store.findNodes(name)` without the file filter so the output can surface the real candidate location(s).
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/repro-079-trace-class-entry-point.test.ts test/repro-080-trace-not-found-message.test.ts test/tool-trace-static-fallback.test.ts test/tool-trace-ambiguous.test.ts`
+
+Expected: PASS — all 5 tests across the 4 files pass.
+
+**Step 5 — Verify no regressions**
+Run: `bun test`
+
+Expected: all passing. Pay particular attention to these existing guards:
+- `test/tool-trace-static-fallback.test.ts` — non-class static traces still descend normally
+- `test/tool-trace-ambiguous.test.ts` — ambiguity output stays unchanged
+- `test/tool-trace-static-cycle.test.ts` — DFS cycle handling is untouched because the class-specific note path short-circuits before static traversal only for `node.kind === "class"`
+- `test/tool-trace-coverage.test.ts` / `test/tool-trace-signals.test.ts` — coverage-backed traces and inline role tags still render through the unchanged coverage path

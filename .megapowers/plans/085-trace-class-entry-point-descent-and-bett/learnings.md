@@ -1,0 +1,5 @@
+- Keep bugfixes trace-local when the underlying resolver is shared. `resolveUniqueSymbol()` is used by `impact()`, so changing `trace()` was the lower-risk seam.
+- For class symbols, the graph still lacks method-level behavioral nodes in many cases. `trace()` needs an honest fallback instead of fabricating traversal depth from missing edges.
+- File-filter misses and symbol-absent misses are different failure modes. A second unscoped lookup is cheap and materially improves agent guidance.
+- Verify the shipped extension surface through the repo-registered tool path (`src/index.ts`), not only direct function imports, because tool-surface behavior is what agents actually consume.
+- Workflow state files can become dirty during megapowers transitions. Check and exclude `.megapowers/state.json` before shipping so the PR stays focused on product changes.
