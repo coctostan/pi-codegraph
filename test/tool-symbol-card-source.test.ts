@@ -181,7 +181,7 @@ test("symbolCard truncates source when maxSourceLines is provided", () => {
     // Should NOT contain line 4+
     expect(output).not.toContain("statement_3");
     // Should show truncation indicator
-    expect(output).toContain("more lines truncated)");
+    expect(output).toMatch(/\(\d+ more lines — use read\(/);
 
     store.close();
   } finally {

@@ -51,7 +51,8 @@ export function readSourceSnippet(
 
   let text = hashlined.join("\n");
   if (truncated > 0) {
-    text += `\n(${truncated} more lines truncated)`;
+    const nextOffset = node.start_line + displayLines.length;
+    text += `\n(${truncated} more lines — use read("${node.file}", offset: ${nextOffset}, limit: ${truncated}) to see the rest)`;
   }
 
   return { text, stale, truncated };
