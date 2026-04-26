@@ -121,7 +121,12 @@ test("readSourceSnippet truncates when source exceeds maxLines", () => {
     expect(result!.text).toContain("line 1");
     expect(result!.text).toContain("line 5");
     expect(result!.text).not.toContain("|line 6");
-    expect(result!.text).toContain("(15 more lines truncated)");
+    // Truncation notice now includes a read() continuation hint.
+    expect(result!.text).toContain("15 more lines");
+    expect(result!.text).toContain("src/a.ts");
+    expect(result!.text).toMatch(/offset:\s*6\b/);
+    expect(result!.text).toMatch(/limit:\s*15\b/);
+    expect(result!.text).toMatch(/read\(/);
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }

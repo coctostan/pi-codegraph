@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "085-trace-class-entry-point-descent-and-bett",
-  "workflow": "bugfix",
-  "phase": "reproduce",
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
   "phaseHistory": [],
   "planMode": null,
   "planIteration": 0,
@@ -12,6 +12,6 @@
   "doneActions": [],
   "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "feat/075-trust-header-add-opt-out-flag-to-suppres",
-  "baseBranch": "main"
+  "branchName": null,
+  "baseBranch": null
 }

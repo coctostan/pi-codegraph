@@ -18,7 +18,7 @@ The `symbol_card` tool output now includes a `### Source` section between the he
 The Key Relationships section now shows type signatures for each listed neighbor (top 5 per group). Neighbors without a stored signature show no extra line — no noise.
 
 ### New parameter
-`maxSourceLines` (optional number, default 50) — controls how many lines of the target symbol's source are included. Excess lines are truncated with a `(N more lines truncated)` indicator.
+`maxSourceLines` (optional number, default 50) — controls how many lines of the target symbol's source are included. Excess lines are truncated with a single-line continuation hint pointing back at the source file, e.g. `(50 more lines — use read("src/big.ts", offset: 51, limit: 50) to see the rest)`. The hint references the file path, the 1-indexed offset of the first omitted line, and the remaining line count, so an agent can read the rest in one follow-up `read()` call without a second symbol lookup.
 
 ## Files
 
