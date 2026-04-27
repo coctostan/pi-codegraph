@@ -43,6 +43,7 @@ function populateStore(projectRoot: string, content: string): string {
   mkdirSync(dbDir, { recursive: true });
   const dbPath = join(dbDir, "graph.db");
   const store = new SqliteGraphStore(dbPath);
+  store.markCoverageIndexed();
   const extracted = extractFile("src/app.ts", content);
   store.addNode(extracted.module);
   for (const node of extracted.nodes) store.addNode(node);

@@ -81,6 +81,11 @@ export class SqliteGraphStore implements GraphStore {
         PRIMARY KEY (test_node_id, ordinal)
       );
 
+      CREATE TABLE IF NOT EXISTS graph_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER NOT NULL
       );
@@ -316,6 +321,28 @@ export class SqliteGraphStore implements GraphStore {
       throw new Error("queryRows only supports SELECT statements");
     }
     return this.db.prepare(sql).all(...params) as T[];
+  }
+
+  hasCoverageData(): boolean {
+    try {
+      const row = this.db
+        .prepare(`SELECT value FROM graph_metadata WHERE key = ?`)
+        .get("coverage_indexed") as { value: string } | null;
+      return row?.value === "1";
+    } catch {
+      // Pre-#082 DBs (no graph_metadata table) and read-only mounts where the
+      // IF NOT EXISTS migration silently no-ops both surface as
+      // "no such table: graph_metadata". Treat that as 'coverage state
+      // unknown' so signal-rendering tools fall back to coverage-unknown
+      // instead of crashing on legacy graph databases.
+      return false;
+    }
+  }
+
+  markCoverageIndexed(): void {
+    this.db
+      .prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`)
+      .run("coverage_indexed", "1");
   }
 
   close(): void {

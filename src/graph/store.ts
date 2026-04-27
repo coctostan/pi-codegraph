@@ -45,5 +45,7 @@ export interface GraphStore {
   getTestTrace(testNodeId: string): TestTraceRecord | null;
   getStatistics(projectRoot?: string): GraphStatistics;
   queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
+  hasCoverageData(): boolean;
+  markCoverageIndexed(): void;
   close(): void;
 }
