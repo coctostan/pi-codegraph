@@ -26,6 +26,7 @@ function addCall(
 test("createSignalComputer computes AC-aligned fan-in/out, role, coverage, framework, and co-change signals", () => {
   const store = new SqliteGraphStore();
   try {
+    store.markCoverageIndexed();
     const libModule = {
       id: "src/lib.ts::src/lib.ts:1",
       kind: "module" as const,

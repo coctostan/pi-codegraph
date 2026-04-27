@@ -14,6 +14,7 @@ test("impact appends always-on why annotations with chain confidence", () => {
 
   const store = new SqliteGraphStore();
   try {
+    store.markCoverageIndexed();
     store.addNode({ id: "src/shared.ts::shared:1", kind: "function", name: "shared", file: "src/shared.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
     store.addNode({ id: "src/caller.ts::caller:2", kind: "function", name: "caller", file: "src/caller.ts", start_line: 2, end_line: 2, content_hash: "h", is_exported: false });
     store.addEdge({

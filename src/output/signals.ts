@@ -11,6 +11,7 @@ export interface NodeSignals {
   frameworkMediated: boolean;
   isExported: boolean;
   coChangeScore: number;
+  coverageKnown: boolean;
 }
 
 export interface SignalComputer {
@@ -50,6 +51,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
   const baseSignalsCache = new Map<string, Omit<NodeSignals, "coChangeScore">>();
   const changedModuleIdsCache = new Map<string, Set<string>>();
   const coChangeScoreCache = new Map<string, number>();
+  const coverageKnown = store.hasCoverageData();
 
   function findModuleNode(node: GraphNode): GraphNode | null {
     const cached = moduleByFileCache.get(node.file);
@@ -129,6 +131,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
           frameworkMediated: false,
           isExported: false,
           coChangeScore: 0,
+          coverageKnown: false,
         };
       }
 
@@ -153,6 +156,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
           tested,
           frameworkMediated,
           isExported,
+          coverageKnown,
         };
         baseSignalsCache.set(nodeId, built);
         return built;
@@ -168,7 +172,12 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
 }
 
 export function formatRoleTags(signals: NodeSignals): string {
-  const tags = [...sortRoles(signals.roles, ROLE_ORDER), signals.tested ? "tested" : "untested"];
+  const coverageTag = signals.tested
+    ? "tested"
+    : signals.coverageKnown
+      ? "untested"
+      : "coverage-unknown";
+  const tags = [...sortRoles(signals.roles, ROLE_ORDER), coverageTag];
   return `[${tags.join(", ")}]`;
 }
 
@@ -178,5 +187,10 @@ export function formatImpactWhy(signals: NodeSignals, chainConfidence?: number):
   const chainPart = typeof chainConfidence === "number"
     ? `, chain-confidence:${chainConfidence.toFixed(2)}`
     : "";
-  return `[fan-in:${signals.fanIn}, fan-out:${signals.fanOut}, roles:${rolesText}, coverage:${signals.tested ? "tested" : "untested"}, co-change:${signals.coChangeScore.toFixed(2)}${chainPart}]`;
+  const coverageText = signals.tested
+    ? "tested"
+    : signals.coverageKnown
+      ? "untested"
+      : "unknown";
+  return `[fan-in:${signals.fanIn}, fan-out:${signals.fanOut}, roles:${rolesText}, coverage:${coverageText}, co-change:${signals.coChangeScore.toFixed(2)}${chainPart}]`;
 }

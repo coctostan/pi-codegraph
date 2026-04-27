@@ -22,6 +22,7 @@ test("symbolGraph renders inline role tags on header and resolved neighbors", ()
 
   const store = new SqliteGraphStore();
   try {
+    store.markCoverageIndexed();
     const sharedId = "src/shared.ts::shared:1";
     const helperId = "src/helper.ts::helper:1";
     const testId = "test/shared.test.ts::shared test:1";

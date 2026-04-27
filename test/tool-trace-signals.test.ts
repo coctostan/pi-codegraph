@@ -15,6 +15,7 @@ test("trace appends inline role tags to coverage and static step lines without c
 
   const store = new SqliteGraphStore();
   try {
+    store.markCoverageIndexed();
     const testNode = { id: "test/app.test.ts::prodTest:1", kind: "test" as const, name: "prodTest", file: "test/app.test.ts", start_line: 1, end_line: 1, content_hash: "h-test", is_exported: false };
     const prod = { id: "src/app.ts::prod:1", kind: "function" as const, name: "prod", file: "src/app.ts", start_line: 1, end_line: 1, content_hash: "h-app", is_exported: true };
     const helper = { id: "src/app.ts::helper:2", kind: "function" as const, name: "helper", file: "src/app.ts", start_line: 2, end_line: 2, content_hash: "h-app", is_exported: false };

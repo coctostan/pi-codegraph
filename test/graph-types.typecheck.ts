@@ -74,6 +74,8 @@ const validStore: GraphStore = {
   getTestTrace: () => null,
   getStatistics: () => ({ nodes: {}, edges: {}, files: { total: 0, stale: 0 } }),
   queryRows: () => [],
+  hasCoverageData: () => false,
+  markCoverageIndexed: () => {},
   close: () => {},
 };
 

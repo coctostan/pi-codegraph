@@ -194,4 +194,9 @@ export function runCoverageIndexStage(store: GraphStore, projectRoot: string, co
       store.saveTestTrace(trace);
     }
   }
+  try {
+    store.markCoverageIndexed();
+  } catch {
+    // readonly DB or other write failure: leave sentinel unset
+  }
 }
