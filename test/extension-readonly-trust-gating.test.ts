@@ -69,11 +69,8 @@ test("fresh symbol_graph tool calls omit the Trust header but keep provenance an
     );
     const text = (result.content[0] as any).text as string;
 
-    if (text.includes("## Trust")) {
-      throw new Error("fresh read-only output still rendered the Trust header");
-    }
-    if (!text.startsWith("## foo (function)")) {
-      throw new Error(`fresh read-only output lost the symbol_graph body: ${text}`);
+    if (!text.startsWith("Trust: fresh\n## foo (function)")) {
+      throw new Error(`fresh read-only output lost the Trust header/body: ${text}`);
     }
     if (!text.includes("src/app.ts:2:")) {
       throw new Error("fresh read-only output lost the anchored body line");
@@ -103,7 +100,7 @@ test("non-fresh trace tool calls still render the Trust header", async () => {
     );
     const text = (result.content[0] as any).text as string;
 
-    if (!text.startsWith("## Trust\nstatus: heuristic")) {
+    if (!text.startsWith("Trust: fresh\nmode: static (heuristic, no runtime evidence)")) {
       throw new Error(`non-fresh trace output lost the Trust header: ${text}`);
     }
     if (!text.includes("mode: static (heuristic, no runtime evidence)")) {

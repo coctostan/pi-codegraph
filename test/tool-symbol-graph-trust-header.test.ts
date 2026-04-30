@@ -59,9 +59,7 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
     const freshOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
     const freshLines = freshOutput.trimEnd().split("\n");
 
-    expect(freshLines[0]).toBe("## Trust");
-    expect(freshLines[1]).toBe("status: fresh");
-    expect(freshLines[2]).toBe("evidence: agent  stale-files: 0/1");
+    expect(freshLines[0]).toBe("Trust: fresh");
     expect(freshOutput).toContain("## foo (function)");
     expect(freshOutput).not.toContain("bar  calls  confidence:0.7  agent [stale]");
 
@@ -81,9 +79,9 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
     const mixedOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
     const mixedLines = mixedOutput.trimEnd().split("\n");
 
-    expect(mixedLines[0]).toBe("## Trust");
-    expect(mixedLines[1]).toBe("status: mixed");
-    expect(mixedLines[2]).toBe("evidence: agent  stale-files: 0/1");
+    expect(mixedLines[0]).toBe("Trust: partial");
+    expect(mixedOutput).toContain("changed files: src/a.ts");
+    expect(mixedOutput).toContain("stale edges: 1");
     expect(mixedOutput).toContain("bar  calls  confidence:0.7  agent [stale]");
   } finally {
     store.close();

@@ -44,12 +44,10 @@ test("trace prepends the shared trust header for static heuristic paths without 
     const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
     const lines = output.trimEnd().split("\n");
 
-    expect(lines[0]).toBe("## Trust");
-    expect(lines[1]).toBe("status: heuristic");
-    expect(lines[2]).toBe("evidence: tree-sitter  stale-files: 0/1");
-    expect(lines[3]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[4]).toContain("src/app.ts:1:");
-    expect(lines[4]).toContain("entry  function");
+    expect(lines[0]).toBe("Trust: fresh");
+    expect(lines[1]).toBe("mode: static (heuristic, no runtime evidence)");
+    expect(lines[2]).toContain("src/app.ts:1:");
+    expect(lines[2]).toContain("entry  function");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

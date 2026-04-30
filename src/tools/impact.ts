@@ -1,7 +1,7 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
 import { computeAnchor } from "../output/anchoring.js";
 import { createSignalComputer, formatImpactWhy, type NodeSignals, type SignalComputer } from "../output/signals.js";
-import { prependTrustHeader } from "../output/trust.js";
+import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
@@ -25,6 +25,7 @@ export interface ImpactItem {
 export interface ImpactDetail extends ImpactItem {
   chainConfidence: number;
   signals: NodeSignals;
+  edge: NeighborResult["edge"];
 }
 
 interface QueueItem {
@@ -113,6 +114,7 @@ export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[
         classification,
         chainConfidence,
         signals: signalComputer.compute(neighbor.node.id, changedNodeIds),
+        edge: neighbor.edge,
       });
     }
   }
@@ -165,22 +167,35 @@ export function impact(params: {
   projectRoot: string;
   maxDepth?: number;
 }): string {
-  const stats = params.store.getStatistics(params.projectRoot);
+  const targetNodes = (params.symbols ?? []).flatMap((symbol) => params.store.findNodes(symbol));
+  const withFreshness = (
+    body: string,
+    resultNodes = targetNodes,
+    resultEdges: NeighborResult["edge"][] = [],
+  ) => prependFreshnessHeader(
+    body,
+    evaluateFreshness({
+      store: params.store,
+      projectRoot: params.projectRoot,
+      targetNodes,
+      resultNodes,
+      resultEdges,
+      recommendation: "impact may be incomplete; refresh index before relying on this result",
+    }),
+  );
 
   // Defensive: validate symbols parameter (#065)
   if (!params.symbols || params.symbols.length === 0) {
-    return prependTrustHeader(
+    return withFreshness(
       "Error: 'symbols' parameter is required. Provide one or more symbol names to analyze impact.\n\nExample: impact({ symbols: [\"functionName\"], changeType: \"behavior_change\" })\n",
-      { stats },
     );
   }
 
   // Defensive: validate changeType (#065)
   const validChangeTypes: ChangeType[] = ["signature_change", "removal", "behavior_change", "addition"];
   if (!validChangeTypes.includes(params.changeType)) {
-    return prependTrustHeader(
+    return withFreshness(
       `Error: Invalid changeType "${params.changeType}". Must be one of: ${validChangeTypes.join(", ")}\n`,
-      { stats },
     );
   }
 
@@ -191,16 +206,16 @@ export function impact(params: {
       projectRoot: params.projectRoot,
       notFoundLabel: "Symbol",
     });
-    if (resolved.kind === "ambiguous") return prependTrustHeader(resolved.text, { stats });
-    if (resolved.kind === "not_found") return prependTrustHeader(resolved.text, { stats });
+    if (resolved.kind === "ambiguous") return withFreshness(resolved.text);
+    if (resolved.kind === "not_found") return withFreshness(resolved.text);
   }
 
   if (params.changeType === "addition") {
-    return prependTrustHeader(
-      `addition: impact analysis for additions is not yet supported \u2014 use symbol_graph to inspect the new symbol's neighborhood\n`,
-      { stats },
+    return withFreshness(
+      `addition: impact analysis for additions is not yet supported — use symbol_graph to inspect the new symbol's neighborhood\n`,
     );
   }
+
   const signalComputer = createSignalComputer(params.store);
   const hits = collectImpactDetails({
     symbols: params.symbols,
@@ -212,19 +227,21 @@ export function impact(params: {
 
   if (hits.length === 0) {
     const body = buildEmptyImpactDiagnostic(params.symbols, params.store, signalComputer, params.maxDepth ?? 5);
-    return prependTrustHeader(body, { stats });
+    return withFreshness(body);
   }
 
-  let hasLocalExceptions = false;
   const lines = hits.flatMap((hit) => {
     const node = params.store.getNode(hit.nodeId);
     if (!node) return [];
     const { anchor, stale } = computeAnchor(node, params.projectRoot);
-    if (stale) hasLocalExceptions = true;
     const why = formatImpactWhy(hit.signals, hit.chainConfidence);
     return [`${anchor}  ${hit.name}  ${hit.classification}  depth:${hit.depth}${stale ? " [stale]" : ""}  ${why}`];
   });
 
+  const hitNodes = hits.flatMap((hit) => {
+    const node = params.store.getNode(hit.nodeId);
+    return node ? [node] : [];
+  });
   const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
-  return prependTrustHeader(body, { stats, hasLocalExceptions });
+  return withFreshness(body, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
 }

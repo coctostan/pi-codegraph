@@ -1,0 +1,5 @@
+- Result-scoped freshness is much more useful to agents than global stale-file counts; the key was limiting evaluation to target nodes, returned nodes, and returned edges.
+- Keeping the compact header formatter separate from row rendering preserved existing `[stale]` row markers and avoided mixing output concerns across tools.
+- Static trace freshness needed both node freshness and call-edge provenance freshness; node-only checks would miss stale static paths where files are current but edge evidence is old.
+- `suppressTrustHeader` is safest as an outer wrapper concern: stripping only the trust/freshness block preserves indexing-failed notes, dev metadata, anchors, and body content.
+- Edge freshness currently uses the source node file as the evidence file, which matches the current graph model; future explicit edge evidence files should be modeled directly instead of inferred from prose evidence strings.

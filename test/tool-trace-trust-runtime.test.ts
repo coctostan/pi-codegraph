@@ -59,10 +59,8 @@ test("trace prepends a runtime-backed trust header and degrades to mixed when a 
     const freshOutput = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
     const freshLines = freshOutput.trimEnd().split("\n");
 
-    expect(freshLines[0]).toBe("## Trust");
-    expect(freshLines[1]).toBe("status: runtime-backed");
-    expect(freshLines[2]).toBe("evidence: coverage,tree-sitter  stale-files: 0/2");
-    expect(freshLines[3]).toBe("mode: coverage");
+    expect(freshLines[0]).toBe("Trust: fresh");
+    expect(freshLines[1]).toBe("mode: coverage");
     expect(freshOutput).not.toContain("function [stale]");
 
     writeFileSync(join(projectRoot, "src", "app.ts"), appV2);
@@ -70,10 +68,10 @@ test("trace prepends a runtime-backed trust header and degrades to mixed when a 
     const mixedOutput = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
     const mixedLines = mixedOutput.trimEnd().split("\n");
 
-    expect(mixedLines[0]).toBe("## Trust");
-    expect(mixedLines[1]).toBe("status: mixed");
-    expect(mixedLines[2]).toBe("evidence: coverage,tree-sitter  stale-files: 1/2");
-    expect(mixedLines[3]).toBe("mode: coverage [stale]");
+    expect(mixedLines[0]).toBe("Trust: partial");
+    expect(mixedOutput).toContain("changed files: src/app.ts");
+    expect(mixedOutput).toContain("trace path may be unreliable; refresh index before relying on this result");
+    expect(mixedOutput).toContain("mode: coverage [stale]");
     expect(mixedOutput).toContain("prod  function [stale]");
   } finally {
     store.close();

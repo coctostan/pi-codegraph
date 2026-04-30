@@ -35,7 +35,7 @@ test("impact() returns diagnostic message for non-existent symbol (#042)", () =>
       maxDepth: 5,
     });
     // Should contain the trust header
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: fresh");
     // Must contain a diagnostic about the symbol not being found
     expect(out).toContain("not found");
     expect(out).toContain("nonExistentSymbol_ZZZ");
@@ -56,13 +56,11 @@ test("impact() returns diagnostic message for addition change type (#043)", () =
       maxDepth: 5,
     });
     // Should contain the trust header
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     // Must contain a message explaining that addition analysis isn't supported
     // or at least some non-empty body beyond the trust header
-    const bodyAfterTrust = out.split("\n").filter(line => !line.startsWith("##") && line.trim() !== "");
-    const hasNonHeaderContent = bodyAfterTrust.some(line =>
-      !line.startsWith("status:") && !line.startsWith("evidence:")
-    );
+    const bodyAfterTrust = out.split("\n").filter(line => !line.startsWith("Trust:") && !line.startsWith("- ") && line.trim() !== "");
+    const hasNonHeaderContent = bodyAfterTrust.length > 0;
     expect(hasNonHeaderContent).toBe(true);
   } finally {
     store.close();

@@ -63,6 +63,7 @@ test("suppressTrustHeader:true still renders the indexing-failed note on a reado
     );
     const text = (result.content[0] as any).text as string;
     expect(text.includes("## Trust")).toBe(false);
+    expect(text.includes("Trust: ")).toBe(false);
     expect(text).toMatch(/indexing-failed \(\d+s ago\): readonly database/);
     expect(text).toContain("## foo (function)");
   } finally {
@@ -114,9 +115,7 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    // Fresh-graph calls already have the Trust header suppressed by suppressFreshTrustHeader.
-    expect(baselineText.includes("## Trust")).toBe(false);
-    expect(baselineText).toContain("## foo (function)");
+    expect(baselineText.startsWith("Trust: fresh\n## foo (function)")).toBe(true);
 
     const suppressed = await (tool as any).execute(
       "call-2",
@@ -126,7 +125,9 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
       { cwd: projectRoot } as any,
     );
     const suppressedText = (suppressed.content[0] as any).text as string;
-    expect(suppressedText).toBe(baselineText);
+    expect(suppressedText.includes("## Trust")).toBe(false);
+    expect(suppressedText.includes("Trust: ")).toBe(false);
+    expect(suppressedText).toBe(baselineText.split("\n").slice(1).join("\n"));
   } finally {
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
@@ -169,13 +170,13 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
     );
     const baselineText = (baseline.content[0] as any).text as string;
     const baselineLines = baselineText.split("\n");
-    const trustIndex = baselineLines.indexOf("## Trust");
+    const trustIndex = baselineLines.findIndex((line) => line.startsWith("Trust: "));
     expect(trustIndex).toBeGreaterThanOrEqual(0);
-    // Preserve any pre-body note (for example, indexing-failed) and remove only the 3-line
-    // Trust block.
+    let bodyStart = trustIndex + 1;
+    while ((baselineLines[bodyStart] ?? "").startsWith("- ")) bodyStart++;
     const withoutTrust = [
       ...baselineLines.slice(0, trustIndex),
-      ...baselineLines.slice(trustIndex + 3),
+      ...baselineLines.slice(bodyStart),
     ].join("\n");
     const suppressed = await (tool as any).execute(
       "suppressed",
@@ -186,6 +187,7 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
     );
     const suppressedText = (suppressed.content[0] as any).text as string;
     expect(suppressedText.includes("## Trust")).toBe(false);
+    expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toBe(withoutTrust);
   } finally {
     chmodSync(dbPath, 0o644);
@@ -217,7 +219,7 @@ test("suppressTrustHeader:false is byte-identical to omitting the flag (trace, n
     );
     const omittedText = (omitted.content[0] as any).text as string;
     const explicitText = (explicit.content[0] as any).text as string;
-    expect(omittedText.startsWith("## Trust\nstatus: heuristic")).toBe(true);
+    expect(omittedText.startsWith("Trust: fresh\nmode: static (heuristic, no runtime evidence)")).toBe(true);
     expect(explicitText).toBe(omittedText);
   } finally {
     resetStoreForTesting();

@@ -1,8 +1,8 @@
 import type { GraphStore } from "../graph/store.js";
-import type { GraphNode } from "../graph/types.js";
+import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { computeAnchor } from "../output/anchoring.js";
+import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
-import { prependTrustHeader } from "../output/trust.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export interface TraceParams {
@@ -124,6 +124,39 @@ function formatModeHeader(mode: "coverage" | "static", stale = false): string {
   return `${base}${stale ? " [stale]" : ""}`;
 }
 
+function traceFreshness(
+  params: TraceParams,
+  targetNode: GraphNode | null,
+  nodeIds: string[],
+  unresolvedItems: string[] = [],
+  resultEdges: GraphEdge[] = [],
+) {
+  const resultNodes = nodeIds.flatMap((id) => {
+    const node = params.store.getNode(id);
+    return node ? [node] : [];
+  });
+  return evaluateFreshness({
+    store: params.store,
+    projectRoot: params.projectRoot,
+    targetNodes: targetNode ? [targetNode] : [],
+    resultNodes: targetNode ? [targetNode, ...resultNodes] : resultNodes,
+    resultEdges,
+    unresolvedItems,
+    recommendation: "trace path may be unreliable; refresh index before relying on this result",
+  });
+}
+
+function collectStaticTraceEdges(store: GraphStore, nodeIds: string[]): GraphEdge[] {
+  const included = new Set(nodeIds);
+  const edges: GraphEdge[] = [];
+  for (const sourceId of nodeIds) {
+    for (const neighbor of store.getNeighbors(sourceId, { direction: "out", kind: "calls" })) {
+      if (included.has(neighbor.node.id)) edges.push(neighbor.edge);
+    }
+  }
+  return edges;
+}
+
 export function trace(params: TraceParams): string {
   const resolved = resolveUniqueSymbol({
     name: params.entry,
@@ -133,22 +166,32 @@ export function trace(params: TraceParams): string {
     notFoundLabel: "Symbol",
   });
 
-  const stats = params.store.getStatistics(params.projectRoot);
+  const emptyFreshness = evaluateFreshness({
+    store: params.store,
+    projectRoot: params.projectRoot,
+    recommendation: "trace path may be unreliable; refresh index before relying on this result",
+  });
+
   if (resolved.kind === "ambiguous") {
-    return prependTrustHeader(resolved.text, { stats });
+    return prependFreshnessHeader(resolved.text, emptyFreshness);
   }
   if (resolved.kind === "not_found") {
     if (params.file) {
       const unscopedMatches = params.store.findNodes(params.entry);
       if (unscopedMatches.length > 0) {
-        const hasLocalExceptions = unscopedMatches.some((match) => computeAnchor(match, params.projectRoot).stale);
-        return prependTrustHeader(
+        const freshness = evaluateFreshness({
+          store: params.store,
+          projectRoot: params.projectRoot,
+          resultNodes: unscopedMatches,
+          recommendation: "trace path may be unreliable; refresh index before relying on this result",
+        });
+        return prependFreshnessHeader(
           formatFileScopedMiss(params.entry, params.file, unscopedMatches, params.projectRoot),
-          { stats, hasLocalExceptions },
+          freshness,
         );
       }
     }
-    return prependTrustHeader(`Symbol "${params.entry}" not found in the graph\n`, { stats });
+    return prependFreshnessHeader(`Symbol "${params.entry}" not found in the graph\n`, emptyFreshness);
   }
 
   const node = resolved.node;
@@ -157,12 +200,14 @@ export function trace(params: TraceParams): string {
   if (coverageTraceId) {
     const coverage = params.store.getTestTrace(coverageTraceId);
     if (coverage) {
-      const rendered = coverage.steps
-        .sort((a, b) => a.ordinal - b.ordinal)
+      const orderedSteps = coverage.steps.sort((a, b) => a.ordinal - b.ordinal);
+      const rendered = orderedSteps
         .map((step) => formatStoredTraceLine(params.store, step.nodeId, step.contentHash, params.projectRoot, signalComputer));
-      const traceStale = rendered.some((item) => item.stale);
+      const unresolvedItems = orderedSteps.filter((step) => !params.store.getNode(step.nodeId)).map((step) => step.nodeId);
+      const freshness = traceFreshness(params, null, orderedSteps.map((step) => step.nodeId), unresolvedItems);
+      const traceStale = rendered.some((item) => item.stale) || freshness.status !== "fresh";
       const body = `${[formatModeHeader("coverage", traceStale), ...rendered.map((item) => item.line)].join("\n")}\n`;
-      return prependTrustHeader(body, { stats, mode: "runtime-backed", hasLocalExceptions: traceStale });
+      return prependFreshnessHeader(body, freshness);
     }
   }
 
@@ -175,17 +220,22 @@ export function trace(params: TraceParams): string {
       signalComputer,
       classSignals.roles.filter((role) => role !== "leaf"),
     );
+    const freshness = traceFreshness(params, node, [node.id]);
+    const classStale = classLine.stale || freshness.status !== "fresh";
     const body = `${[
-      formatModeHeader("static", classLine.stale),
+      formatModeHeader("static", classStale),
       classLine.line,
       "  → class entry: use symbol_graph to inspect methods, or trace a specific method symbol when one is available",
     ].join("\n")}\n`;
-    return prependTrustHeader(body, { stats, mode: "heuristic", hasLocalExceptions: classLine.stale });
+    return prependFreshnessHeader(body, freshness);
   }
 
-  const staticSteps = buildStaticTrace(params.store, node.id)
+  const staticNodeIds = buildStaticTrace(params.store, node.id);
+  const staticSteps = staticNodeIds
     .map((step) => formatLiveTraceLine(params.store, step, params.projectRoot, signalComputer));
-  const staticStale = staticSteps.some((step) => step.stale);
+  const staticEdges = collectStaticTraceEdges(params.store, staticNodeIds);
+  const freshness = traceFreshness(params, node, staticNodeIds, [], staticEdges);
+  const staticStale = staticSteps.some((step) => step.stale) || freshness.status !== "fresh";
   const body = `${[formatModeHeader("static", staticStale), ...staticSteps.map((step) => step.line)].join("\n")}\n`;
-  return prependTrustHeader(body, { stats, mode: "heuristic", hasLocalExceptions: staticStale });
+  return prependFreshnessHeader(body, freshness);
 }
