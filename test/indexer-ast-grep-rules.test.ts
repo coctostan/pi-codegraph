@@ -2,25 +2,22 @@ import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadRules } from "../src/indexer/ast-grep.js";
+import { loadRules, readRuleFile } from "../src/indexer/ast-grep.js";
 
 test("Bun.YAML.parse API is available", () => {
   expect(typeof Bun).toBe("object");
   expect(typeof Bun.YAML.parse).toBe("function");
 });
 
-test("loadRules reports explicit runtime error when Bun.YAML.parse is unavailable", () => {
-  const root = join(tmpdir(), `pi-cg-rules-no-yaml-${Date.now()}`);
-  const bundledDir = join(root, "bundled");
-  mkdirSync(bundledDir, { recursive: true });
-  writeFileSync(join(bundledDir, "r.yaml"), `- name: r\n  pattern: foo()\n  lang: typescript\n  produces:\n    edge_kind: routes_to\n    from_capture: X\n    to_template: endpoint:{X}\n    confidence: 0.9\n`);
+test("readRuleFile parses bundled-style YAML when bun.YAML.parse is missing", () => {
+  const root = join(tmpdir(), `pi-cg-rules-no-bun-yaml-${Date.now()}`);
+  const file = join(root, "rule.yaml");
+  mkdirSync(root, { recursive: true });
+  writeFileSync(file, `- name: r\n  pattern: foo()\n  lang: typescript\n  produces:\n    edge_kind: routes_to\n    from_capture: X\n    to_template: endpoint:{X}\n    confidence: 0.9\n`);
 
-  const prev = (Bun as any).YAML;
   try {
-    (Bun as any).YAML = undefined;
-    expect(() => loadRules({ bundledDir, projectRoot: root })).toThrow("Bun.YAML.parse is unavailable in this runtime");
+    expect(readRuleFile(file, {}).map((r) => r.name)).toEqual(["r"]);
   } finally {
-    (Bun as any).YAML = prev;
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -64,6 +61,7 @@ test("loadRules rejects rules that specify both to_capture and to_template", () 
   const badFile = join(bundledDir, "bad-target.yaml");
   mkdirSync(bundledDir, { recursive: true });
   writeFileSync(badFile, `- name: bad-target\n  pattern: foo()\n  lang: typescript\n  produces:\n    edge_kind: routes_to\n    from_capture: FN\n    to_capture: T\n    to_template: endpoint:{T}\n    confidence: 0.9\n`);
+
   try {
     expect(() => loadRules({ bundledDir, projectRoot: root })).toThrow(
       `Invalid rule file ${badFile}: specify exactly one of produces.to_capture or produces.to_template`,
@@ -95,6 +93,7 @@ test("loadRules rejects invalid from_context values with offending file path", (
   const badFile = join(bundledDir, "bad-context.yaml");
   mkdirSync(bundledDir, { recursive: true });
   writeFileSync(badFile, `- name: bad-context\n  pattern: foo()\n  lang: typescript\n  produces:\n    edge_kind: routes_to\n    from_context: invalid_value\n    to_template: endpoint:{NAME}\n    confidence: 0.9\n`);
+
   try {
     expect(() => loadRules({ bundledDir, projectRoot: root })).toThrow(
       `Invalid rule file ${badFile}: unsupported produces.from_context invalid_value`,
@@ -110,6 +109,7 @@ test("loadRules wraps YAML parse errors with offending file path", () => {
   const badFile = join(bundledDir, "bad-parse.yaml");
   mkdirSync(bundledDir, { recursive: true });
   writeFileSync(badFile, `- name: bad-parse\n  pattern: [\n`);
+
   try {
     expect(() => loadRules({ bundledDir, projectRoot: root })).toThrow(`Invalid rule file ${badFile}`);
   } finally {
@@ -126,6 +126,7 @@ test("loadRules rejects unsupported edge_kind values with offending file path", 
     badFile,
     `- name: bad-edgekind\n  pattern: foo()\n  lang: typescript\n  produces:\n    edge_kind: unknown_edge\n    from_capture: X\n    to_template: endpoint:{X}\n    confidence: 0.9\n`,
   );
+
   try {
     expect(() => loadRules({ bundledDir, projectRoot: root })).toThrow(
       `Invalid rule file ${badFile}: unsupported produces.edge_kind unknown_edge`,

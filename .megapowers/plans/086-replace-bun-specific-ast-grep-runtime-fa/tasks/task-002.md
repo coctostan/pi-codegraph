@@ -1,3 +1,24 @@
+---
+id: 2
+title: Use node child_process for ast-grep subprocesses
+status: approved
+depends_on:
+  - 1
+no_test: false
+files_to_modify:
+  - src/indexer/ast-grep.ts
+  - test/indexer-ast-grep-scan.test.ts
+files_to_create: []
+---
+
+**Files:**
+- Modify: `src/indexer/ast-grep.ts`
+- Modify: `test/indexer-ast-grep-scan.test.ts`
+
+**Step 1 — Write the failing test**
+Replace `test/indexer-ast-grep-scan.test.ts` with:
+
+```ts
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -72,3 +93,52 @@ test("runScan still rejects malformed non-empty JSON output", async () => {
     'Invalid sg JSON output: JSON Parse error: Unexpected identifier "not"',
   );
 });
+```
+
+**Step 2 — Run test, verify it fails**
+Run: `bun test test/indexer-ast-grep-scan.test.ts`
+
+Expected: FAIL —
+
+```text
+error: expect(received).not.toContain(expected)
+
+Expected to not contain: "(globalThis as any).Bun"
+Received: "import { spawn as nodeSpawn } from \"node:child_process\"; ..."
+```
+
+**Step 3 — Write minimal implementation**
+In `src/indexer/ast-grep.ts`, replace `defaultExec` with:
+
+```ts
+async function defaultExec(cmd: string[], opts: { cwd: string }): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const child = nodeSpawn(cmd[0]!, cmd.slice(1), { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", (error) => {
+      reject(new Error(`Failed to launch sg. Is ast-grep installed? ${error.message}`));
+    });
+    child.on("close", (code) => {
+      const exitCode = code ?? 0;
+      // sg exits 1 when no matches found (like grep) — treat 0 and 1 as success
+      if (exitCode > 1) reject(new Error(`sg failed (${exitCode}): ${stderr.trim() || stdout.trim()}`));
+      else resolve(stdout);
+    });
+  });
+}
+```
+
+Do not change `ExecFn` or `runScan` signatures.
+
+**Step 4 — Run test, verify it passes**
+Run: `bun test test/indexer-ast-grep-scan.test.ts`
+Expected: PASS.
+
+**Step 5 — Verify no regressions**
+Run: `bun test && bun run check`
+Expected: all tests pass and `tsc --noEmit` completes with no TypeScript errors.
