@@ -88,7 +88,7 @@ test("symbolGraph appends the standalone symbol_contract body when include conta
     expect(standaloneBody).toBe(rendered.body);
     expect(withContract.startsWith(base)).toBe(true);
     expect(withContract.slice(base.length)).toBe(`\n${standaloneBody}`);
-    expect((withContract.match(/## Trust/g) ?? []).length).toBe(1);
+    expect((withContract.match(/^Trust: /gm) ?? []).length).toBe(1);
   } finally {
     cleanup();
   }
@@ -102,7 +102,7 @@ test("symbolGraph keeps unknown-symbol contract lookups explicit without duplica
     expect(withContract).toBe(base);
     expect(withContract).toContain('Symbol "doesNotExist" not found');
     expect((withContract.match(/Symbol "doesNotExist" not found/g) ?? []).length).toBe(1);
-    expect((withContract.match(/## Trust/g) ?? []).length).toBe(1);
+    expect((withContract.match(/^Trust: /gm) ?? []).length).toBe(1);
   } finally {
     cleanup();
   }

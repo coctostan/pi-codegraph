@@ -67,9 +67,7 @@ test("impact prepends the shared trust header and marks stale-file scenarios as 
     });
     const freshLines = freshOutput.trimEnd().split("\n");
 
-    expect(freshLines[0]).toBe("## Trust");
-    expect(freshLines[1]).toBe("status: fresh");
-    expect(freshLines[2]).toBe("evidence: tree-sitter  stale-files: 0/2");
+    expect(freshLines[0]).toBe("Trust: fresh");
     expect(freshOutput).not.toContain("depth:1 [stale]");
 
     writeFileSync(join(projectRoot, "src", "caller.ts"), callerV2);
@@ -83,9 +81,10 @@ test("impact prepends the shared trust header and marks stale-file scenarios as 
     });
     const staleLines = staleOutput.trimEnd().split("\n");
 
-    expect(staleLines[0]).toBe("## Trust");
-    expect(staleLines[1]).toBe("status: stale");
-    expect(staleLines[2]).toBe("evidence: tree-sitter  stale-files: 1/2");
+    expect(staleLines[0]).toBe("Trust: partial");
+    expect(staleOutput).toContain("changed files: src/caller.ts");
+    expect(staleOutput).toContain("stale edges: 1");
+    expect(staleOutput).toContain("impact may be incomplete; refresh index before relying on this result");
     expect(staleOutput).toContain("depth:1 [stale]");
   } finally {
     store.close();

@@ -34,7 +34,7 @@ test("impact() returns error message when symbols is empty array", () => {
       projectRoot,
       maxDepth: 5,
     });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: fresh");
     expect(out).toContain("Error");
     expect(out).toContain("symbols");
     expect(out).toContain("required");
@@ -54,7 +54,7 @@ test("impact() returns error message when symbols is undefined", () => {
       projectRoot,
       maxDepth: 5,
     });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: fresh");
     expect(out).toContain("Error");
     expect(out).toContain("symbols");
   } finally {
@@ -73,7 +73,7 @@ test("impact() returns error message for invalid changeType", () => {
       projectRoot,
       maxDepth: 5,
     });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toContain("Error");
     expect(out).toContain("changeType");
     expect(out).toContain("signature_change");

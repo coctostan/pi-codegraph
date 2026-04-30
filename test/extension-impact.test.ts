@@ -44,11 +44,11 @@ test("impact() emits anchored structured lines and empty string for no-impact", 
       created_at: 1,
     });
     const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
     expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
     const noImpact = impact({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 });
-    expect(noImpact).toContain("## Trust");
+    expect(noImpact).toContain("Trust: stale");
     expect(noImpact).not.toContain("caller");
   } finally {
     store.close();

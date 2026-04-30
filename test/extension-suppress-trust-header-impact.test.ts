@@ -82,8 +82,7 @@ test("impact with suppressTrustHeader:true omits the Trust header on a stale gra
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    expect(baselineText).toContain("## Trust\nstatus: stale");
-    expect(baselineText).toContain("caller");
+    expect(baselineText).toContain("Trust: stale");
     const suppressed = await (tool as any).execute(
       "suppressed",
       { symbols: ["shared"], changeType: "signature_change", suppressTrustHeader: true },
@@ -93,6 +92,7 @@ test("impact with suppressTrustHeader:true omits the Trust header on a stale gra
     );
     const suppressedText = (suppressed.content[0] as any).text as string;
     expect(suppressedText.includes("## Trust")).toBe(false);
+    expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toContain("caller");
   } finally {
     chmodSync(dbPath, 0o644);

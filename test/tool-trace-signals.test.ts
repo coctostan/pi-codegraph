@@ -51,8 +51,8 @@ test("trace appends inline role tags to coverage and static step lines without c
     const output = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
     const lines = output.trim().split("\n");
 
-    expect(lines[0]).toBe("## Trust");
-    expect(lines[3]).toBe("mode: coverage [stale]");
+    expect(lines[0]).toBe("Trust: partial");
+    expect(lines).toContain("mode: coverage [stale]");
     expect(lines.some((line) => /src\/app\.ts:1:[0-9a-f]{4}  prod  function \[stale\] \[entry-point, tested\]/.test(line))).toBe(true);
     expect(lines.some((line) => /src\/app\.ts:2:[0-9a-f]{4}  helper  function \[stale\] \[leaf, untested\]/.test(line))).toBe(true);
   } finally {

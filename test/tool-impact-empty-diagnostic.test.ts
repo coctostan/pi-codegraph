@@ -19,7 +19,7 @@ test("impact() entry-point seed — fanIn 0, no callers — emits entry-point di
     store.addNode({ id: "src/entry.ts::entryPoint:1", kind: "function", name: "entryPoint", file: "src/entry.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
 
     const out = impact({ symbols: ["entryPoint"], changeType: "signature_change", store, projectRoot, maxDepth: 5 });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found — 'entryPoint' is an entry point with no callers.");
     // Diagnostic must end with a trailing newline so downstream callers aren't glued to it.
     expect(out.endsWith("\n")).toBe(true);
@@ -37,7 +37,7 @@ test("impact() interface seed without implementors — emits interface diagnosti
     store.addNode({ id: "src/iface.ts::GraphStore:1", kind: "interface", name: "GraphStore", file: "src/iface.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
 
     const out = impact({ symbols: ["GraphStore"], changeType: "removal", store, projectRoot, maxDepth: 5 });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toContain("No call-edge dependents found for interface 'GraphStore'. Consider checking implementors via symbol_graph.");
     expect(out.endsWith("\n")).toBe(true);
   } finally {
@@ -55,7 +55,7 @@ test("impact() genuinely isolated symbol (non-entry, non-interface, no inbound) 
     store.addNode({ id: "src/util.ts::sha256Hex:1", kind: "function", name: "sha256Hex", file: "src/util.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: false });
 
     const out = impact({ symbols: ["sha256Hex"], changeType: "removal", store, projectRoot, maxDepth: 5 });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found for 'sha256Hex' within depth 5.");
     expect(out.endsWith("\n")).toBe(true);
   } finally {

@@ -51,6 +51,7 @@ test("trace with suppressTrustHeader:true omits the non-fresh Trust header", asy
     );
     const suppressedText = (suppressed.content[0] as any).text as string;
     expect(suppressedText.includes("## Trust")).toBe(false);
+    expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toContain("mode: static (heuristic, no runtime evidence)");
 
     const baseline = await (tool as any).execute(
@@ -61,7 +62,7 @@ test("trace with suppressTrustHeader:true omits the non-fresh Trust header", asy
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    expect(baselineText.startsWith("## Trust\nstatus: heuristic")).toBe(true);
+    expect(baselineText.startsWith("Trust: fresh\nmode: static (heuristic, no runtime evidence)")).toBe(true);
   } finally {
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });

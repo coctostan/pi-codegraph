@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { suppressFreshTrustHeader } from "../src/output/read-only-ceremony.js";
+import { stripTrustHeader } from "../src/output/read-only-ceremony.js";
 import { renderLegacyNeighborhoodBody, symbolGraph } from "../src/tools/symbol-graph.js";
 
 test("renderLegacyNeighborhoodBody is exported and matches the current standalone neighborhood output", () => {
@@ -29,7 +29,7 @@ test("renderLegacyNeighborhoodBody is exported and matches the current standalon
     });
 
     const rendered = renderLegacyNeighborhoodBody({ name: "foo", store, projectRoot });
-    const standaloneBody = suppressFreshTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }));
+    const standaloneBody = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }));
 
     expect(standaloneBody).toBe(rendered.body);
     expect(rendered.body).toContain("### Callees");

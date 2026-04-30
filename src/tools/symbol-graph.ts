@@ -1,4 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
+import type { GraphEdge, GraphNode } from "../graph/types.js";
 import {
   computeAnchor,
   rankNeighbors,
@@ -7,8 +8,8 @@ import {
   type NeighborSection,
   type NamedSection,
 } from "../output/anchoring.js";
+import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, type NodeSignals } from "../output/signals.js";
-import { prependTrustHeader } from "../output/trust.js";
 import { renderSymbolCardBody, renderSymbolSourceSection } from "./symbol-card.js";
 import { renderSymbolContractBody } from "./symbol-contract.js";
 
@@ -168,9 +169,100 @@ export function renderLegacyNeighborhoodBody(params: SymbolGraphParams): Rendere
     hasLocalExceptions: symbolAnchor.stale || namedSections.some((ns) => hasStaleItems(ns.section)),
   };
 }
+
+function collectVisibleNeighborhoodScope(params: SymbolGraphParams, node: GraphNode): {
+  resultNodes: GraphNode[];
+  resultEdges: GraphEdge[];
+} {
+  const limit = params.limit ?? 10;
+  const buckets = new Map<string, NeighborResult[]>();
+  const unresolvedResults: NeighborResult[] = [];
+
+  for (const nr of params.store.getNeighbors(node.id)) {
+    if (nr.node.file.startsWith("__meta__")) continue;
+    if (nr.node.file.startsWith("__unresolved__")) {
+      unresolvedResults.push(nr);
+      continue;
+    }
+    const direction = nr.edge.target === node.id ? "in" : "out";
+    const title = sectionTitle(nr.edge.kind, direction);
+    const bucket = buckets.get(title) ?? [];
+    bucket.push(nr);
+    buckets.set(title, bucket);
+  }
+
+  const sectionOrder = [
+    "Callers", "Callees", "Imports", "Imported By",
+    "Implemented By", "Implements",
+    "Extended By", "Extends",
+    "Tested By", "Tests",
+    "Co-changes With",
+    "Rendered By", "Renders",
+    "Routed From", "Routes To",
+  ];
+  const visible: NeighborResult[] = [];
+  for (const title of sectionOrder) {
+    const bucket = buckets.get(title);
+    if (bucket && bucket.length > 0) {
+      visible.push(...rankNeighbors(bucket, limit).kept);
+      buckets.delete(title);
+    }
+  }
+  for (const bucket of buckets.values()) visible.push(...rankNeighbors(bucket, limit).kept);
+  visible.push(...rankNeighbors(unresolvedResults, limit).kept);
+
+  return {
+    resultNodes: visible
+      .filter((nr) => !nr.node.file.startsWith("__unresolved__"))
+      .map((nr) => nr.node),
+    resultEdges: visible.map((nr) => nr.edge),
+  };
+}
+
+function collectDefaultCardScope(params: SymbolGraphParams, node: GraphNode): {
+  resultNodes: GraphNode[];
+  resultEdges: GraphEdge[];
+} {
+  const allNeighbors = params.store.getNeighbors(node.id).filter(
+    (nr) => !nr.node.file.startsWith("__meta__") && !nr.node.file.startsWith("__unresolved__"),
+  );
+  const tests = allNeighbors.filter((nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id);
+  const callers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id).slice(0, 5);
+  const callees = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.source === node.id).slice(0, 5);
+  const imports = allNeighbors.filter((nr) => nr.edge.kind === "imports" && nr.edge.source === node.id).slice(0, 5);
+  const extendsOut = allNeighbors.filter((nr) => nr.edge.kind === "extends" && nr.edge.source === node.id).slice(0, 5);
+  const implementsOut = allNeighbors.filter((nr) => nr.edge.kind === "implements" && nr.edge.source === node.id).slice(0, 5);
+  const visible = [...tests, ...callers, ...callees, ...imports, ...extendsOut, ...implementsOut];
+  return {
+    resultNodes: visible.map((nr) => nr.node),
+    resultEdges: visible.map((nr) => nr.edge),
+  };
+}
+
+function collectSymbolGraphScope(params: SymbolGraphParams): {
+  targetNodes: GraphNode[];
+  resultNodes: GraphNode[];
+  resultEdges: GraphEdge[];
+} {
+  const resolvedNodes = params.store.findNodes(params.name, params.file);
+  const targetNodes = resolvedNodes.length === 1 ? [resolvedNodes[0]!] : [];
+  const resultNodes = new Map<string, GraphNode>();
+  const resultEdges: GraphEdge[] = [];
+
+  for (const node of resolvedNodes) resultNodes.set(node.id, node);
+  if (resolvedNodes.length === 1) {
+    const node = resolvedNodes[0]!;
+    const scoped = (params.include ?? []).includes("neighborhood")
+      ? collectVisibleNeighborhoodScope(params, node)
+      : collectDefaultCardScope(params, node);
+    for (const resultNode of scoped.resultNodes) resultNodes.set(resultNode.id, resultNode);
+    resultEdges.push(...scoped.resultEdges);
+  }
+
+  return { targetNodes, resultNodes: [...resultNodes.values()], resultEdges };
+}
 export function symbolGraph(params: SymbolGraphParams): string {
   const { include } = params;
-  const stats = params.store.getStatistics(params.projectRoot);
   const resolvedNodes = params.store.findNodes(params.name, params.file);
   const useNeighborhoodBase = (include ?? []).includes("neighborhood");
   const base = useNeighborhoodBase
@@ -182,7 +274,6 @@ export function symbolGraph(params: SymbolGraphParams): string {
         projectRoot: params.projectRoot,
       });
   let body = base.body;
-  let hasLocalExceptions = base.hasLocalExceptions;
   if (resolvedNodes.length === 1 && (include ?? []).includes("contract")) {
     const renderedContract = renderSymbolContractBody({
       name: params.name,
@@ -191,7 +282,6 @@ export function symbolGraph(params: SymbolGraphParams): string {
       projectRoot: params.projectRoot,
     });
     body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${renderedContract.body}`;
-    hasLocalExceptions = hasLocalExceptions || renderedContract.hasLocalExceptions;
   }
 
   if (resolvedNodes.length === 1 && (include ?? []).includes("source")) {
@@ -202,7 +292,12 @@ export function symbolGraph(params: SymbolGraphParams): string {
       projectRoot: params.projectRoot,
     });
     body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${renderedSource.body}`;
-    hasLocalExceptions = hasLocalExceptions || renderedSource.hasLocalExceptions;
   }
-  return prependTrustHeader(body, { stats, hasLocalExceptions });
+
+  const freshness = evaluateFreshness({
+    store: params.store,
+    projectRoot: params.projectRoot,
+    ...collectSymbolGraphScope(params),
+  });
+  return prependFreshnessHeader(body, freshness);
 }

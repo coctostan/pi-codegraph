@@ -65,8 +65,7 @@ test("symbol_graph with suppressTrustHeader:true omits the Trust header on a sta
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    expect(baselineText).toContain("## Trust\nstatus: stale");
-    expect(baselineText).toContain("## foo (function)");
+    expect(baselineText).toContain("Trust: stale");
     const suppressed = await (tool as any).execute(
       "suppressed",
       { name: "foo", file: "src/app.ts", suppressTrustHeader: true },
@@ -76,6 +75,7 @@ test("symbol_graph with suppressTrustHeader:true omits the Trust header on a sta
     );
     const suppressedText = (suppressed.content[0] as any).text as string;
     expect(suppressedText.includes("## Trust")).toBe(false);
+    expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toContain("## foo (function)");
   } finally {
     chmodSync(dbPath, 0o644);

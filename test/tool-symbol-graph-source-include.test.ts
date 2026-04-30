@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { suppressFreshTrustHeader } from "../src/output/read-only-ceremony.js";
+import { stripTrustHeader } from "../src/output/read-only-ceremony.js";
 import { renderLegacyNeighborhoodBody, symbolGraph } from "../src/tools/symbol-graph.js";
 import { renderSymbolSourceSection, symbolCard } from "../src/tools/symbol-card.js";
 
@@ -47,7 +47,7 @@ test("include:['neighborhood','source'] keeps neighborhood as the active base an
   try {
     const neighborhoodBody = renderLegacyNeighborhoodBody({ name: "foo", store, projectRoot }).body;
     const source = renderSymbolSourceSection({ name: "foo", store, projectRoot });
-    const withSource = suppressFreshTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "source"] as any, store, projectRoot }));
+    const withSource = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "source"] as any, store, projectRoot }));
 
     expect(withSource.startsWith(neighborhoodBody)).toBe(true);
     expect(withSource.slice(neighborhoodBody.length)).toBe(`\n${source.body}`);

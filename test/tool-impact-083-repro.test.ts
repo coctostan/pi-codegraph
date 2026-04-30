@@ -50,7 +50,7 @@ test("BUG #073: impact on an entry-point symbol returns the entry-point diagnost
       projectRoot,
       maxDepth: 5,
     });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found — 'entryPoint' is an entry point with no callers.");
   } finally {
     store.close();
@@ -68,7 +68,7 @@ test("BUG #073 + #074: impact on an interface with implementors returns the impl
       projectRoot,
       maxDepth: 5,
     });
-    expect(out).toContain("## Trust");
+    expect(out).toContain("Trust: stale");
     // With #074 fixed, Store → MyStore (implements) → useStore (calls) chain is found;
     // therefore the interface *diagnostic* must NOT fire.
     expect(out).not.toContain("No call-edge dependents found for interface");

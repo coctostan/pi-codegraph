@@ -7,7 +7,7 @@ import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { suppressFreshTrustHeader } from "../src/output/read-only-ceremony.js";
+import { stripTrustHeader } from "../src/output/read-only-ceremony.js";
 import { renderLegacyNeighborhoodBody, symbolGraph } from "../src/tools/symbol-graph.js";
 
 
@@ -58,8 +58,8 @@ test("include:['neighborhood'] returns the byte-identical legacy body and stays 
       created_at: Date.now(),
     });
     const expected = renderLegacyNeighborhoodBody({ name: "foo", store, projectRoot }).body;
-    const neighborhood = suppressFreshTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }));
-    const combined = suppressFreshTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "contract"] as any, store, projectRoot }));
+    const neighborhood = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }));
+    const combined = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "contract"] as any, store, projectRoot }));
 
 
     expect(neighborhood).toBe(expected);

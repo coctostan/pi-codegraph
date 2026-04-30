@@ -64,12 +64,11 @@ test("trace marks static fallback paths as heuristic without changing step lines
     const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
     const lines = output.trim().split("\n");
 
-    expect(lines[0]).toBe("## Trust");
-    expect(lines[1]).toBe("status: heuristic");
-    expect(lines[3]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[4]).toContain("src/app.ts:1:");
-    expect(lines[4]).toContain("entry  function");
-    expect(lines).toHaveLength(7);
+    expect(lines[0]).toBe("Trust: fresh");
+    expect(lines[1]).toBe("mode: static (heuristic, no runtime evidence)");
+    expect(lines[2]).toContain("src/app.ts:1:");
+    expect(lines[2]).toContain("entry  function");
+    expect(lines).toHaveLength(5);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });
