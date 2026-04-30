@@ -1,6 +1,8 @@
+import { spawn as nodeSpawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isAbsolute, join, relative } from "node:path";
+import { parse as parseYaml } from "yaml";
 import type { GraphStore } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
 
@@ -61,13 +63,11 @@ function validateRuleFile(filePath: string, raw: unknown): AstGrepRule[] {
   });
 }
 
-function readRuleFile(filePath: string): AstGrepRule[] {
-  if (typeof (Bun as any).YAML?.parse !== "function") {
-    throw new Error("Bun.YAML.parse is unavailable in this runtime");
-  }
+export function readRuleFile(filePath: string, _runtime?: unknown): AstGrepRule[] {
   let raw: unknown;
   try {
-    raw = (Bun as any).YAML.parse(readFileSync(filePath, "utf8"));
+    const content = readFileSync(filePath, "utf8");
+    raw = parseYaml(content);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Invalid rule file ${filePath}: ${message}`);
@@ -78,7 +78,7 @@ function readRuleFile(filePath: string): AstGrepRule[] {
 export function loadRules(options: LoadRulesOptions): AstGrepRule[] {
   const userDir = join(options.projectRoot, ".codegraph", "rules");
   const files = [...listRuleFiles(options.bundledDir), ...listRuleFiles(userDir)];
-  return files.flatMap(readRuleFile).sort((a, b) => a.name.localeCompare(b.name));
+  return files.flatMap((f) => readRuleFile(f)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 interface RawSgMatch {
@@ -100,19 +100,24 @@ export interface SgMatch {
 export type ExecFn = (cmd: string[], opts: { cwd: string }) => Promise<string>;
 
 async function defaultExec(cmd: string[], opts: { cwd: string }): Promise<string> {
-  let proc: ReturnType<typeof Bun.spawn>;
-  try {
-    proc = Bun.spawn(cmd, { cwd: opts.cwd, stdout: "pipe", stderr: "pipe" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to launch sg. Is ast-grep installed? ${message}`);
-  }
-  const stdout = await new Response(proc.stdout as ReadableStream<Uint8Array>).text();
-  const stderr = await new Response(proc.stderr as ReadableStream<Uint8Array>).text();
-  const code = await proc.exited;
-  // sg exits 1 when no matches found (like grep) — treat 0 and 1 as success
-  if (code > 1) throw new Error(`sg failed (${code}): ${stderr.trim() || stdout.trim()}`);
-  return stdout;
+  return await new Promise<string>((resolve, reject) => {
+    const child = nodeSpawn(cmd[0]!, cmd.slice(1), { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", (error) => {
+      reject(new Error(`Failed to launch sg. Is ast-grep installed? ${error.message}`));
+    });
+    child.on("close", (code) => {
+      const exitCode = code ?? 0;
+      // sg exits 1 when no matches found (like grep) — treat 0 and 1 as success
+      if (exitCode > 1) reject(new Error(`sg failed (${exitCode}): ${stderr.trim() || stdout.trim()}`));
+      else resolve(stdout);
+    });
+  });
 }
 
 function toProjectRelative(projectRoot: string, file: string): string {

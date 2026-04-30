@@ -1,7 +1,7 @@
 {
   "name": "pi-codegraph",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -15,11 +15,13 @@
     ]
   },
   "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
     "tree-sitter": "^0.25.0",
-    "tree-sitter-typescript": "^0.23.2"
+    "tree-sitter-typescript": "^0.23.2",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.66.1",
+    "@mariozechner/pi-coding-agent": "0.70.5",
     "@types/bun": "latest",
     "typescript": "^6.0.2"
   }
