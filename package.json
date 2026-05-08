@@ -1,13 +1,53 @@
 {
   "name": "pi-codegraph",
-  "private": true,
   "version": "1.0.2",
-  "type": "module",
+  "description": "Symbol-level code intelligence for coding agents — a pi extension that builds a graph of TypeScript symbols and relationships and exposes it through agent-optimized tools (symbol_graph, impact, trace).",
+  "keywords": [
+    "pi",
+    "pi-extension",
+    "coding-agent",
+    "code-graph",
+    "code-intelligence",
+    "typescript",
+    "ast",
+    "tree-sitter",
+    "lsp",
+    "tsserver",
+    "static-analysis",
+    "symbol-graph",
+    "impact-analysis",
+    "agent-tools"
+  ],
+  "homepage": "https://github.com/coctostan/pi-codegraph#readme",
+  "bugs": {
+    "url": "https://github.com/coctostan/pi-codegraph/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coctostan/pi-codegraph.git"
+  },
   "license": "MIT",
+  "author": "coctostan",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "ARCHITECTURE.md"
+  ],
+  "engines": {
+    "node": ">=22",
+    "bun": ">=1.1"
+  },
   "scripts": {
     "test": "bun test",
     "build": "echo \"nothing to build\"",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "prepublishOnly": "bun run check && bun test"
   },
   "pi": {
     "extensions": [
@@ -19,6 +59,9 @@
     "tree-sitter": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
     "yaml": "^2.8.3"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=0.70.5"
   },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "0.70.5",
