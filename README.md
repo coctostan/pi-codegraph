@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="./assets/banner.png" alt="pi-codegraph — a code graph for coding agents" width="100%" />
+</p>
+
 # pi-codegraph
 
+[![npm version](https://img.shields.io/npm/v/pi-codegraph.svg)](https://www.npmjs.com/package/pi-codegraph)
 [![CI](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml/badge.svg)](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 3 public tools by default, with 0 dev-mode-only tools and 1 internal helper for deeper graph work.
 
@@ -36,22 +42,35 @@ pi-codegraph is a [pi](https://github.com/nicholasgasior/pi-coding-agent) extens
 - Node.js >= 22 (for tsserver LSP)
 - A TypeScript project to analyze
 
-### Install as a pi extension
+### Install from npm (recommended)
 
-1. Clone the repository:
+```bash
+bun add pi-codegraph
+# or
+npm install pi-codegraph
+```
+
+Then register it as a pi extension in your pi configuration:
+
+```json
+{
+  "pi": {
+    "extensions": ["pi-codegraph"]
+  }
+}
+```
+
+Once registered, the 3 default public tools are available to the agent automatically. `symbol_search` remains internal-only. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
+
+### Install from source (for development)
 
 ```bash
 git clone https://github.com/coctostan/pi-codegraph.git
 cd pi-codegraph
-```
-
-2. Install dependencies:
-
-```bash
 bun install
 ```
 
-3. Register as a pi extension by adding to your pi configuration:
+Then point your pi config at the local checkout:
 
 ```json
 {
@@ -61,7 +80,15 @@ bun install
 }
 ```
 
-Once registered, the 3 default public tools are available to the agent automatically. `symbol_search` remains internal-only. The graph database (`.codegraph/graph.db`) is created in the project root on first use.
+### Troubleshooting native dependencies
+
+`tree-sitter` and `tree-sitter-typescript` ship as native modules and compile on install via `node-gyp`. If install fails, you likely need a working C/C++ toolchain:
+
+- **macOS:** `xcode-select --install`
+- **Linux:** `sudo apt-get install build-essential python3` (or your distro's equivalent)
+- **Windows:** install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload, plus a recent Python
+
+After installing the toolchain, re-run `bun install` (or `npm install`).
 
 ## Tools
 
