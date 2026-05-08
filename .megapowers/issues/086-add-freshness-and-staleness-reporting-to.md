@@ -1,7 +1,7 @@
 ---
 id: 86
 type: feature
-status: in-progress
+status: done
 created: 2026-04-30T17:43:34.174Z
 priority: 1
 ---

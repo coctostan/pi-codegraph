@@ -1,7 +1,7 @@
 ---
 id: 86
 type: bugfix
-status: in-progress
+status: done
 created: 2026-04-30T14:23:17.522Z
 ---
 # Replace Bun-specific ast-grep runtime fallbacks with Node-compatible implementation

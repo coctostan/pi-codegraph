@@ -1,52 +1,17 @@
 {
   "version": 1,
-  "activeIssue": "086-replace-bun-specific-ast-grep-runtime-fa",
-  "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1777562219748
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1777562414501
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1777563539031
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1777563853226
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1777565791578
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 1,
-  "currentTaskIndex": 1,
-  "completedTasks": [
-    1,
-    2
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
-  "megaEnabled": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
+  "megaEnabled": false,
   "branchName": "fix/086-replace-bun-specific-ast-grep-runtime-fa",
   "baseBranch": "main"
 }
