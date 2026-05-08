@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
+  "activeIssue": "087-unify-hashline-anchor-format-with-pi-has",
+  "workflow": "feature",
+  "phase": "brainstorm",
   "phaseHistory": [],
   "planMode": null,
   "planIteration": 0,
