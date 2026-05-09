@@ -53,12 +53,14 @@ test("symbolGraph returns full neighborhood for a unique symbol match", () => {
 
     // Header
     expect(output).toContain("foo (function)");
-    expect(output).toContain("src/a.ts:3:");
+    expect(output).toMatch(/src\/a\.ts  3:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/a\.ts:3:[0-9a-f]{4}/);
 
     // Callees section with bar
     expect(output).toContain("Callees");
     expect(output).toContain("bar");
-    expect(output).toContain("src/b.ts:1:");
+    expect(output).toMatch(/src\/b\.ts  1:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/b\.ts:1:[0-9a-f]{4}/);
     expect(output).toContain("0.5");
     expect(output).toContain("tree-sitter");
 
@@ -146,7 +148,8 @@ test("symbolGraph resolves ambiguity when file filter narrows to one match", () 
 
     // Should be a neighborhood, not disambiguation
     expect(output).toContain("foo (function)");
-    expect(output).toContain("src/a.ts:3:");
+    expect(output).toMatch(/src\/a\.ts  3:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/a\.ts:3:[0-9a-f]{4}/);
     expect(output).not.toContain("Multiple matches");
 
     store.close();

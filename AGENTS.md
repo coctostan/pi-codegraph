@@ -31,7 +31,7 @@ Incremental: content hashes per file, only re-index what changed.
 | `graph_query` | Freeform Cypher queries against the graph |
 | `resolve_edge` | Agent writes an edge with evidence — teaches the graph what static analysis can't see |
 
-All output is hashline-anchored (`file:line:hash`). No prose. Every edge shows provenance.
+Tool output is hashline-compatible: file paths are rendered as separate context fields next to bare editable `LINE:HASH` anchors. The line hash is the local pi-hashline-compatible 3-hex xxhash value. Whole-file `content_hash` values remain SHA-256 freshness markers.
 
 ## Key Design Decisions
 

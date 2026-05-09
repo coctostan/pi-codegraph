@@ -27,7 +27,10 @@ test("impact appends always-on why annotations with chain confidence", () => {
 
     const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
     expect(out).toContain("Trust: stale");
-    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:0, fan-out:1, roles:none, coverage:untested, co-change:0\.00, chain-confidence:0\.80\]/);
+    expect(out).toMatch(
+      /src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:0, fan-out:1, roles:none, coverage:untested, co-change:0\.00, chain-confidence:0\.80\]/,
+    );
+    expect(out).not.toMatch(/src\/caller\.ts:2:[0-9a-f]{4}/);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

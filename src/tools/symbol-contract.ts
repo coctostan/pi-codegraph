@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphStore } from "../graph/store.js";
-import { computeAnchor } from "../output/anchoring.js";
+import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { prependTrustHeader } from "../output/trust.js";
 import { extractThrows, extractGuards, extractTestAssertions } from "../indexer/contract-extractor.js";
 
@@ -155,7 +155,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
     }
     const body = `${lines.join("\n")}\n`;
     const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
@@ -165,7 +165,7 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
   const anchor = computeAnchor(node, projectRoot);
   const lines: string[] = [];
   lines.push(`## Contract: ${node.name}`);
-  lines.push(anchor.anchor);
+  lines.push(formatAnchorLocation(anchor));
 
   const fullPath = join(projectRoot, node.file);
   let fileContent: string | null = null;

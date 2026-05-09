@@ -46,7 +46,8 @@ test("trace prepends the shared trust header for static heuristic paths without 
 
     expect(lines[0]).toBe("Trust: fresh");
     expect(lines[1]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[2]).toContain("src/app.ts:1:");
+    expect(lines[2]).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
+    expect(lines[2]).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
     expect(lines[2]).toContain("entry  function");
   } finally {
     store.close();

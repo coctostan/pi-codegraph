@@ -33,7 +33,7 @@ test("extension refreshes a persisted stale graph before symbol_graph responds",
       ctx,
     );
     const symbolGraphText = symbolGraphResult.content[0]?.text ?? "";
-    expect(symbolGraphText).toContain("src/graph/store.ts:33:");
+    expect(symbolGraphText).toMatch(/src\/graph\/store\.ts  33:[0-9a-f]{3}/);
     expect(symbolGraphText).not.toContain("[stale]");
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });

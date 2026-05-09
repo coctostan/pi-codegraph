@@ -1,6 +1,6 @@
 import type { GraphStore } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
-import { computeAnchor } from "../output/anchoring.js";
+import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 
 export type SymbolResolution =
   | { kind: "not_found"; text: string }
@@ -12,7 +12,7 @@ export function formatAmbiguousMatches(name: string, nodes: GraphNode[], project
   for (const node of nodes) {
     const anchor = computeAnchor(node, projectRoot);
     const staleMarker = anchor.stale ? " [stale]" : "";
-    lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+    lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
   }
   return `${lines.join("\n")}\n`;
 }

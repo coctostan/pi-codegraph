@@ -1,0 +1,6 @@
+- Public text formats behave like APIs: changing anchor shape required updating every candidate, card, impact, trace, and snippet surface rather than just the shared formatter.
+- Keeping whole-file SHA `content_hash` semantics separate from line-level edit anchors made the change much safer; freshness and editability are related but not the same contract.
+- The async `xxhash-wasm` initialization boundary is easiest to reason about when public extension executors initialize once and synchronous render helpers fail loudly if called too early.
+- Golden vectors are essential for compatibility work; representative whitespace and trailing-CR cases caught the exact behavior that prose descriptions can blur.
+- Tests that assert absence of the old `file:line:4hex` shape are as valuable as positive-format tests because they prevent accidental mixed output during future formatter changes.
+- Documentation needed the same precision as code: `LINE:HASH` is editable, file path is context, and read-before-edit/file anchoring is still required.

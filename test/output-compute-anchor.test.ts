@@ -3,23 +3,19 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { computeAnchor } from "../src/output/anchoring.js";
+import { computeAnchor, computeLineHash } from "../src/output/anchoring.js";
 
 function sha256Hex(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-test("computeAnchor returns file:line:hash format with stale=false for fresh file", () => {
+test("computeAnchor emits bare editable anchors with separate file context", () => {
   const projectRoot = join(tmpdir(), `pi-cg-anchor-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
 
   const fileContent = "line one\nexport function foo() {}\nline three";
   const filePath = "src/a.ts";
   writeFileSync(join(projectRoot, filePath), fileContent);
-
-  const contentHash = sha256Hex(fileContent);
-  const lineContent = "export function foo() {}";
-  const lineHash = sha256Hex(lineContent.trim()).slice(0, 4);
 
   const node = {
     id: "src/a.ts::foo:2",
@@ -28,27 +24,36 @@ test("computeAnchor returns file:line:hash format with stale=false for fresh fil
     file: filePath,
     start_line: 2,
     end_line: 2,
-    content_hash: contentHash,
+    content_hash: sha256Hex(fileContent),
   };
 
-  const result = computeAnchor(node, projectRoot);
+  try {
+    const result = computeAnchor(node, projectRoot);
 
-  expect(result.anchor).toBe(`src/a.ts:2:${lineHash}`);
-  expect(result.stale).toBe(false);
+    expect(result.file).toBe("src/a.ts");
+    expect(result.anchor).toBe("2:c27");
+    expect(result.anchor).toMatch(/^\d+:[0-9a-f]{3}$/);
+    expect(result.anchor).not.toContain("src/a.ts");
+    expect(result.stale).toBe(false);
 
-  rmSync(projectRoot, { recursive: true, force: true });
+    const match = result.anchor.match(/^(\d+):([0-9a-f]{3})$/);
+    expect(match).not.toBeNull();
+    const lineNumber = Number(match![1]);
+    const emittedHash = match![2];
+    const line = fileContent.split("\n")[lineNumber - 1]!;
+    expect(emittedHash).toBe(computeLineHash(lineNumber, line));
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
 });
 
-
-test("computeAnchor returns stale=true when file content hash differs from node", () => {
+test("computeAnchor preserves stale status while emitting current bare anchor", () => {
   const projectRoot = join(tmpdir(), `pi-cg-anchor-stale-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
 
   const originalContent = "line one\nexport function foo() {}\nline three";
   const modifiedContent = "line one\nexport function foo() { return 1; }\nline three";
   const filePath = "src/a.ts";
-
-  // Write the modified file but use hash of original
   writeFileSync(join(projectRoot, filePath), modifiedContent);
 
   const node = {
@@ -58,39 +63,52 @@ test("computeAnchor returns stale=true when file content hash differs from node"
     file: filePath,
     start_line: 2,
     end_line: 2,
-    content_hash: sha256Hex(originalContent), // hash of original, not current
+    content_hash: sha256Hex(originalContent),
   };
 
-  const result = computeAnchor(node, projectRoot);
+  try {
+    const result = computeAnchor(node, projectRoot);
 
-  // Still produces an anchor from the current file content
-  const currentLine = "export function foo() { return 1; }";
-  const expectedLineHash = sha256Hex(currentLine.trim()).slice(0, 4);
-  expect(result.anchor).toBe(`src/a.ts:2:${expectedLineHash}`);
-  expect(result.stale).toBe(true);
-
-  rmSync(projectRoot, { recursive: true, force: true });
+    expect(result.file).toBe("src/a.ts");
+    expect(result.anchor).toBe(`2:${computeLineHash(2, "export function foo() { return 1; }")}`);
+    expect(result.stale).toBe(true);
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
 });
 
-
-test("computeAnchor returns stale=true with ? hash when file does not exist", () => {
-  const projectRoot = join(tmpdir(), `pi-cg-anchor-missing-${Date.now()}`);
-  mkdirSync(projectRoot, { recursive: true });
+test("computeAnchor returns stale non-editable anchors for unavailable line content", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-anchor-unavailable-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, "src/a.ts"), "line one\nline two\n");
 
   const node = {
-    id: "src/gone.ts::foo:5",
+    id: "src/a.ts::foo:1",
     kind: "function" as const,
     name: "foo",
-    file: "src/gone.ts",
-    start_line: 5,
-    end_line: 7,
-    content_hash: "doesnotmatter",
+    file: "src/a.ts",
+    start_line: 1,
+    end_line: 1,
+    content_hash: sha256Hex("line one\nline two\n"),
   };
 
-  const result = computeAnchor(node, projectRoot);
-
-  expect(result.anchor).toBe("src/gone.ts:5:?");
-  expect(result.stale).toBe(true);
-
-  rmSync(projectRoot, { recursive: true, force: true });
+  try {
+    expect(computeAnchor({ ...node, file: "src/gone.ts", start_line: 5 }, projectRoot)).toEqual({
+      file: "src/gone.ts",
+      anchor: "5:?",
+      stale: true,
+    });
+    expect(computeAnchor({ ...node, start_line: 99 }, projectRoot)).toEqual({
+      file: "src/a.ts",
+      anchor: "99:?",
+      stale: true,
+    });
+    expect(computeAnchor({ ...node, file: "src" }, projectRoot)).toEqual({
+      file: "src",
+      anchor: "1:?",
+      stale: true,
+    });
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
 });

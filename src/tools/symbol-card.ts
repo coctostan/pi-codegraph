@@ -1,5 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
-import { computeAnchor } from "../output/anchoring.js";
+import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer, formatRoleTags } from "../output/signals.js";
 import { readSourceSnippet } from "../output/source.js";
 import { prependTrustHeader } from "../output/trust.js";
@@ -33,7 +33,7 @@ export function renderSymbolSourceSection(params: SymbolCardParams): RenderedSym
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
     }
     return { body: `${lines.join("\n")}\n`, hasLocalExceptions: lines.some((line) => line.includes("[stale]")) };
   }
@@ -58,7 +58,7 @@ export function renderSymbolCardBody(params: SymbolCardParams): RenderedSymbolCa
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
     }
     const body = `${lines.join("\n")}\n`;
     return { body, hasLocalExceptions: lines.some((line) => line.includes("[stale]")) };
@@ -73,7 +73,7 @@ export function renderSymbolCardBody(params: SymbolCardParams): RenderedSymbolCa
   );
   const lines: string[] = [];
   lines.push(`## ${node.name} (${node.kind})`);
-  lines.push(anchor.anchor);
+  lines.push(formatAnchorLocation(anchor));
   lines.push("");
   lines.push("### Signature");
   lines.push(node.signature ?? "not available");
@@ -84,7 +84,7 @@ export function renderSymbolCardBody(params: SymbolCardParams): RenderedSymbolCa
     lines.push(`### Covering Tests (${tests.length})`);
     for (const t of tests) {
       const testAnchor = computeAnchor(t.node, projectRoot);
-      lines.push(`  ${testAnchor.anchor}  "${t.node.name}"`);
+      lines.push(`  ${formatAnchorLocation(testAnchor)}  "${t.node.name}"`);
     }
   }
 
@@ -131,7 +131,7 @@ export function symbolCard(params: SymbolCardParams): string {
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
     }
     const body = `${lines.join("\n")}\n`;
     const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
@@ -150,7 +150,7 @@ export function symbolCard(params: SymbolCardParams): string {
 
   // Header
   lines.push(`## ${node.name} (${node.kind})`);
-  lines.push(anchor.anchor);
+  lines.push(formatAnchorLocation(anchor));
 
   // Source
   const renderedSource = renderSymbolSourceSection({
@@ -182,7 +182,7 @@ export function symbolCard(params: SymbolCardParams): string {
     lines.push(`### Covering Tests (${tests.length})`);
     for (const t of tests) {
       const testAnchor = computeAnchor(t.node, projectRoot);
-      lines.push(`  ${testAnchor.anchor}  "${t.node.name}"`);
+      lines.push(`  ${formatAnchorLocation(testAnchor)}  "${t.node.name}"`);
     }
   }
 

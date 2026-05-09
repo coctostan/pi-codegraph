@@ -45,8 +45,9 @@ test("trace returns a disambiguation list when entry matches multiple symbols", 
     const output = trace({ entry: "sha256Hex", store, projectRoot });
 
     expect(output).toContain('Multiple matches for "sha256Hex"');
-    expect(output).toContain("src/hash.ts:1:");
-    expect(output).toContain("test/hash.test.ts:1:");
+    expect(output).toMatch(/src\/hash\.ts  1:[0-9a-f]{3}/);
+    expect(output).toMatch(/test\/hash\.test\.ts  1:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/hash\.ts:1:[0-9a-f]{4}/);
     expect(output).not.toContain('Entry "sha256Hex" not found');
   } finally {
     store.close();

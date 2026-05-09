@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
@@ -27,9 +28,39 @@ test("trace falls back to a deterministic static call path when no coverage trac
 
     const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
     expect(output).toContain("mode: static");
-    expect(output).toContain("entry");
-    expect(output).toContain("first");
-    expect(output).toContain("second");
+    expect(output).toMatch(/src\/app\.ts  1:[0-9a-f]{3}  entry  function/);
+    expect(output).toMatch(/src\/app\.ts  2:[0-9a-f]{3}  first  function/);
+    expect(output).toMatch(/src\/app\.ts  3:[0-9a-f]{3}  second  function/);
+    expect(output).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
+  } finally {
+    store.close();
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("trace file-scoped miss candidates render file-separated editable anchors", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-trace-miss-anchor-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  const content = "export function foo() {}\n";
+  writeFileSync(join(projectRoot, "src/a.ts"), content);
+
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode({
+      id: "src/a.ts::foo:1",
+      kind: "function",
+      name: "foo",
+      file: "src/a.ts",
+      start_line: 1,
+      end_line: 1,
+      content_hash: createHash("sha256").update(content).digest("hex"),
+    });
+
+    const output = trace({ entry: "foo", file: "src/missing.ts", store, projectRoot });
+
+    expect(output).toContain('Symbol "foo" was not found in src/missing.ts');
+    expect(output).toContain("src/a.ts  1:c27  foo (function)");
+    expect(output).not.toContain("src/a.ts:1:");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });
