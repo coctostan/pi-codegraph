@@ -1,6 +1,6 @@
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
-import { computeAnchor } from "../output/anchoring.js";
+import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
@@ -74,7 +74,7 @@ function formatStoredTraceLine(
   const stale = anchor.stale || node.content_hash !== storedHash;
   const tags = formatRoleTags(signalComputer.compute(node.id));
   return {
-    line: `${anchor.anchor}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""} ${tags}`,
+    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""} ${tags}`,
     stale,
   };
 }
@@ -89,7 +89,7 @@ function formatNodeLine(
   const signals = signalComputer.compute(node.id);
   const tags = formatRoleTags({ ...signals, roles: rolesOverride ?? signals.roles });
   return {
-    line: `${anchor.anchor}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""} ${tags}`,
+    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""} ${tags}`,
     stale: anchor.stale,
   };
 }
@@ -114,7 +114,7 @@ function formatFileScopedMiss(name: string, requestedFile: string, nodes: GraphN
   for (const node of sorted) {
     const anchor = computeAnchor(node, projectRoot);
     const staleMarker = anchor.stale ? " [stale]" : "";
-    lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+    lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
   }
   return `${lines.join("\n")}\n`;
 }

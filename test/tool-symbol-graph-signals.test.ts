@@ -49,8 +49,10 @@ test("symbolGraph renders inline role tags on header and resolved neighbors", ()
 
     const out = symbolGraph({ name: "shared", include: ["neighborhood"] as any, store, projectRoot });
 
-    expect(out).toMatch(/src\/shared\.ts:1:[0-9a-f]{4} \[entry-point, tested\]/);
-    expect(out).toMatch(/src\/helper\.ts:1:[0-9a-f]{4}  helper  calls  confidence:0\.9  tree-sitter \[leaf, untested\]/);
+    expect(out).toMatch(/src\/shared\.ts  1:[0-9a-f]{3} \[entry-point, tested\]/);
+    expect(out).not.toMatch(/src\/shared\.ts:1:[0-9a-f]{4}/);
+    expect(out).toMatch(/src\/helper\.ts  1:[0-9a-f]{3}  helper  calls  confidence:0\.9  tree-sitter \[leaf, untested\]/);
+    expect(out).not.toMatch(/src\/helper\.ts:1:[0-9a-f]{4}/);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

@@ -4,6 +4,7 @@ import {
   computeAnchor,
   rankNeighbors,
   formatNeighborhood,
+  formatAnchorLocation,
   type AnchoredNeighbor,
   type NeighborSection,
   type NamedSection,
@@ -110,7 +111,7 @@ export function renderLegacyNeighborhoodBody(params: SymbolGraphParams): Rendere
     for (const node of nodes) {
       const anchor = computeAnchor(node, projectRoot);
       const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${anchor.anchor}  ${node.name} (${node.kind})  ${node.file}${staleMarker}`);
+      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
     }
     return {
       body: `${lines.join("\n")}\n`,

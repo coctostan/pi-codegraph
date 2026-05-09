@@ -12,7 +12,7 @@
 │                                                          │
 │  ┌─────────────────────────────────────────────────────┐  │
 │  │                  Output Layer                        │  │
-│  │        Hashline-anchored results on every node       │  │
+│        Hashline-compatible file + LINE:HASH results     │
 │  └──────────────────────┬──────────────────────────────┘  │
 │                         │                                  │
 │  ┌──────────────────────▼──────────────────────────────┐  │
@@ -159,6 +159,9 @@ On subsequent runs, only re-index what changed:
 7. Stage 5 updates from new commits
 
 Content hashes on every node determine staleness. If a file hasn't changed, its nodes and edges are still valid.
+
+- `content_hash` is a whole-file SHA-256 value used for staleness and incremental indexing.
+- Editable line anchors are not stored in SQLite. They are computed from current on-disk line content at render time as bare `LINE:HASH` tokens and displayed next to the file path, e.g. `src/a.ts  10:abc`.
 
 ## Graph Store
 

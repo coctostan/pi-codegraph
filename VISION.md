@@ -8,7 +8,7 @@ The existing tools (KotaDB, GitNexus, stakgraph) improve on this, but they share
 
 ## The Idea
 
-**A code intelligence layer designed for agents, not humans.** A graph of every symbol in a codebase — every function, class, type, interface — and the relationships between them. Every query returns hashline-anchored results the agent can edit immediately. No re-reading. No fishing.
+**A code intelligence layer designed for agents, not humans.** A graph of every symbol in a codebase — every function, class, type, interface — and the relationships between them. Every node in editable output carries the file path as context plus a bare `LINE:HASH` anchor token that matches pi's hashline format, for example `src/a.ts  10:abc`. That makes the location actionable after pi-hashline-readmap has anchored the file through its normal read/grep/ast_search/write gate; codegraph does not bypass the read-before-edit requirement.
 
 The graph is built from multiple sources, each with different strengths:
 
@@ -22,7 +22,7 @@ The graph starts partial and gets smarter as the agent works. Every task makes i
 
 ## What Makes This Different
 
-**1. Agent-native output.** Every node in every response carries `file:line:hash`. The agent can edit any result immediately. No translation layer between "understanding" and "acting."
+**1. Agent-native output.** Every editable result includes exact symbol identity plus file context next to a bare `LINE:HASH` token, so agents can connect understanding to action after pi's normal file-anchoring gate.
 
 **2. The agent builds the graph.** No other tool does this. When static analysis hits a wall (interface with 3 implementations, DI-injected service, framework-mediated routing), the graph shows the hole explicitly and the agent fills it. The graph learns.
 

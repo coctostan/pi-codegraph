@@ -72,7 +72,7 @@ test("fresh symbol_graph tool calls omit the Trust header but keep provenance an
     if (!text.startsWith("Trust: fresh\n## foo (function)")) {
       throw new Error(`fresh read-only output lost the Trust header/body: ${text}`);
     }
-    if (!text.includes("src/app.ts:2:")) {
+    if (!/src\/app\.ts  2:[0-9a-f]{3}/.test(text)) {
       throw new Error("fresh read-only output lost the anchored body line");
     }
     if (!text.includes("leaf") || !text.includes("untested")) {

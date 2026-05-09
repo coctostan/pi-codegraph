@@ -46,9 +46,10 @@ test("trace returns stored coverage traces for tests and deterministically selec
     const byProd = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
 
     expect(direct).toContain("mode: coverage");
-    expect(direct).toContain("src/app.test.ts:1:");
-    expect(direct).toContain("src/app.ts:1:");
-    expect(direct).toContain("src/app.ts:2:");
+    expect(direct).toMatch(/src\/app\.test\.ts  1:[0-9a-f]{3}/);
+    expect(direct).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
+    expect(direct).toMatch(/src\/app\.ts  2:[0-9a-f]{3}/);
+    expect(direct).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
     expect(byProd).toContain("alphaTest");
     expect(byProd).not.toContain("betaTest");
   } finally {

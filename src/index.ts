@@ -13,6 +13,7 @@ import { trace } from "./tools/trace.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
 import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-ceremony.js";
+import { ensureHashInit } from "./output/anchoring.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name to look up" }),
@@ -206,6 +207,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
+      await ensureHashInit();
       let resolvedNode: any | null = null;
       const nodes = store.findNodes(params.name, params.file);
       if (nodes.length === 1) {
@@ -252,6 +254,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
+      await ensureHashInit();
       const text = impact({
         symbols: params.symbols,
         changeType: params.changeType,
@@ -281,6 +284,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
       const projectRoot = ctx.cwd;
       const store = getOrCreateStore(projectRoot);
       await ensureIndexed(projectRoot, store);
+      await ensureHashInit();
       const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
       const output = finalizeReadOnlyOutput(
         "trace",

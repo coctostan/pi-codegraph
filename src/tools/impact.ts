@@ -1,5 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
-import { computeAnchor } from "../output/anchoring.js";
+import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer, formatImpactWhy, type NodeSignals, type SignalComputer } from "../output/signals.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { resolveUniqueSymbol } from "./symbol-resolution.js";
@@ -233,9 +233,11 @@ export function impact(params: {
   const lines = hits.flatMap((hit) => {
     const node = params.store.getNode(hit.nodeId);
     if (!node) return [];
-    const { anchor, stale } = computeAnchor(node, params.projectRoot);
+    const anchor = computeAnchor(node, params.projectRoot);
     const why = formatImpactWhy(hit.signals, hit.chainConfidence);
-    return [`${anchor}  ${hit.name}  ${hit.classification}  depth:${hit.depth}${stale ? " [stale]" : ""}  ${why}`];
+    return [
+      `${formatAnchorLocation(anchor)}  ${hit.name}  ${hit.classification}  depth:${hit.depth}${anchor.stale ? " [stale]" : ""}  ${why}`,
+    ];
   });
 
   const hitNodes = hits.flatMap((hit) => {

@@ -73,8 +73,9 @@ test("impact returns a disambiguation list instead of aggregating all ambiguous 
     });
 
     expect(output).toContain('Multiple matches for "sha256Hex"');
-    expect(output).toContain("src/hash.ts:1:");
-    expect(output).toContain("test/hash.test.ts:1:");
+    expect(output).toMatch(/src\/hash\.ts  1:[0-9a-f]{3}/);
+    expect(output).toMatch(/test\/hash\.test\.ts  1:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/hash\.ts:1:[0-9a-f]{4}/);
     expect(output).not.toContain("caller  breaking  depth:1");
   } finally {
     store.close();

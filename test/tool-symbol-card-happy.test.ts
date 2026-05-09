@@ -52,7 +52,8 @@ test("symbolCard renders full card with signature, relationships, and signals", 
     // Header
     expect(output).toContain("## Trust");
     expect(output).toContain("## foo (function)");
-    expect(output).toContain("src/a.ts:3:");
+    expect(output).toMatch(/src\/a\.ts  3:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/a\.ts:3:[0-9a-f]{4}/);
 
     // Signature
     expect(output).toContain("### Signature");

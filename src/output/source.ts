@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
+import { computeLineHash } from "./anchoring.js";
 
 const DEFAULT_MAX_SOURCE_LINES = 50;
 
@@ -32,7 +33,7 @@ export function readSourceSnippet(
   const currentHash = sha256Hex(fileContent);
   const stale = currentHash !== node.content_hash;
 
-  const allLines = fileContent.split(/\r?\n/);
+  const allLines = fileContent.split("\n");
   const startIdx = node.start_line - 1;
   const endIdx = node.end_line - 1;
 
@@ -45,7 +46,7 @@ export function readSourceSnippet(
 
   const hashlined = displayLines.map((content, i) => {
     const lineNum = node.start_line + i;
-    const lineHash = sha256Hex(content.trim()).slice(0, 4);
+    const lineHash = computeLineHash(lineNum, content);
     return `${lineNum}:${lineHash}|${content}`;
   });
 

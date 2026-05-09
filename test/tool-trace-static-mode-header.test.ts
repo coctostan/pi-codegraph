@@ -66,7 +66,8 @@ test("trace marks static fallback paths as heuristic without changing step lines
 
     expect(lines[0]).toBe("Trust: fresh");
     expect(lines[1]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[2]).toContain("src/app.ts:1:");
+    expect(lines[2]).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
+    expect(lines[2]).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
     expect(lines[2]).toContain("entry  function");
     expect(lines).toHaveLength(5);
   } finally {

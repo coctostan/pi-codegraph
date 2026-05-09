@@ -6,7 +6,7 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { computeAnchor } from "../src/output/anchoring.js";
 import { impact } from "../src/tools/impact.js";
 
-test("computeAnchor returns existing anchor format file:line:hash and stale flag", () => {
+test("computeAnchor returns bare editable anchor, separate file context, and stale flag", () => {
   const root = join(tmpdir(), `pi-cg-anchor-${Date.now()}`);
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src", "f.ts"), "export function a() { return 1; }\n");
@@ -15,7 +15,9 @@ test("computeAnchor returns existing anchor format file:line:hash and stale flag
     store.addNode({ id: "src/f.ts::a:1", kind: "function", name: "a", file: "src/f.ts", start_line: 1, end_line: 1, content_hash: "h" });
     const node = store.getNode("src/f.ts::a:1")!;
     const result = computeAnchor(node, root);
-    expect(result.anchor).toMatch(/^src\/f\.ts:1:[0-9a-f]{4}$/);
+    expect(result.file).toBe("src/f.ts");
+    expect(result.anchor).toMatch(/^1:[0-9a-f]{3}$/);
+    expect(result.anchor).not.toContain("src/f.ts");
     expect(typeof result.stale).toBe("boolean");
 
     const staleProbe = { ...node, start_line: 99, end_line: 99 };
@@ -45,8 +47,9 @@ test("impact() emits anchored structured lines and empty string for no-impact", 
     });
     const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
     expect(out).toContain("Trust: stale");
-    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
-    expect(out).toMatch(/src\/caller\.ts:2:[0-9a-f]{4}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
+    expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
+    expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
+    expect(out).not.toMatch(/src\/caller\.ts:2:[0-9a-f]{4}/);
     const noImpact = impact({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 });
     expect(noImpact).toContain("Trust: stale");
     expect(noImpact).not.toContain("caller");

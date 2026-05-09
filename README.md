@@ -20,7 +20,9 @@ Coding agents waste tool calls fishing for context. They grep for a function nam
 - **"Show me the execution path"** → `trace` returns an ordered, anchored call chain
 - **"Show me the source"** → `symbol_graph` with `include: ["source"]` appends anchored source for the resolved symbol
 
-Every result is hashline-anchored (`file:line:hash`) — the agent can edit any symbol it finds without re-reading the file.
+Editable anchor locations are rendered as two adjacent fields: the file path as context, then a bare `LINE:HASH` token, for example `src/a.ts  10:abc`. The `LINE:HASH` token uses the same whitespace-insensitive xxhash line-hash algorithm as pi-hashline-readmap.
+
+The graph can point an agent to the right file and line, but pi-hashline-readmap's read-before-edit/file-anchoring gate still applies. Codegraph does not provide true edit-without-prior-read anchoring.
 
 ## Key Features
 
@@ -155,7 +157,7 @@ The graph is stored in SQLite (`.codegraph/graph.db`) with two tables:
 
 Every tool result is structured for agent consumption:
 
-- **Hashline anchors** (`file:line:hash`) on every symbol reference
+- **Hashline-compatible anchor locations** rendered as file context plus a bare editable `LINE:HASH` token on every symbol reference
 - **Conditional Trust headers** on non-fresh results to show graph freshness and confidence when it matters
 - **Provenance labels** on every edge (`[source: lsp]`, `[source: tree-sitter]`, `[source: agent]`)
 - **Signal badges** (`[hub]`, `[tested]`, `[bottleneck]`) for quick assessment

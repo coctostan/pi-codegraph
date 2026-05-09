@@ -56,7 +56,8 @@ test("symbolContract renders full contract with takes, returns, throws, guards, 
 
     expect(output).toContain("## Trust");
     expect(output).toContain("## Contract: validate");
-    expect(output).toContain("src/validate.ts:1:");
+    expect(output).toMatch(/src\/validate\.ts  1:[0-9a-f]{3}/);
+    expect(output).not.toMatch(/src\/validate\.ts:1:[0-9a-f]{4}/);
     expect(output).toContain("### Takes");
     expect(output).toContain("input: string");
     expect(output).toContain("### Returns");
