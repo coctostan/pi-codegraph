@@ -97,7 +97,7 @@ After installing the toolchain, re-run `bun install` (or `npm install`).
 ### Public
 
 #### `symbol_graph`
-Return a compact symbol summary with relationships, test signals, and key metadata.
+Summarize a symbol with relationships, tests, and key metadata.
 By default, `symbol_graph({ name: "validateToken" })` already includes test signals in the compact card.
 Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.
 ```
@@ -109,7 +109,7 @@ symbol_graph({ name: "validateToken", include: ["source"] })
 symbol_graph({ name: "validateToken", include: ["neighborhood", "contract", "source"] })
 ```
 #### `impact`
-Return the classified blast radius for a set of changed symbols.
+Classify blast radius for changed symbols.
 Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`.
 ```
 impact({ symbols: ["validateToken"], changeType: "signature_change" })
@@ -119,7 +119,7 @@ impact({ symbols: ["validateToken"], changeType: "addition" })
 ```
 
 #### `trace`
-Return the execution path starting from an entry point. Coverage-backed when available.
+Return an execution path from an entry point, coverage-backed when available.
 ```
 trace({ entry: "loginHandler" })
 ```

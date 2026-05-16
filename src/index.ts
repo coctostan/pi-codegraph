@@ -16,8 +16,8 @@ import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-c
 import { ensureHashInit } from "./output/anchoring.js";
 
 const SymbolGraphParams = Type.Object({
-  name: Type.String({ description: "Symbol name to look up" }),
-  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  name: Type.String({ description: "Symbol name." }),
+  file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
   include: Type.Optional(
     Type.Array(
       Type.Union([
@@ -26,23 +26,19 @@ const SymbolGraphParams = Type.Object({
         Type.Literal("source"),
       ]),
       {
-        description:
-          'Optional extra sections. Allowed values: "neighborhood", "contract", "source". "tests" is not a valid include value.',
+        description: "Extra sections to include.",
       },
     ),
   ),
   suppressTrustHeader: Type.Optional(
-    Type.Boolean({
-      description:
-        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
-    }),
+    Type.Boolean({ description: "Omit the Trust header." }),
   ),
 });
 
 
 const ImpactParams = Type.Object({
-  symbols: Type.Array(Type.String({ description: "Changed symbol name" }), {
-    description: "One or more symbol names that changed",
+  symbols: Type.Array(Type.String({ description: "Changed symbol." }), {
+    description: "Changed symbols.",
   }),
   changeType: Type.Union(
     [
@@ -51,30 +47,21 @@ const ImpactParams = Type.Object({
       Type.Literal("behavior_change"),
       Type.Literal("addition"),
     ],
-    {
-      description:
-        'Kind of change. Allowed values: "signature_change", "removal", "behavior_change", "addition".',
-    },
+    { description: "Change kind." },
   ),
   maxDepth: Type.Optional(
-    Type.Number({ description: "Maximum traversal depth (default 5)" }),
+    Type.Number({ description: "Maximum traversal depth." }),
   ),
   suppressTrustHeader: Type.Optional(
-    Type.Boolean({
-      description:
-        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
-    }),
+    Type.Boolean({ description: "Omit the Trust header." }),
   ),
 });
 
 const TraceParams = Type.Object({
-  entry: Type.String({ description: "Entry symbol or endpoint name" }),
-  file: Type.Optional(Type.String({ description: "File path to disambiguate" })),
+  entry: Type.String({ description: "Entry symbol or endpoint." }),
+  file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
   suppressTrustHeader: Type.Optional(
-    Type.Boolean({
-      description:
-        "When true, omit the ## Trust header from tool output. Useful after the first call in a multi-call session.",
-    }),
+    Type.Boolean({ description: "Omit the Trust header." }),
   ),
 });
 
@@ -201,7 +188,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
-    description: "Return a compact symbol summary with relationships, test signals, and key metadata.\nWhen to use: You need structural context for a named symbol.",
+    description: "Summarize a symbol with relationships, tests, and key metadata.",
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -248,7 +235,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "impact",
     label: "Impact",
-    description: "Return the classified blast radius for a set of changed symbols.\nWhen to use: You are planning or reviewing a change to existing code.",
+    description: "Classify blast radius for changed symbols.",
     parameters: ImpactParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;
@@ -277,8 +264,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "trace",
     label: "Trace",
-    description:
-      "Return the execution path starting from an entry point. Coverage-backed when available.\nWhen to use: You need to understand what actually runs.",
+    description: "Return an execution path from an entry point, coverage-backed when available.",
     parameters: TraceParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const projectRoot = ctx.cwd;

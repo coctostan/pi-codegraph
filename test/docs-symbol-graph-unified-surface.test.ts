@@ -6,7 +6,7 @@ test("public docs explain symbol_graph include values without implying tests is 
   const readme = read("README.md");
   const architecture = read("ARCHITECTURE.md");
   const guide = read("docs/tool-descriptions.md");
-  const expectedDescription = "Return a compact symbol summary with relationships, test signals, and key metadata.";
+  const expectedDescription = "Summarize a symbol with relationships, tests, and key metadata.";
   const expectedIncludeGuidance =
     'Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.';
   const expectedDefaultGuidance =
@@ -19,10 +19,10 @@ test("public docs explain symbol_graph include values without implying tests is 
     throw new Error("README is missing default symbol_graph test-signals guidance");
   }
   if (!readme.includes(expectedDescription)) {
-    throw new Error("README is missing updated symbol_graph description");
+    throw new Error("README is missing compact symbol_graph description");
   }
-  if (readme.includes("Return a symbol's callers, callees, tests, and key signals.")) {
-    throw new Error("README still uses stale symbol_graph wording");
+  if (readme.includes("Return a compact symbol summary with relationships, test signals, and key metadata.")) {
+    throw new Error("README still uses previous symbol_graph wording");
   }
   if (readme.includes("#### `symbol_card`")) {
     throw new Error("README must not reintroduce the removed symbol_card section");
@@ -50,7 +50,7 @@ test("public docs explain symbol_graph include values without implying tests is 
     throw new Error("tool description guide is missing updated symbol_graph example");
   }
   if (guide.includes("Return a symbol's callers, callees, tests, and key signals.")) {
-    throw new Error("tool description guide still uses stale symbol_graph wording");
+    throw new Error("tool description guide still uses previous symbol_graph wording");
   }
   if (!guide.includes("Parameter-level notes such as `symbol_graph.include` usage belong in README or schema docs, not in top-level tool descriptions.")) {
     throw new Error("tool description guide lost the schema-vs-description guidance");

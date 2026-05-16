@@ -2,8 +2,7 @@ import { test } from "bun:test";
 import { expectedDefaultPublicToolDescriptions } from "./phase5-decision-matrix.js";
 test("pi extension registers the approved descriptions for the default public tools", async () => {
   const expected = expectedDefaultPublicToolDescriptions;
-  const expectedIncludeDescription =
-    'Optional extra sections. Allowed values: "neighborhood", "contract", "source". "tests" is not a valid include value.';
+  const expectedIncludeDescription = "Extra sections to include.";
   const registeredTools: Array<{ name: string; description: string; parameters?: any }> = [];
   const mockPi = {
     registerTool(tool: { name: string; description: string; parameters?: any }) {
