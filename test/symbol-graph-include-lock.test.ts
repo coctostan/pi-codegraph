@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 
-test("symbol_graph.include wording and literal set from #066 are unchanged", async () => {
+test("symbol_graph.include uses compact wording and keeps the #066 literal set", async () => {
   const registeredTools: Array<{ name: string; description: string; parameters?: any }> = [];
   const mockPi = {
     registerTool(tool: { name: string; description: string; parameters?: any }) {
@@ -18,8 +18,7 @@ test("symbol_graph.include wording and literal set from #066 are unchanged", asy
   const include = sg.parameters?.properties?.include;
   if (!include) throw new Error("symbol_graph.include schema missing");
 
-  const expectedDescription =
-    'Optional extra sections. Allowed values: "neighborhood", "contract", "source". "tests" is not a valid include value.';
+  const expectedDescription = "Extra sections to include.";
   if (include.description !== expectedDescription) {
     throw new Error(`symbol_graph.include description drifted: ${include.description}`);
   }

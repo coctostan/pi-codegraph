@@ -16,7 +16,7 @@ test("pi extension registers trace with the approved description", async () => {
     throw new Error("trace tool was not registered");
   }
 
-  const expected = "Return the execution path starting from an entry point. Coverage-backed when available.\nWhen to use: You need to understand what actually runs.";
+  const expected = "Return an execution path from an entry point, coverage-backed when available.";
   if (traceTool.description !== expected) {
     throw new Error(`trace description mismatch: ${traceTool.description}`);
   }

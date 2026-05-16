@@ -1,6 +1,6 @@
 {
   "name": "pi-codegraph",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Symbol-level code intelligence for coding agents — a pi extension that builds a graph of TypeScript symbols and relationships and exposes it through agent-optimized tools (symbol_graph, impact, trace).",
   "keywords": [
     "pi",

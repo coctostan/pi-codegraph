@@ -74,32 +74,17 @@ export const expectedDevModeTools = (["graph_query", "graph_overview", "dead_cod
 );
 
 export const expectedDefaultPublicToolDescriptions = new Map<string, string>([
-  [
-    "symbol_graph",
-    "Return a compact symbol summary with relationships, test signals, and key metadata.\nWhen to use: You need structural context for a named symbol.",
-  ],
+  ["symbol_graph", "Summarize a symbol with relationships, tests, and key metadata."],
   ...(!isRemoved("resolve_edge")
     ? ([
-        [
-          "resolve_edge",
-          "Create an evidence-backed edge in the symbol graph.\nWhen to use: The graph is missing a relationship you can justify from code or docs.",
-        ],
+        ["resolve_edge", "Add an evidence-backed relationship to the symbol graph."],
       ] as const)
     : ([] as const)),
   ...(!isRemoved("delete_edge")
     ? ([
-        [
-          "delete_edge",
-          "Delete an agent-created edge from the symbol graph.\nWhen to use: An agent-added relationship is incorrect or obsolete.",
-        ],
+        ["delete_edge", "Delete an agent-created graph relationship."],
       ] as const)
     : ([] as const)),
-  [
-    "impact",
-    "Return the classified blast radius for a set of changed symbols.\nWhen to use: You are planning or reviewing a change to existing code.",
-  ],
-  [
-    "trace",
-    "Return the execution path starting from an entry point. Coverage-backed when available.\nWhen to use: You need to understand what actually runs.",
-  ],
+  ["impact", "Classify blast radius for changed symbols."],
+  ["trace", "Return an execution path from an entry point, coverage-backed when available."],
 ]);
