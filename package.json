@@ -67,6 +67,6 @@
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "0.70.5",
     "@types/bun": "latest",
-    "typescript": "^6.0.2"
+    "typescript": "^7.0.2"
   }
 }
