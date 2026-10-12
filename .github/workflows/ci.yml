@@ -74,7 +74,7 @@ jobs:
         run: npm install --no-save --legacy-peer-deps @earendil-works/pi-coding-agent@latest
 
       - name: Report host version
-        run: node -p "require('@earendil-works/pi-coding-agent/package.json').version"
+        run: node -p "JSON.parse(require('fs').readFileSync('node_modules/@earendil-works/pi-coding-agent/package.json','utf8')).version"
 
       - name: Type-check against latest host declarations
         run: bun run check
