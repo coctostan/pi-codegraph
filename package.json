@@ -3,6 +3,7 @@
   "version": "1.0.3",
   "description": "Symbol-level code intelligence for coding agents — a pi extension that builds a graph of TypeScript symbols and relationships and exposes it through agent-optimized tools (symbol_graph, impact, trace).",
   "keywords": [
+    "pi-package",
     "pi",
     "pi-extension",
     "coding-agent",
@@ -55,18 +56,22 @@
     ]
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48",
     "tree-sitter": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
     "yaml": "^2.8.3",
     "xxhash-wasm": "^1.1.0"
   },
+  "optionalDependencies": {
+    "@ast-grep/cli": "0.42.2"
+  },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": ">=0.70.5"
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "0.70.5",
+    "@earendil-works/pi-coding-agent": "1.1.0",
     "@types/bun": "latest",
+    "typebox": "1.3.27",
     "typescript": "^6.0.2"
   }
 }

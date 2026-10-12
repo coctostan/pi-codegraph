@@ -26,7 +26,7 @@ test("formatAmbiguousMatches renders candidate files separately from editable an
     ], projectRoot);
 
     expect(output).toContain('Multiple matches for "foo"');
-    expect(output).toContain("src/a.ts  1:c27  foo (function)");
+    expect(output).toContain("src/a.ts  1:cef  foo (function)");
     expect(output).toMatch(/src\/b\.ts  1:[0-9a-f]{3}  foo \(class\)/);
     expect(output).not.toContain("src/a.ts:1:");
     expect(output).not.toContain("src/b.ts:1:");
@@ -51,7 +51,7 @@ test("symbolGraph neighborhood ambiguity uses file-separated candidate anchors",
     const output = symbolGraph({ name: "foo", include: ["neighborhood"], store, projectRoot });
 
     expect(output).toContain('Multiple matches for "foo"');
-    expect(output).toContain("src/a.ts  1:c27  foo (function)");
+    expect(output).toContain("src/a.ts  1:cef  foo (function)");
     expect(output).toMatch(/src\/b\.ts  1:[0-9a-f]{3}  foo \(class\)/);
     expect(output).not.toContain("src/a.ts:1:");
     expect(output).not.toContain("src/b.ts:1:");

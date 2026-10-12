@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
+import { getAstGrepBinary } from "../src/indexer/ast-grep-binary.js";
 
 const fakeClient: ITsServerClient = {
   async definition() { return null; },
@@ -28,9 +29,9 @@ export function App() {
 `);
   const store = new SqliteGraphStore();
   try {
-    const sgCheck = Bun.spawn(["sg", "--version"], { stdout: "pipe", stderr: "pipe" });
+    const sgCheck = Bun.spawn([getAstGrepBinary(), "--version"], { stdout: "pipe", stderr: "pipe" });
     if ((await sgCheck.exited) !== 0) {
-      console.warn("Skipping React Stage 3 integration: sg not available");
+      console.warn("Skipping React Stage 3 integration: ast-grep not available");
       return;
     }
     await indexProject(root, store, { lspClientFactory: () => fakeClient });
@@ -57,9 +58,9 @@ test("same-file-only lookup excludes cross-file target when local target is abse
 
   const store = new SqliteGraphStore();
   try {
-    const sgCheck2 = Bun.spawn(["sg", "--version"], { stdout: "pipe", stderr: "pipe" });
+    const sgCheck2 = Bun.spawn([getAstGrepBinary(), "--version"], { stdout: "pipe", stderr: "pipe" });
     if ((await sgCheck2.exited) !== 0) {
-      console.warn("Skipping React Stage 3 integration: sg not available");
+      console.warn("Skipping React Stage 3 integration: ast-grep not available");
       return;
     }
     await indexProject(root, store, { lspClientFactory: () => fakeClient });

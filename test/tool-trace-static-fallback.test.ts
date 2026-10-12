@@ -59,7 +59,7 @@ test("trace file-scoped miss candidates render file-separated editable anchors",
     const output = trace({ entry: "foo", file: "src/missing.ts", store, projectRoot });
 
     expect(output).toContain('Symbol "foo" was not found in src/missing.ts');
-    expect(output).toContain("src/a.ts  1:c27  foo (function)");
+    expect(output).toContain("src/a.ts  1:cef  foo (function)");
     expect(output).not.toContain("src/a.ts:1:");
   } finally {
     store.close();

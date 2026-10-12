@@ -43,7 +43,7 @@ try {
   );
   const text = result.content[0].text as string;
   expect(text).toContain("## foo (function)");
-  expect(text).toMatch(/\\b1:0?c27\\b/);
+  expect(text).toMatch(/\\b1:0?cef\\b/);
   expect(text).not.toContain("Hash not initialized");
   console.log("runner-ok");
 } finally {

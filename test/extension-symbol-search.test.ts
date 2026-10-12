@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { symbolSearch, resetSearchCacheForTesting } from "../src/tools/symbol-search.js";

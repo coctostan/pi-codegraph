@@ -7,6 +7,7 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { runAstGrepIndexStage } from "../src/indexer/ast-grep.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
+import { getAstGrepBinary } from "../src/indexer/ast-grep-binary.js";
 
 const fakeClient: ITsServerClient = {
   async definition() { return null; },
@@ -15,11 +16,11 @@ const fakeClient: ITsServerClient = {
   async shutdown() {},
 };
 
-test("sg binary is available for Stage 3 subprocess integration", async () => {
-  const proc = Bun.spawn(["sg", "--version"], { stdout: "pipe", stderr: "pipe" });
+test("ast-grep binary is available for Stage 3 subprocess integration", async () => {
+  const proc = Bun.spawn([getAstGrepBinary(), "--version"], { stdout: "pipe", stderr: "pipe" });
   const code = await proc.exited;
   if (code !== 0) {
-    console.warn("Skipping sg capability assertion: sg --version returned non-zero");
+    console.warn("Skipping ast-grep capability assertion: ast-grep --version returned non-zero");
     return;
   }
   const stderr = await new Response(proc.stderr).text();
@@ -96,9 +97,9 @@ test("pipeline Stage 3 minimal Express integration creates endpoint node id and 
 
   const store = new SqliteGraphStore();
   try {
-    const sgCheck = Bun.spawn(["sg", "--version"], { stdout: "pipe", stderr: "pipe" });
+    const sgCheck = Bun.spawn([getAstGrepBinary(), "--version"], { stdout: "pipe", stderr: "pipe" });
     if ((await sgCheck.exited) !== 0) {
-      console.warn("Skipping Stage 3 integration assertion: sg not available");
+      console.warn("Skipping Stage 3 integration assertion: ast-grep not available");
       return;
     }
     await indexProject(root, store, { lspClientFactory: () => fakeClient });
@@ -126,9 +127,9 @@ test("pipeline Stage 3 indexes express routes, replaces changed matches, keeps u
 
   const store = new SqliteGraphStore();
   try {
-    const sgCheck = Bun.spawn(["sg", "--version"], { stdout: "pipe", stderr: "pipe" });
+    const sgCheck = Bun.spawn([getAstGrepBinary(), "--version"], { stdout: "pipe", stderr: "pipe" });
     if ((await sgCheck.exited) !== 0) {
-      console.warn("Skipping Stage 3 integration assertion: sg not available");
+      console.warn("Skipping Stage 3 integration assertion: ast-grep not available");
       return;
     }
 
