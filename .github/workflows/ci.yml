@@ -10,7 +10,7 @@ on:
 
 jobs:
   ci:
-    name: Test & Type-check (pinned pi host)
+    name: Test & Type-check # required status check name; do not rename
     runs-on: ubuntu-latest
 
     steps:
