@@ -31,7 +31,7 @@ test("computeAnchor emits bare editable anchors with separate file context", () 
     const result = computeAnchor(node, projectRoot);
 
     expect(result.file).toBe("src/a.ts");
-    expect(result.anchor).toBe("2:c27");
+    expect(result.anchor).toBe("2:cef");
     expect(result.anchor).toMatch(/^\d+:[0-9a-f]{3}$/);
     expect(result.anchor).not.toContain("src/a.ts");
     expect(result.stale).toBe(false);

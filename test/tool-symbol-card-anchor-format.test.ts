@@ -25,7 +25,7 @@ test("symbolGraph default card renders file-separated editable anchors", () => {
     const output = symbolGraph({ name: "foo", store, projectRoot });
 
     expect(output).toContain("## foo (function)");
-    expect(output).toContain("src/foo.ts  1:c27");
+    expect(output).toContain("src/foo.ts  1:cef");
     expect(output).not.toContain("src/foo.ts:1:");
   } finally {
     store.close();
@@ -46,8 +46,8 @@ test("symbolCard and symbolContract render file-separated anchors", () => {
     const card = symbolCard({ name: "foo", store, projectRoot });
     const contract = symbolContract({ name: "foo", store, projectRoot });
 
-    expect(card).toContain("src/foo.ts  1:c27");
-    expect(contract).toContain("src/foo.ts  1:c27");
+    expect(card).toContain("src/foo.ts  1:cef");
+    expect(contract).toContain("src/foo.ts  1:cef");
     expect(card).not.toContain("src/foo.ts:1:");
     expect(contract).not.toContain("src/foo.ts:1:");
   } finally {

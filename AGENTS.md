@@ -65,6 +65,9 @@ src/
 ## Dev Notes
 
 - Bun runtime, TypeScript
+- Host packages (`@earendil-works/pi-coding-agent`, `typebox`) are `peerDependencies: "*"` and pinned only in `devDependencies`; never list them in `dependencies`. Import TypeBox from `typebox`, not `@sinclair/typebox`.
+- Hashline hashes are exact-line xxhash32 (only a trailing CR is ignored), identical to pi-hashline-readmap. `test/output-hashline-compat.test.ts` also checks against the sibling repo when it is checked out next to this one.
+- `test/pi-host-load.test.ts` loads the extension through the real pi loader; keep it green when bumping the host.
 - tree-sitter and ast-grep are already in the pi stack
 - LSP is spawned as child process (tsserver), not a library dep
 - Every edge has: `source`, `confidence`, `evidence`, `content_hash`, `created_at`

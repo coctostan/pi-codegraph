@@ -231,7 +231,7 @@ test("indexProject treats empty sg stdout as a no-match Stage 3 result", async (
   const store = new SqliteGraphStore(dbPath);
   try {
     (Bun as any).spawn = (cmd: string[], opts: any) => {
-      if (Array.isArray(cmd) && cmd[0] === "sg") {
+      if (Array.isArray(cmd) && typeof cmd[0] === "string" && /(^|[\\/])(ast-grep|sg)(\.exe)?$/.test(cmd[0])) {
         return {
           stdout: textStream(""),
           stderr: textStream(""),

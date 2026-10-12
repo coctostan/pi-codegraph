@@ -20,7 +20,7 @@ Coding agents waste tool calls fishing for context. They grep for a function nam
 - **"Show me the execution path"** → `trace` returns an ordered, anchored call chain
 - **"Show me the source"** → `symbol_graph` with `include: ["source"]` appends anchored source for the resolved symbol
 
-Editable anchor locations are rendered as two adjacent fields: the file path as context, then a bare `LINE:HASH` token, for example `src/a.ts  10:abc`. The `LINE:HASH` token uses the same whitespace-insensitive xxhash line-hash algorithm as pi-hashline-readmap.
+Editable anchor locations are rendered as two adjacent fields: the file path as context, then a bare `LINE:HASH` token, for example `src/a.ts  10:abc`. The `LINE:HASH` token uses the same exact-line xxhash algorithm as pi-hashline-readmap (only a trailing CR is ignored; whitespace is significant).
 
 The graph can point an agent to the right file and line, but pi-hashline-readmap's read-before-edit/file-anchoring gate still applies. Codegraph does not provide true edit-without-prior-read anchoring.
 
@@ -38,10 +38,10 @@ The graph can point an agent to the right file and line, but pi-hashline-readmap
 
 ## Installation
 
-pi-codegraph is a [pi](https://github.com/nicholasgasior/pi-coding-agent) extension. It requires:
+pi-codegraph is a [pi](https://github.com/earendil-works/pi) extension (tested against pi 1.1.x). It requires:
 
 - [Bun](https://bun.sh) (latest)
-- Node.js >= 22 (for tsserver LSP)
+- Node.js >= 22.19 (pi's minimum; also used for tsserver LSP)
 - A TypeScript project to analyze
 
 ### Install from npm (recommended)
@@ -91,6 +91,14 @@ Then point your pi config at the local checkout:
 - **Windows:** install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload, plus a recent Python
 
 After installing the toolchain, re-run `bun install` (or `npm install`).
+
+## Pi integration
+
+- **Tool metadata:** all three tools declare `annotations` (read-only, idempotent, closed-world), a `codegraph` namespace, and `promptSnippet`/`promptGuidelines` for the system prompt. They are safe to call in parallel: indexing is deduplicated per project, the shared tsserver queues requests, and LSP resolution is shared per symbol. The legacy `ptc` field is kept for pi-ptc-next.
+- **Structured output:** results include `structuredContent` `{ text, anchors, indexingFailed }` (declared as `outputSchema`), so codemode scripts receive parsed `{ file, line, hash }` anchors. The model still receives the text.
+- **Cancellation:** aborting a tool call stops waiting for indexing and LSP resolution immediately.
+- **Lifecycle:** stores and tsserver processes are per project root and are closed on `session_shutdown`. The status bar shows `codegraph: indexing…` while indexing.
+- **`/codegraph [status|refresh]`:** shows node/edge/file counts and the last indexing error, or re-runs incremental indexing.
 
 ## Tools
 

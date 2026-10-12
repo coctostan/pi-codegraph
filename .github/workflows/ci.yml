@@ -5,10 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 7 * * 1" # weekly: catch pi host drift early
 
 jobs:
   ci:
-    name: Test & Type-check
+    name: Test & Type-check (pinned pi host)
     runs-on: ubuntu-latest
 
     steps:
@@ -40,3 +42,42 @@ jobs:
 
       - name: Test
         run: bun test
+
+  pi-latest:
+    name: Compatibility (latest pi host)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install build tools
+        run: sudo apt-get install -y build-essential python3
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Compile tree-sitter native addon
+        run: |
+          npm --prefix node_modules/tree-sitter run rebuild
+          mkdir -p node_modules/tree-sitter/prebuilds/linux-x64
+          cp node_modules/tree-sitter/build/Release/tree_sitter_runtime_binding.node \
+             node_modules/tree-sitter/prebuilds/linux-x64/tree-sitter.node
+
+      - name: Upgrade to the latest pi host
+        run: npm install --no-save --legacy-peer-deps @earendil-works/pi-coding-agent@latest
+
+      - name: Report host version
+        run: node -p "require('@earendil-works/pi-coding-agent/package.json').version"
+
+      - name: Type-check against latest host declarations
+        run: bun run check
+
+      - name: Load through the latest host's real loader
+        run: bun test test/pi-host-load.test.ts test/extension-host-contract.test.ts

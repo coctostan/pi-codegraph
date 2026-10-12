@@ -1,4 +1,5 @@
 import { spawn as nodeSpawn } from "node:child_process";
+import { getAstGrepBinary } from "./ast-grep-binary.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isAbsolute, join, relative } from "node:path";
@@ -109,7 +110,7 @@ async function defaultExec(cmd: string[], opts: { cwd: string }): Promise<string
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     child.on("error", (error) => {
-      reject(new Error(`Failed to launch sg. Is ast-grep installed? ${error.message}`));
+      reject(new Error(`Failed to launch ast-grep: ${error.message}. Run npm install to get the bundled @ast-grep/cli, or install ast-grep on PATH (brew install ast-grep).`));
     });
     child.on("close", (code) => {
       const exitCode = code ?? 0;
@@ -145,7 +146,7 @@ export async function runScan(
   execFn: ExecFn = defaultExec,
 ): Promise<SgMatch[]> {
   if (files.length === 0) return [];
-  const cmd = ["sg", "run", "--json", "--lang", rule.lang, "--pattern", rule.pattern, ...files];
+  const cmd = [getAstGrepBinary(), "run", "--json", "--lang", rule.lang, "--pattern", rule.pattern, ...files];
   let stdout: string;
   try {
     stdout = await execFn(cmd, { cwd: projectRoot });

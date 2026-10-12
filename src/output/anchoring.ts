@@ -31,7 +31,6 @@ function xxh32(input: string): number {
 
 export function computeLineHash(_lineNumber: number, line: string): string {
   if (line.endsWith("\r")) line = line.slice(0, -1);
-  line = line.replace(/\s+/g, "");
   return HASH_DICT[xxh32(line) % HASH_MOD]!;
 }
 export interface AnchorResult {

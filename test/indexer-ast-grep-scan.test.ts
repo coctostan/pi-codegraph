@@ -24,7 +24,7 @@ const rule: AstGrepRule = {
   },
 };
 
-test("runScan uses sg CLI args and normalizes --json output", async () => {
+test("runScan uses ast-grep CLI args and normalizes --json output", async () => {
   const calls: Array<{ cmd: string[]; cwd: string }> = [];
   const fakeExec: ExecFn = async (cmd, opts) => {
     calls.push({ cmd, cwd: opts.cwd });
@@ -32,8 +32,10 @@ test("runScan uses sg CLI args and normalizes --json output", async () => {
   };
 
   const matches = await runScan("/tmp/p", rule, ["src/api.ts"], fakeExec);
-  expect(calls[0]!.cmd).toEqual([
-    "sg", "run", "--json", "--lang", "typescript", "--pattern", "$APP.$METHOD($PATH, $$$HANDLERS)", "src/api.ts",
+  expect(calls[0]!.cmd[0]).not.toBe("sg");
+  expect(calls[0]!.cmd[0]).toMatch(/ast-grep(\.exe)?$/);
+  expect(calls[0]!.cmd.slice(1)).toEqual([
+    "run", "--json", "--lang", "typescript", "--pattern", "$APP.$METHOD($PATH, $$$HANDLERS)", "src/api.ts",
   ]);
   expect(matches).toEqual([
     {
@@ -47,10 +49,10 @@ test("runScan uses sg CLI args and normalizes --json output", async () => {
 
 test("runScan wraps subprocess launch failures", async () => {
   const fakeExec: ExecFn = async () => {
-    throw new Error("Failed to launch sg. Is ast-grep installed? spawn ENOENT");
+    throw new Error("Failed to launch ast-grep: spawn ENOENT");
   };
   await expect(runScan("/tmp/p", rule, ["src/api.ts"], fakeExec)).rejects.toThrow(
-    "sg invocation failed: Failed to launch sg. Is ast-grep installed? spawn ENOENT",
+    "sg invocation failed: Failed to launch ast-grep: spawn ENOENT",
   );
 });
 
