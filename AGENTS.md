@@ -1,5 +1,18 @@
 # AGENTS.md — pi-codegraph
 
+Symbol-level code intelligence for coding agents: a pi extension that indexes a TypeScript repo into a SQLite symbol graph and serves it through three read-only tools (`symbol_graph`, `impact`, `trace`). It must return anchored, freshness-honest answers an agent reaches for instead of grep→read chains.
+
+## Space
+type: dev
+kits: core, dev
+root: space/
+neighbors:
+  hashline: coctostan/pi-hashline-readmap
+  thinkingSpace: coctostan/thinkingSpace
+git: { merge: agent, push: free, main-direct: process-only }
+
+`.megapowers/` holds megapowers's history up to 2026-10-12: read it, never edit it.
+
 ## What This Is
 
 A pi extension that builds a symbol-level graph of a TypeScript codebase and exposes it through 5 agent-optimized tools. Not for humans — for coding agents that need to understand cross-file relationships without grep→read chains.
@@ -72,3 +85,11 @@ src/
 - LSP is spawned as child process (tsserver), not a library dep
 - Every edge has: `source`, `confidence`, `evidence`, `content_hash`, `created_at`
 - Stale edges detected by content hash mismatch on source files
+
+## Hard rules
+- Name an arc or slice by its title each time you mention it, in a reply, a file, a PR or a commit message: a slice as `slice <n> (<Title>)`, an arc as `<slug> (<Title>)`. One cited in passing, as a source or a precedent, is a mention too. In an arc file, `blocked-by` and `From slice` numbers stay bare.
+- Runtime code in `src/` runs under both Bun and Node (pi's host): a Bun-only API sits behind a runtime check with a Node fallback, as `openDb` does.
+
+## Prove
+- Checks: `bun test test/smoke.test.ts`; `bun run check && bun test`
+- Real artifact: `bun install` once, then load it through pi's real loader and call a tool on this repo: `bun -e 'import {discoverAndLoadExtensions as d} from "@earendil-works/pi-coding-agent"; import {mkdtempSync} from "node:fs"; import {tmpdir} from "node:os"; const cwd=process.cwd(); const r=await d([cwd+"/src/index.ts"],cwd,mkdtempSync(tmpdir()+"/cg-")); const t=r.extensions[0].tools.get(process.argv[1]); const o=await (t.definition??t).execute("p",JSON.parse(process.argv[2]),undefined,undefined,{cwd}); console.log(o.content[0].text); process.exit(0)' symbol_graph '{"name":"indexProject"}'`, ready when it prints (about 3 s) · drive `symbol_graph`, `impact` or `trace` the same way with their JSON params, or `/codegraph status` in a live pi session · observe the `Trust:` line, the `path  LINE:HASH` anchors and the signals, with index errors in the output's indexing-failed note · two runs on one checkout share `.codegraph/graph.db`, so use a separate worktree to isolate one.
