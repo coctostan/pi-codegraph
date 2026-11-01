@@ -15,7 +15,7 @@ git: { merge: agent, push: free, main-direct: process-only }
 
 ## What This Is
 
-A pi extension that builds a symbol-level graph of a TypeScript codebase and exposes it through 5 agent-optimized tools. Not for humans — for coding agents that need to understand cross-file relationships without grep→read chains.
+A pi extension that builds a symbol-level graph of a TypeScript codebase and exposes it through 3 read-only tools. Not for humans — for coding agents that need to understand cross-file relationships without grep→read chains.
 
 ## Architecture
 
@@ -38,11 +38,11 @@ Incremental: content hashes per file, only re-index what changed.
 
 | Tool | Purpose |
 |------|---------|
-| `symbol_graph` | Given a symbol, return its anchored relationship neighborhood (callers, callees, unresolved) |
+| `symbol_graph` | Given a symbol, return its compact card (signature, tests, key relationships, signals); `include` adds the full neighborhood, contract or anchored source |
 | `trace` | Given an entry point (function, endpoint, test), return ordered execution path |
 | `impact` | Given changed symbols, return classified dependents (breaking/behavioral/safe) |
-| `graph_query` | Freeform Cypher queries against the graph |
-| `resolve_edge` | Agent writes an edge with evidence — teaches the graph what static analysis can't see |
+
+A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and suggestions. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).
 
 Tool output is hashline-compatible: file paths are rendered as separate context fields next to bare editable `LINE:HASH` anchors. The line hash is the local pi-hashline-compatible 3-hex xxhash value. Whole-file `content_hash` values remain SHA-256 freshness markers.
 
@@ -51,7 +51,7 @@ Tool output is hashline-compatible: file paths are rendered as separate context 
 - **SQLite over KuzuDB** — simpler, zero deps, sufficient for 1-3 hop traversals. Migrate later if needed.
 - **TypeScript only** for v1.
 - **No embeddings, no vector search, no external servers.**
-- **Agent-resolved edges** are first-class. The graph has explicit holes the agent fills.
+- **Read-only public surface.** Static and runtime analysis fill the graph; no tool takes an agent-authored edge, and holes stay explicit in the output as unresolved edges and Trust levels.
 - **Output layer** anchors every node to current file content and manages token budgets via ranking/truncation.
 
 ## File Layout
@@ -68,12 +68,7 @@ src/
 
 ## Milestones
 
-- **M0:** Scaffolding + graph store + tree-sitter indexing
-- **M1:** `symbol_graph` + `resolve_edge` tools
-- **M2:** LSP integration (tsserver)
-- **M3:** `impact` + framework rules
-- **M4:** `trace` + test coverage
-- **M5:** `graph_query` + co-change + polish
+M0–M10 are complete: indexing layers, the tools, contracts, ergonomics, then M10's cut of the public surface to the three tools above. History and future work live in [ROADMAP.md](ROADMAP.md).
 
 ## Dev Notes
 

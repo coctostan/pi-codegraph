@@ -38,7 +38,7 @@ The graph can point an agent to the right file and line, but pi-hashline-readmap
 
 ## Installation
 
-pi-codegraph is a [pi](https://github.com/earendil-works/pi) extension (tested against pi 1.1.x). It requires:
+pi-codegraph is a [pi](https://github.com/earendil-works/pi) extension (tested against pi 1.4.0). It requires:
 
 - [Bun](https://bun.sh) (latest)
 - Node.js >= 22.19 (pi's minimum; also used for tsserver LSP)
@@ -248,7 +248,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design, including the
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for completed milestones (M0–M8) and future plans.
+See [ROADMAP.md](ROADMAP.md) for completed milestones (M0–M10) and future plans.
 
 ## License
 
