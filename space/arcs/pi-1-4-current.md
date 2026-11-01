@@ -15,7 +15,7 @@ pi-codegraph is green on an exact pi 1.4.0 dev pin with reproducible CI and a we
 - [ ] `AGENTS.md`'s Tools table lists exactly `symbol_graph`, `impact` and `trace`, and none of `AGENTS.md`, `ROADMAP.md`, `PRD.md`, `README.md` presents a removed tool as current — verified by `bun test test/docs-tool-surface.test.ts` and a read of `ROADMAP.md` and `PRD.md` at close, dated
 
 ## Now
-slice 1 (Open a legacy DB on a read-only mount) is active on branch `pi-1-4-current/01-legacy-db-read-only`. Next action: build the fix in `SqliteGraphStore`'s constructor.
+slice 1 (Open a legacy DB on a read-only mount) is built, reviewed and open as PR #67 on branch `pi-1-4-current/01-legacy-db-read-only`, unmerged: its `Test & Type-check` is red only on `test/pi-host-load.test.ts` (`MCP_TYPESCRIPT_PREAMBLE` missing from the npm-resolved `pi-codemode`), red on `main` before this arc. Awaiting the human's call: merge #67 over that pre-existing failure, or land slice 2 (Pin the dev host to pi 1.4.0) and slice 3 (Install CI from the lockfile) first.
 
 ## Seams
 - Extension surface: `piCodegraph(pi)` in `src/index.ts`; tests drive it through a fake `ExtensionAPI` in `test/extension-*.test.ts` and through pi's real loader in `test/pi-host-load.test.ts`.
