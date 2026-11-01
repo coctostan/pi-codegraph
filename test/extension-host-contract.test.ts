@@ -45,7 +45,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-test("tools declare native host metadata alongside legacy ptc", () => {
+test("tools declare the pi 1.4 host metadata and no legacy ptc", () => {
   resetStoreForTesting();
   const { tools } = harness();
   expect([...tools.keys()].sort()).toEqual(["impact", "symbol_graph", "trace"]);
@@ -61,7 +61,7 @@ test("tools declare native host metadata alongside legacy ptc", () => {
     expect(tool.promptSnippet.length).toBeGreaterThan(10);
     expect(tool.promptGuidelines.length).toBeGreaterThan(0);
     expect(tool.outputSchema).toBeDefined();
-    expect(tool.ptc).toEqual({ callable: true, enabled: true, policy: "read-only", readOnly: true, pythonName: tool.name });
+    expect(tool).not.toHaveProperty("ptc");
   }
 });
 

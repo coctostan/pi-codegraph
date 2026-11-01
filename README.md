@@ -94,7 +94,7 @@ After installing the toolchain, re-run `bun install` (or `npm install`).
 
 ## Pi integration
 
-- **Tool metadata:** all three tools declare `annotations` (read-only, idempotent, closed-world), a `codegraph` namespace, and `promptSnippet`/`promptGuidelines` for the system prompt. They are safe to call in parallel: indexing is deduplicated per project, the shared tsserver queues requests, and LSP resolution is shared per symbol. The legacy `ptc` field is kept for pi-ptc-next.
+- **Tool metadata:** all three tools declare `annotations` (read-only, idempotent, closed-world), a `codegraph` namespace, and `promptSnippet`/`promptGuidelines` for the system prompt. They are safe to call in parallel: indexing is deduplicated per project, the shared tsserver queues requests, and LSP resolution is shared per symbol.
 - **Structured output:** results include `structuredContent` `{ text, anchors, indexingFailed }` (declared as `outputSchema`), so codemode scripts receive parsed `{ file, line, hash }` anchors. The model still receives the text.
 - **Cancellation:** aborting a tool call stops waiting for indexing and LSP resolution immediately.
 - **Lifecycle:** stores and tsserver processes are per project root and are closed on `session_shutdown`. The status bar shows `codegraph: indexing…` while indexing.
