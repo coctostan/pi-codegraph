@@ -316,7 +316,10 @@ export function extractAnchors(text: string): Array<{ file: string; line: number
   return anchors;
 }
 
-/** `isError` marks a failed lookup; the message and its match list stay in `content` and `structuredContent`. */
+/**
+ * `isError` marks a failed lookup: a requested name that does not resolve to exactly one node, the rule every
+ * tool renders by. The message and its match list stay in `content` and `structuredContent`.
+ */
 function toolResult(output: string, isError: boolean) {
   return {
     content: [{ type: "text" as const, text: output }],
@@ -484,7 +487,8 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output, params.symbols.some((symbol) => store.findNodes(symbol).length === 0));
+      const failed = params.symbols.length === 0 || params.symbols.some((symbol) => store.findNodes(symbol).length !== 1);
+      return toolResult(output, failed);
     },
   });
 
@@ -506,7 +510,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output, store.findNodes(params.entry, params.file).length === 0);
+      return toolResult(output, store.findNodes(params.entry, params.file).length !== 1);
     },
   });
 }

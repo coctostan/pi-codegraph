@@ -57,6 +57,17 @@ test("impact with one found and one missing symbol is an error", async () => {
   expectError(await run("impact", { symbols: ["alpha", "missingThing"], changeType: "removal" }), 'Symbol "missingThing" not found');
 });
 
+test("an ambiguous name through impact or trace is an error, since neither runs its analysis", async () => {
+  const run = setup();
+  expectError(await run("impact", { symbols: ["dup"], changeType: "removal" }), 'Multiple matches for "dup"', "src/b.ts");
+  expectError(await run("trace", { entry: "dup" }), 'Multiple matches for "dup"', "src/b.ts");
+});
+
+test("impact with no symbols is an error", async () => {
+  const run = setup();
+  expectError(await run("impact", { symbols: [], changeType: "removal" }), "'symbols' parameter is required");
+});
+
 test("a found symbol is not an error", async () => {
   const run = setup();
   for (const [name, params] of [
