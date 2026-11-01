@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createRequire } from "node:module";
-import { chmodSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
@@ -94,6 +94,19 @@ test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking grap
   } finally {
     try { chmodSync(dir, 0o755); } catch {}
     try { chmodSync(dbPath, 0o644); } catch {}
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("SqliteGraphStore still throws when the file is not a database", () => {
+  const dir = join(tmpdir(), `pi-cg-notadb-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(dir, { recursive: true });
+  const dbPath = join(dir, "graph.db");
+  try {
+    writeFileSync(dbPath, "x".repeat(4096));
+    // Only a read-only DB may skip the migration; any other open failure surfaces.
+    expect(() => new SqliteGraphStore(dbPath)).toThrow(/not a database/);
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
