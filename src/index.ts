@@ -343,14 +343,6 @@ function registerReadOnlyTool<TParams extends TSchema>(pi: ExtensionAPI, tool: R
     // No executionMode override: calls may run in parallel. Store writes are synchronous, indexing is
     // deduplicated per project, the tsserver client queues requests, and LSP resolution is shared per symbol.
   };
-  // Legacy metadata still consumed by pi-ptc-next.
-  (definition as any).ptc = {
-    callable: true,
-    enabled: true,
-    policy: "read-only" as const,
-    readOnly: true,
-    pythonName: tool.name,
-  };
   pi.registerTool(definition);
 }
 
