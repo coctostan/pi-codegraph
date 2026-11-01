@@ -8,6 +8,7 @@ dist/
 
 # Pi runtime cache (created at runtime per-project)
 .pi/
+.pi/prompt-assembler/
 
 # OS
 .DS_Store
