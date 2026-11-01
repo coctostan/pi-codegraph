@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createRequire } from "node:module";
-import { chmodSync, mkdirSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
@@ -62,20 +63,28 @@ function createLegacyDb(path: string): void {
   raw.close();
 }
 
-test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking graph_metadata (read-only mount)", () => {
+function withReadOnlyLegacyDb(fn: (dbPath: string) => void): void {
   const dir = join(tmpdir(), `pi-cg-legacy-cov-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
   const dbPath = join(dir, "graph.db");
 
   try {
     createLegacyDb(dbPath);
-    // Lock the file AND the directory: when the dir is read-only sqlite
-    // cannot create the journal files needed for `CREATE TABLE IF NOT EXISTS`
-    // even though the statement is logically a no-op, so any read that
-    // touches a missing table will surface "no such table".
+    // Lock the file AND the directory: `CREATE TABLE IF NOT EXISTS` on the
+    // missing graph_metadata table is a real write, which sqlite refuses with
+    // SQLITE_READONLY, so the store must open without migrating.
     chmodSync(dbPath, 0o444);
     chmodSync(dir, 0o555);
+    fn(dbPath);
+  } finally {
+    try { chmodSync(dir, 0o755); } catch {}
+    try { chmodSync(dbPath, 0o644); } catch {}
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
+test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking graph_metadata (read-only mount)", () => {
+  withReadOnlyLegacyDb((dbPath) => {
     const store = new SqliteGraphStore(dbPath);
     try {
       // hasCoverageData must NOT throw on legacy DBs — a missing
@@ -91,9 +100,29 @@ test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking grap
     } finally {
       store.close();
     }
+  });
+});
+
+// pi's host runs on Node, whose node:sqlite reports the error code in `errcode`, not Bun's `errno`.
+test.skipIf(!Bun.which("node"))("SqliteGraphStore opens a read-only legacy DB under Node", () => {
+  withReadOnlyLegacyDb((dbPath) => {
+    const script = `const { SqliteGraphStore } = await import(process.argv[1]); const s = new SqliteGraphStore(process.argv[2]); console.log(s.hasCoverageData()); s.close();`;
+    const sqliteUrl = new URL("../src/graph/sqlite.ts", import.meta.url).href;
+    const run = spawnSync("node", ["--input-type=module", "-e", script, sqliteUrl, dbPath], { encoding: "utf8" });
+    expect(run.stderr).not.toContain("Error");
+    expect(run.stdout.trim()).toBe("false");
+  });
+});
+
+test("SqliteGraphStore still throws when the file is not a database", () => {
+  const dir = join(tmpdir(), `pi-cg-notadb-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(dir, { recursive: true });
+  const dbPath = join(dir, "graph.db");
+  try {
+    writeFileSync(dbPath, "x".repeat(4096));
+    // Only a read-only DB may skip the migration; any other open failure surfaces.
+    expect(() => new SqliteGraphStore(dbPath)).toThrow(/not a database/);
   } finally {
-    try { chmodSync(dir, 0o755); } catch {}
-    try { chmodSync(dbPath, 0o644); } catch {}
     rmSync(dir, { recursive: true, force: true });
   }
 });
