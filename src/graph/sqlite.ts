@@ -39,7 +39,13 @@ export class SqliteGraphStore implements GraphStore {
 
   constructor(dbPath: string = ":memory:") {
     this.db = openDb(dbPath);
-    this.initSchema();
+    try {
+      this.initSchema();
+    } catch (error: any) {
+      // A read-only DB can't migrate (`IF NOT EXISTS` on a missing table is a write) and can't be indexed either, so serve it as is.
+      // SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`.
+      if (((error?.errno ?? error?.errcode) & 0xff) !== 8) throw error;
+    }
   }
 
   private initSchema(): void {
@@ -330,9 +336,8 @@ export class SqliteGraphStore implements GraphStore {
         .get("coverage_indexed") as { value: string } | null;
       return row?.value === "1";
     } catch {
-      // Pre-#082 DBs (no graph_metadata table) and read-only mounts where the
-      // IF NOT EXISTS migration silently no-ops both surface as
-      // "no such table: graph_metadata". Treat that as 'coverage state
+      // Pre-#082 DBs opened read-only skip the migration, so graph_metadata
+      // may be missing: "no such table". Treat that as 'coverage state
       // unknown' so signal-rendering tools fall back to coverage-unknown
       // instead of crashing on legacy graph databases.
       return false;
