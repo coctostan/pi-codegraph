@@ -316,10 +316,12 @@ export function extractAnchors(text: string): Array<{ file: string; line: number
   return anchors;
 }
 
-function toolResult(output: string) {
+/** `isError` marks a failed lookup; the message and its match list stay in `content` and `structuredContent`. */
+function toolResult(output: string, isError: boolean) {
   return {
     content: [{ type: "text" as const, text: output }],
     details: undefined,
+    isError,
     structuredContent: {
       text: output,
       anchors: extractAnchors(output),
@@ -451,7 +453,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output);
+      return toolResult(output, nodes.length !== 1);
     },
   });
 
@@ -482,7 +484,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output);
+      return toolResult(output, params.symbols.some((symbol) => store.findNodes(symbol).length === 0));
     },
   });
 
@@ -504,7 +506,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output);
+      return toolResult(output, store.findNodes(params.entry, params.file).length === 0);
     },
   });
 }
