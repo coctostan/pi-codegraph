@@ -39,6 +39,15 @@ test("ROADMAP.md records M10 complete with no open items", () => {
   expect(roadmap).not.toContain("- [ ]");
 });
 
+test("ROADMAP.md names a removed tool only as completed-milestone history or marked removed", () => {
+  const stray = read("ROADMAP.md")
+    .split(/\n(?=## )/)
+    .filter((section) => !/^## M\d+: .* — ✅ COMPLETE\n/.test(section))
+    .flatMap((section) => section.split("\n"))
+    .filter((line) => removedTools.some((tool) => line.includes(tool)) && !line.includes("removed in M10"));
+  expect(stray).toEqual([]);
+});
+
 test("README.md names pi 1.4.0 as the tested host", () => {
   expect(read("README.md")).toContain("tested against pi 1.4.0");
 });

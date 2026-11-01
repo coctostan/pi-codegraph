@@ -4,7 +4,7 @@
 
 pi-codegraph is a code intelligence engine that builds a symbol-level graph of a codebase and exposes it through agent-optimized tools. It is a pi extension providing 3 read-only tools: `symbol_graph`, `impact` and `trace`. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).
 
-The sample outputs below show each tool's shape, not its exact rendering; README.md shows the current anchor format (`path  LINE:HASH`). A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and suggestions.
+The sample outputs below show each tool's shape, not its exact rendering; README.md shows the current anchor format (`path  LINE:HASH`). A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and any candidate matches.
 
 ## Tools
 
@@ -109,7 +109,7 @@ Classified by risk. Anchored. Test coverage included.
 
 ### Edge Provenance
 Every edge carries:
-- `source` — how it was discovered (`tree-sitter`, `lsp`, `ast-grep`, `coverage`, `git`)
+- `source` — how it was discovered (`tree-sitter`, `lsp`, `ast-grep`, `coverage`, `git`), or `agent` for an agent-authored edge an older graph still holds; no current tool writes one
 - `confidence` — relative trust level
 - `evidence` — where the relationship was found
 - `created_at` — when the edge was added

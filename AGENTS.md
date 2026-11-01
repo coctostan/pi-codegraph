@@ -42,7 +42,7 @@ Incremental: content hashes per file, only re-index what changed.
 | `trace` | Given an entry point (function, endpoint, test), return ordered execution path |
 | `impact` | Given changed symbols, return classified dependents (breaking/behavioral/safe) |
 
-A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and suggestions. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).
+A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and any candidate matches. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).
 
 Tool output is hashline-compatible: file paths are rendered as separate context fields next to bare editable `LINE:HASH` anchors. The line hash is the local pi-hashline-compatible 3-hex xxhash value. Whole-file `content_hash` values remain SHA-256 freshness markers.
 
