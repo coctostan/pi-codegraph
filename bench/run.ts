@@ -80,7 +80,7 @@ export function parseTranscript(jsonl: string): TranscriptMetrics {
     }
     if (event?.type !== "message_end") continue;
     const msg = event.message;
-    for (const tool of msg.toolsAdded ?? []) if (!m.offeredTools.includes(tool.name)) m.offeredTools.push(tool.name);
+    for (const tool of msg.toolsAdded ?? []) m.offeredTools.push(tool.name);
     if (msg.role !== "assistant") continue;
     m.turns++;
     const u = msg.usage ?? {};
@@ -210,8 +210,9 @@ async function main(): Promise<number> {
       `${id}: correct=${cell.grade.correct} tokens=${metrics.tokens.total} turns=${metrics.turns} codegraph=${metrics.codegraphCalls} wall=${wallMs}ms`,
     );
     if (problem) console.error(`${id}: ${problem}`);
+    if (index && index.errors > 0) console.error(`${id}: indexing reported ${index.errors} errors`);
     if (pi.status !== 0) console.error(`${id}: pi exited ${pi.status}${pi.error ? ` (${pi.error.message})` : ""}`);
-    return problem || pi.status !== 0 ? 1 : 0;
+    return problem || (index && index.errors > 0) || pi.status !== 0 ? 1 : 0;
   } finally {
     spawnSync("git", ["worktree", "remove", "--force", worktree], { cwd: sourceRepo });
     rmSync(tmp, { recursive: true, force: true });
