@@ -1,0 +1,17 @@
+{
+  "id": "cc-payload-trace",
+  "kind": "trace",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "question": "When pi sends a request through the anthropic-cc provider, what happens to the request body between the point where the stock Anthropic code builds it and the HTTP call? Walk me through the functions that rewrite it, in the order they run.",
+  "key": {
+    "all": [
+      "applyAnthropicCcBodyOverrides",
+      "applyAnthropicCcIdentityOverrides",
+      "buildAnthropicCcSystemPrelude",
+      "applyAnthropicCcToolPolicy",
+      "sanitizeAnthropicCcRequestParams"
+    ]
+  },
+  "keyCheckedBy": "read at 4c15f289: vendor/anthropicStock.ts:398-403 builds params with buildParams, awaits options.onPayload, then client.messages.create; stream.ts's streamAnthropicCc onPayload calls applyAnthropicCcBodyOverrides (overrides.ts:299), which calls applyAnthropicCcIdentityOverrides (217) → buildAnthropicCcSystemPrelude (57) and applyAnthropicCcToolPolicy (282); then the caller's onPayload, applyAnthropicCcToolPolicy again and sanitizeAnthropicCcRequestParams (request.ts:148)"
+}

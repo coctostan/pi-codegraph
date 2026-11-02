@@ -1,0 +1,7 @@
+{
+  "rule": "Per task, both models pooled: a win when the on arm is correct at least as often as the off arm and its median tokens.total or median turns is at least minCut below the off arm's. keep when the on arm is correct at least as often over all tasks and wins at least keepWinFraction of the tasks; retire when it wins none; freeze otherwise.",
+  "models": ["anthropic-cc/claude-opus-5-5", "openai-codex/gpt-6.1-sol"],
+  "repeats": 3,
+  "minCut": 0.25,
+  "keepWinFraction": 0.5
+}

@@ -1,0 +1,17 @@
+{
+  "id": "cc-headers-tests",
+  "kind": "test-mapping",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "question": "Which test files exercise `buildAnthropicCcHeaders` in src/anthropic-cc/overrides.ts? I want to rerun them after I change it. List the test file paths.",
+  "key": {
+    "all": [
+      "tests/anthropicCcAuthModes.test.ts",
+      "tests/anthropicCcBetaComposition.test.ts",
+      "tests/anthropicCcHeaderSuppression.test.ts",
+      "tests/anthropicCcInlineToolsBetaFlags.test.ts",
+      "tests/anthropicCcOAuthBetaComposition.test.ts"
+    ]
+  },
+  "keyCheckedBy": "git grep -w buildAnthropicCcHeaders 4c15f289 -- tests: the five files import it from ../src/anthropic-cc/overrides and call it (AuthModes:10, BetaComposition:17, HeaderSuppression:5, InlineToolsBetaFlags:51, OAuthBetaComposition:18); tests reaching it only through streamAnthropicCc or buildAnthropicCcRequest are not required"
+}
