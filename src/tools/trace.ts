@@ -37,7 +37,7 @@ function resolveCoverageTraceId(store: GraphStore, nodeId: string): string | nul
 }
 
 /** A static trace prints callees down to this many calls below its entry. */
-const STATIC_TRACE_DEPTH = 4;
+const STATIC_TRACE_DEPTH = 3;
 const UNRESOLVED = "__unresolved__::";
 
 type CallEnd = GraphEdge["call_end"];
@@ -157,7 +157,7 @@ function formatNodeLine(
   const signals = signalComputer.compute(node.id);
   const tags = formatRoleTags({ ...signals, roles: rolesOverride ?? signals.roles });
   return {
-    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""}${tags ? ` ${tags}` : ""}`,
+    line: `${formatAnchorLocation(anchor)}  ${node.name}${node.kind === "function" ? "" : `  ${node.kind}`}${anchor.stale ? " [stale]" : ""}${tags ? ` ${tags}` : ""}`,
     stale: anchor.stale,
   };
 }

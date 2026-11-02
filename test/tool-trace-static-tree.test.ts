@@ -3,14 +3,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import type { GraphEdge } from "../src/graph/types.js";
+import type { GraphEdge, GraphNode } from "../src/graph/types.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { traceResult } from "../src/tools/trace.js";
 
 const FILE = "src/t.ts";
 
-/** Trace `entry` over one file whose functions sit one per line, as `name`, and calls given as [caller, callee, call_end]. */
-function traceOf(names: string[], calls: Array<[string, string, GraphEdge["call_end"]?, string?]>): string[] {
+/** Trace `entry` over one file whose symbols sit one per line, as `name` of kind `kinds[name]` or `function`, and calls given as [caller, callee, call_end]. */
+function traceOf(names: string[], calls: Array<[string, string, GraphEdge["call_end"]?, string?]>, kinds: Record<string, GraphNode["kind"]> = {}): string[] {
   const projectRoot = join(tmpdir(), `pi-cg-trace-tree-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   const content = names.map((n) => `export function ${n}() {}`).join("\n") + "\n";
@@ -20,7 +20,7 @@ function traceOf(names: string[], calls: Array<[string, string, GraphEdge["call_
   const store = new SqliteGraphStore();
   try {
     names.forEach((name, i) =>
-      store.addNode({ id: id(name), kind: "function", name, file: FILE, start_line: i + 1, end_line: i + 1, content_hash: hash }),
+      store.addNode({ id: id(name), kind: kinds[name] ?? "function", name, file: FILE, start_line: i + 1, end_line: i + 1, content_hash: hash }),
     );
     calls.forEach(([from, to, call_end, evidence], i) =>
       store.addEdge({
@@ -52,11 +52,11 @@ test("static trace indents each callee under its caller, siblings in call-end or
       ["early", "inner", { line: 3, col: 9 }],
     ]),
   ).toEqual([
-    "@ run  function",
-    "  @ early  function",
-    "    @ inner  function [leaf]",
-    "  @ late  function [leaf]",
-    "  @ noSite  function [leaf]",
+    "@ run",
+    "  @ early",
+    "    @ inner [leaf]",
+    "  @ late [leaf]",
+    "  @ noSite [leaf]",
   ]);
 });
 
@@ -70,16 +70,16 @@ test("static trace expands a callee once, a repeat or a cycle shown as a referen
       ["shared", "run", { line: 4, col: 10 }],
     ]),
   ).toEqual([
-    "@ run  function",
-    "  @ a  function",
-    "    @ shared  function",
+    "@ run",
+    "  @ a",
+    "    @ shared",
     "      run (see above)",
-    "  @ b  function",
+    "  @ b",
     "    shared (see above)",
   ]);
 });
 
-test("static trace stops 4 calls below the entry and counts what it cut on one line", () => {
+test("static trace stops 3 calls below the entry and counts what it cut on one line", () => {
   const chain = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "side"];
   expect(
     traceOf(chain, [
@@ -93,12 +93,11 @@ test("static trace stops 4 calls below the entry and counts what it cut on one l
       ["d5", "side", { line: 6, col: 9 }],
     ]),
   ).toEqual([
-    "@ d0  function",
-    "  @ d1  function",
-    "    @ d2  function",
-    "      @ d3  function",
-    "        @ d4  function",
-    "4 more omitted beyond depth 4",
+    "@ d0",
+    "  @ d1",
+    "    @ d2",
+    "      @ d3",
+    "5 more omitted beyond depth 3",
   ]);
 });
 
@@ -111,10 +110,23 @@ test("static trace prints each unresolved callee on its own line, at its call si
       ["a", "?helper", undefined, "helper:2:3"],
     ]),
   ).toEqual([
-    "@ run  function",
-    "  @ a  function [leaf]",
+    "@ run",
+    "  @ a [leaf]",
     "    ? helper (unresolved, src/t.ts:2)",
     "  ? indexProjectImpl (unresolved, src/t.ts:1)",
-    "  @ b  function [leaf]",
+    "  @ b [leaf]",
   ]);
+});
+
+test("static trace prints a node's kind only when it isn't a function", () => {
+  expect(
+    traceOf(
+      ["run", "Store", "plain"],
+      [
+        ["run", "Store", { line: 1, col: 10 }],
+        ["run", "plain", { line: 1, col: 20 }],
+      ],
+      { Store: "class" },
+    ),
+  ).toEqual(["@ run", "  @ Store  class [leaf]", "  @ plain [leaf]"]);
 });

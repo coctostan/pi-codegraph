@@ -28,9 +28,9 @@ test("trace falls back to a deterministic static call path when no coverage trac
 
     const output = traceResult({ entry: "entry", file: "src/app.ts", store, projectRoot }).text;
     expect(output).toContain("mode: static");
-    expect(output).toMatch(/src\/app\.ts  1:[0-9a-f]{3}  entry  function/);
-    expect(output).toMatch(/src\/app\.ts  2:[0-9a-f]{3}  first  function/);
-    expect(output).toMatch(/src\/app\.ts  3:[0-9a-f]{3}  second  function/);
+    expect(output).toMatch(/\nsrc\/app\.ts  1:[0-9a-f]{3}  entry /);
+    expect(output).toMatch(/\n  src\/app\.ts  2:[0-9a-f]{3}  first /);
+    expect(output).toMatch(/\n    src\/app\.ts  3:[0-9a-f]{3}  second /);
     expect(output).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
   } finally {
     store.close();
