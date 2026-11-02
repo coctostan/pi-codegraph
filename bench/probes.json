@@ -1,0 +1,116 @@
+[
+  {
+    "id": "graph-cc-headers",
+    "repo": "pi-claude-header",
+    "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+    "tool": "symbol_graph",
+    "params": { "name": "buildAnthropicCcHeaders", "file": "src/anthropic-cc/overrides.ts" },
+    "expect": {
+      "resolves": true,
+      "all": [
+        "tests/anthropicCcAuthModes.test.ts",
+        "tests/anthropicCcBetaComposition.test.ts",
+        "tests/anthropicCcHeaderSuppression.test.ts",
+        "tests/anthropicCcInlineToolsBetaFlags.test.ts",
+        "tests/anthropicCcOAuthBetaComposition.test.ts"
+      ],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "graph-enclosing-sg",
+    "repo": "pi-hashline-readmap",
+    "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+    "tool": "symbol_graph",
+    "params": { "name": "findEnclosingSgSymbols", "file": "src/sg.ts" },
+    "expect": {
+      "resolves": true,
+      "all": [
+        "tests/context-hygiene-sg.test.ts",
+        "tests/issue-234-sql-mapper.test.ts",
+        "tests/issue-242-sql-boundary-consumers.test.ts",
+        "tests/json-mapper-root-array-sg.test.ts"
+      ],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "graph-ast-grep-stage",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "symbol_graph",
+    "params": { "name": "runAstGrepIndexStage", "file": "src/indexer/ast-grep.ts" },
+    "expect": {
+      "resolves": true,
+      "all": ["partially parsed: src/indexer/ast-grep.ts"],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "graph-collect-match-candidates",
+    "repo": "pi-hashline-readmap",
+    "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+    "tool": "symbol_graph",
+    "params": { "name": "collectMatchCandidates", "file": "src/grep.ts" },
+    "expect": {
+      "resolves": true,
+      "all": ["partially parsed: src/grep.ts"],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "trace-prepare",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "trace",
+    "params": { "entry": "prepare", "file": "src/index.ts" },
+    "expect": {
+      "resolves": true,
+      "ordered": ["getOrCreateProject", "ensureIndexed", "? indexProjectImpl (unresolved", "ensureHashInit"],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "trace-cc-payload",
+    "repo": "pi-claude-header",
+    "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+    "tool": "trace",
+    "params": { "entry": "streamAnthropicCc", "file": "src/anthropic-cc/stream.ts" },
+    "expect": {
+      "resolves": true,
+      "ordered": [
+        "applyAnthropicCcBodyOverrides",
+        "applyAnthropicCcIdentityOverrides",
+        "buildAnthropicCcSystemPrelude",
+        "applyAnthropicCcToolPolicy",
+        "sanitizeAnthropicCcRequestParams"
+      ],
+      "maxChars": 5400,
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "impact-compact-diff",
+    "repo": "pi-hashline-readmap",
+    "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+    "tool": "impact",
+    "params": { "symbols": ["generateCompactOrFullDiff"], "changeType": "behavior_change" },
+    "expect": {
+      "resolves": true,
+      "all": ["buildEditResult", "registerEditTool", "generateWriteDiff", "executeWrite", "registerWriteTool", "Tests reached"],
+      "none": ["pendingPreviewLines", "pendingWritePreviewParts", "fan-in", "chain-confidence", "untested"]
+    }
+  },
+  {
+    "id": "impact-source-snippet",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "impact",
+    "params": { "symbols": ["readSourceSnippet"], "changeType": "signature_change" },
+    "expect": {
+      "resolves": true,
+      "all": ["renderSymbolSourceSection", "symbolCard", "symbolGraph", "Tests reached"],
+      "none": ["renderSymbolContractBody", "symbolContract", "fan-in", "chain-confidence", "untested"]
+    }
+  }
+]

@@ -116,18 +116,18 @@ export function cellId(c: { task: string; arm: Arm; model: string; repeat: numbe
   return `${c.task}__${c.arm}__${c.model.replace(/[^A-Za-z0-9.-]/g, "_")}__r${c.repeat}`;
 }
 
-function sh(cmd: string, args: string[], cwd: string): string {
+export function sh(cmd: string, args: string[], cwd: string): string {
   const r = spawnSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")} failed in ${cwd}:\n${r.stderr || r.stdout}`);
   return r.stdout.trim();
 }
 
-function installDeps(dir: string): void {
+export function installDeps(dir: string): void {
   if (existsSync(join(dir, "bun.lock"))) sh("bun", ["install", "--frozen-lockfile"], dir);
   else if (existsSync(join(dir, "package-lock.json"))) sh("npm", ["ci", "--no-audit", "--no-fund"], dir);
 }
 
-async function indexWorktree(dir: string) {
+export async function indexWorktree(dir: string) {
   const { indexProject } = await import("../src/indexer/pipeline.js");
   const { SqliteGraphStore } = await import("../src/graph/sqlite.js");
   mkdirSync(join(dir, ".codegraph"), { recursive: true });
