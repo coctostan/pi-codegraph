@@ -227,12 +227,21 @@ export function extractFile(file: string, content: string): ExtractionResult {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  const edgeKeys = new Set<string>();
+  const edgeIndex = new Map<string, number>();
   const pushEdge = (edge: GraphEdge) => {
-    const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
-    if (edgeKeys.has(key)) return;
-    edgeKeys.add(key);
-    edges.push(edge);
+    // The store keeps one edge per source, target, kind and provenance; of a callee's calls, keep the first to end, the first to run.
+    const key = edge.call_end
+      ? `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}`
+      : `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
+    const at = edgeIndex.get(key);
+    if (at === undefined) {
+      edgeIndex.set(key, edges.length);
+      edges.push(edge);
+      return;
+    }
+    const end = edge.call_end;
+    const kept = edges[at]!.call_end;
+    if (end && kept && (end.line < kept.line || (end.line === kept.line && end.col < kept.col))) edges[at] = edge;
   };
 
   const aliasToOriginal = new Map<string, string>();
@@ -469,6 +478,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
     function callEvidence(node: SyntaxNode): string {
       return `${node.text}:${node.startPosition.row + 1}:${node.startPosition.column + 1}`;
     }
+    // `endPosition` sits just past the call's last character, so its 0-based column is that character's 1-based one.
+    const callEnd = (call: SyntaxNode) => ({ line: call.endPosition.row + 1, col: call.endPosition.column });
     const visitCalls = (n: SyntaxNode, currentFunctionId: string | null): void => {
       let nextFunctionId = callbackOwners.get(n.startIndex) ?? currentFunctionId;
 
@@ -501,6 +512,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
               content_hash: contentHash,
             },
             created_at: Date.now(),
+            call_end: callEnd(n),
           });
         }
         if (callee?.type === "member_expression") {
@@ -518,6 +530,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
                 content_hash: contentHash,
               },
               created_at: Date.now(),
+              call_end: callEnd(n),
             });
           }
         }
@@ -537,6 +550,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
               content_hash: contentHash,
             },
             created_at: Date.now(),
+            call_end: callEnd(n),
           });
         }
       }

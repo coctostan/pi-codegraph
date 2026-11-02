@@ -60,6 +60,9 @@ function createLegacyDb(path: string): void {
     );
     CREATE TABLE schema_version (version INTEGER NOT NULL);
     INSERT INTO schema_version(version) VALUES (1);
+    INSERT INTO nodes VALUES ('src/a.ts::f:1', 'function', 'f', 'src/a.ts', 1, 1, 'h', 0, NULL);
+    INSERT INTO nodes VALUES ('src/a.ts::g:2', 'function', 'g', 'src/a.ts', 2, 2, 'h', 0, NULL);
+    INSERT INTO edges VALUES ('src/a.ts::f:1', 'src/a.ts::g:2', 'calls', 'tree-sitter', 0.5, 'g:1:20', 'h', 1);
   `);
   raw.close();
 }
@@ -102,6 +105,15 @@ test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking grap
       // Nor can it gain file_hashes.partial, so the Trust note names no partial file.
       const node = { id: "src/a.ts::f:1", kind: "function" as const, name: "f", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: "h" };
       expect(evaluateFreshness({ store, projectRoot: tmpdir(), targetNodes: [node] }).partialFiles).toEqual([]);
+
+      // Nor `edges.call_end_*`: its edges read back without a call site.
+      const raw = openRawDb(dbPath);
+      const edgeCount = raw.prepare("SELECT COUNT(*) AS n FROM edges").get().n;
+      raw.close();
+      expect(edgeCount).toBe(1);
+      expect(store.getEdgesBySource("src/a.ts::f:1").map((e) => [e.target, e.call_end])).toEqual([["src/a.ts::g:2", undefined]]);
+      expect(store.getUnresolvedEdges()).toEqual([]);
+      expect(store.getNeighbors("src/a.ts::g:2", { direction: "in" }).map((n) => n.node.id)).toEqual(["src/a.ts::f:1"]);
     } finally {
       store.close();
     }

@@ -20,9 +20,9 @@ function isUnresolvedTarget(target: string): boolean {
   return target.startsWith("__unresolved__::");
 }
 
-function makeLspEdge(source: string, target: string, evidence: string, contentHash: string): GraphEdge {
+function makeLspEdge(from: GraphEdge, target: string, evidence: string, contentHash: string): GraphEdge {
   return {
-    source,
+    source: from.source,
     target,
     kind: "calls",
     provenance: {
@@ -32,6 +32,7 @@ function makeLspEdge(source: string, target: string, evidence: string, contentHa
       content_hash: contentHash,
     },
     created_at: Date.now(),
+    ...(from.call_end ? { call_end: from.call_end } : {}),
   };
 }
 
@@ -73,7 +74,7 @@ export async function runLspIndexStage(
       if (!targetNode) continue;
       try {
         store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
-        store.addEdge(makeLspEdge(edge.source, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+        store.addEdge(makeLspEdge(edge, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
       } catch {
         errors++;
       }
@@ -85,7 +86,7 @@ export async function runLspIndexStage(
     if (!sameTarget) continue;
     try {
       store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
-      store.addEdge(makeLspEdge(edge.source, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      store.addEdge(makeLspEdge(edge, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
     } catch {
       errors++;
     }

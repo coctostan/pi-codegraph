@@ -32,10 +32,13 @@ interface NeighborRow {
   evidence: string;
   edge_hash: string;
   created_at: number;
+  call_end_line: number | null;
+  call_end_col: number | null;
 }
 
 export class SqliteGraphStore implements GraphStore {
   private db: any;
+  private callEndColumns = "call_end_line, call_end_col";
 
   constructor(dbPath: string = ":memory:") {
     this.db = openDb(dbPath);
@@ -45,6 +48,9 @@ export class SqliteGraphStore implements GraphStore {
       // A read-only DB can't migrate (`IF NOT EXISTS` on a missing table is a write) and can't be indexed either, so serve it as is.
       // SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`.
       if (((error?.errno ?? error?.errcode) & 0xff) !== 8) throw error;
+      const edgeColumns = this.db.prepare("PRAGMA table_info(edges)").all() as Array<{ name: string }>;
+      // Nor can it gain `edges.call_end_*`: its edges read back without a call site.
+      if (!edgeColumns.some((column) => column.name === "call_end_line")) this.callEndColumns = "NULL AS call_end_line, NULL AS call_end_col";
     }
   }
 
@@ -70,6 +76,8 @@ export class SqliteGraphStore implements GraphStore {
         evidence TEXT NOT NULL,
         content_hash TEXT NOT NULL,
         created_at INTEGER NOT NULL,
+        call_end_line INTEGER,
+        call_end_col INTEGER,
         PRIMARY KEY (source, target, kind, provenance_source)
       );
 
@@ -116,14 +124,20 @@ export class SqliteGraphStore implements GraphStore {
     if (!nodeColumns.some((column) => column.name === "signature")) {
       this.db.prepare("ALTER TABLE nodes ADD COLUMN signature TEXT").run();
     }
-    const fileHashColumns = this.db.prepare("PRAGMA table_info(file_hashes)").all() as Array<{ name: string }>;
-    if (!fileHashColumns.some((column) => column.name === "partial")) {
+    // Each column below holds what an older extractor never wrote: re-extract every file once, and rerun the git
+    // stage (its `__git_cochange_head__` row), whose edges the re-extraction drops. `partial`: a file that parsed
+    // with errors was left module-only; `call_end_*`: no `calls` edge carried its call site.
+    const reextractColumns: Array<[table: string, columns: Array<[name: string, type: string]>]> = [
+      ["file_hashes", [["partial", "INTEGER NOT NULL DEFAULT 0"]]],
+      ["edges", [["call_end_line", "INTEGER"], ["call_end_col", "INTEGER"]]],
+    ];
+    for (const [table, columns] of reextractColumns) {
+      const existingColumns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+      if (existingColumns.some((column) => column.name === columns[0]![0])) continue;
       // One transaction: a column added without the invalidation would skip it on every later open.
       this.db.exec("BEGIN");
       try {
-        this.db.prepare("ALTER TABLE file_hashes ADD COLUMN partial INTEGER NOT NULL DEFAULT 0").run();
-        // The extractor before this column left a file that parsed with errors module-only: re-extract every file once,
-        // and rerun the git stage (its `__git_cochange_head__` row), whose edges the re-extraction drops.
+        for (const [name, type] of columns) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
         this.db.prepare("UPDATE file_hashes SET hash = ''").run();
         this.db.exec("COMMIT");
       } catch (error) {
@@ -139,8 +153,8 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   addEdge(edge: GraphEdge): void {
-    this.db.prepare(`INSERT OR REPLACE INTO edges (source, target, kind, provenance_source, confidence, evidence, content_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(edge.source, edge.target, edge.kind, edge.provenance.source, edge.provenance.confidence, edge.provenance.evidence, edge.provenance.content_hash, edge.created_at);
+    this.db.prepare(`INSERT OR REPLACE INTO edges (source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(edge.source, edge.target, edge.kind, edge.provenance.source, edge.provenance.confidence, edge.provenance.evidence, edge.provenance.content_hash, edge.created_at, edge.call_end?.line ?? null, edge.call_end?.col ?? null);
   }
 
   private hydrateNode(row: { id: string; kind: GraphNode["kind"]; name: string; file: string; start_line: number; end_line: number | null; content_hash: string; is_exported: number | null; signature: string | null; }): GraphNode {
@@ -197,7 +211,7 @@ export class SqliteGraphStore implements GraphStore {
       SELECT n.id, n.kind, n.name, n.file, n.start_line, n.end_line, n.content_hash, n.is_exported, n.signature,
              e.source, e.target, e.kind as edge_kind,
              e.provenance_source, e.confidence, e.evidence,
-             e.content_hash as edge_hash, e.created_at
+             e.content_hash as edge_hash, e.created_at, ${this.callEndColumns}
       FROM edges e
       JOIN nodes n ON n.id = ${joinOn}
       WHERE ${whereField} = ?`;
@@ -217,34 +231,39 @@ export class SqliteGraphStore implements GraphStore {
       if (row.signature != null) node.signature = row.signature;
       return {
         node,
-        edge: {
+        edge: SqliteGraphStore.withCallEnd({
           source: row.source,
           target: row.target,
           kind: row.edge_kind,
           provenance: { source: row.provenance_source, confidence: row.confidence, evidence: row.evidence, content_hash: row.edge_hash },
           created_at: row.created_at,
-        },
+        }, row),
       };
     });
   }
 
-  private static edgeFromRow(row: { source: string; target: string; kind: string; provenance_source: string; confidence: number; evidence: string; content_hash: string; created_at: number }): GraphEdge {
-    return {
+  private static withCallEnd(edge: GraphEdge, row: { call_end_line: number | null; call_end_col: number | null }): GraphEdge {
+    if (row.call_end_line != null && row.call_end_col != null) edge.call_end = { line: row.call_end_line, col: row.call_end_col };
+    return edge;
+  }
+
+  private static edgeFromRow(row: { source: string; target: string; kind: string; provenance_source: string; confidence: number; evidence: string; content_hash: string; created_at: number; call_end_line: number | null; call_end_col: number | null }): GraphEdge {
+    return SqliteGraphStore.withCallEnd({
       source: row.source,
       target: row.target,
       kind: row.kind as GraphEdge["kind"],
       provenance: { source: row.provenance_source as GraphEdge["provenance"]["source"], confidence: row.confidence, evidence: row.evidence, content_hash: row.content_hash },
       created_at: row.created_at,
-    };
+    }, row);
   }
 
   getUnresolvedEdges(): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
   getEdgesBySource(sourceId: string): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
