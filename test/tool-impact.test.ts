@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphNode } from "../src/graph/types.js";
-import { collectImpact } from "../src/tools/impact.js";
+import { collectImpact, type ImpactItem } from "../src/tools/impact.js";
+
+const rows = (items: ImpactItem[]) =>
+  items.map(({ node, depth, classification }) => ({ nodeId: node.id, name: node.name, file: node.file, depth, classification }));
 
 function addNode(store: SqliteGraphStore, node: GraphNode) {
   store.addNode(node);
@@ -38,7 +41,7 @@ test("collectImpact classifies direct and transitive dependents by change type",
       store,
       maxDepth: 5,
     });
-    expect(signature).toEqual([
+    expect(rows(signature)).toEqual([
       { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
       { nodeId: "src/b.ts::b:1", name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
     ]);
@@ -73,7 +76,7 @@ test("collectImpact respects maxDepth", () => {
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
 
     expect(
-      collectImpact({ seeds: store.findNodes("shared"), changeType: "signature_change", store, maxDepth: 1 }),
+      rows(collectImpact({ seeds: store.findNodes("shared"), changeType: "signature_change", store, maxDepth: 1 })),
     ).toEqual([
       { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
     ]);
@@ -119,7 +122,7 @@ test("collectImpact terminates on cycles without duplicates", () => {
       maxDepth: 5,
     });
 
-    expect(result).toEqual([
+    expect(rows(result)).toEqual([
       { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "behavioral" },
       { nodeId: "src/b.ts::b:1", name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
     ]);
@@ -142,7 +145,7 @@ test("collectImpact terminates on a 3-node cycle without duplicates", () => {
     addCall(store, "src/a.ts::a:1", "src/c.ts::c:1");
 
     const result = collectImpact({ seeds: store.findNodes("shared"), changeType: "behavior_change", store, maxDepth: 10 });
-    expect(result.map((r) => r.nodeId).sort()).toEqual([
+    expect(result.map((r) => r.node.id).sort()).toEqual([
       "src/a.ts::a:1",
       "src/b.ts::b:1",
       "src/c.ts::c:1",

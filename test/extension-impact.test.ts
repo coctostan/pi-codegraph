@@ -47,8 +47,7 @@ test("impact() emits anchored structured lines and empty string for no-impact", 
     });
     const out = impactResult({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 }).text;
     expect(out).toContain("Trust: stale");
-    expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
-    expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
+    expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?\n/);
     expect(out).not.toMatch(/src\/caller\.ts:2:[0-9a-f]{4}/);
     const noImpact = impactResult({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 }).text;
     expect(noImpact).toContain("Trust: stale");

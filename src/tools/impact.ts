@@ -1,7 +1,7 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
-import { createSignalComputer, formatImpactWhy, type NodeSignals, type SignalComputer } from "../output/signals.js";
+import { createSignalComputer } from "../output/signals.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { formatAmbiguousMatches } from "./symbol-resolution.js";
 
@@ -14,35 +14,18 @@ export interface CollectImpactParams {
   changeType: ChangeType;
   store: GraphStore;
   maxDepth?: number;
-  signalComputer?: SignalComputer;
-}
-export interface ImpactItem {
-  nodeId: string;
-  name: string;
-  file: string;
-  depth: number;
-  classification: ImpactClassification;
 }
 
-export interface ImpactDetail extends ImpactItem {
-  chainConfidence: number;
-  signals: NodeSignals;
+/** A dependent reached at its shallowest depth, with the edge that first reached it. */
+export interface ImpactItem {
+  node: GraphNode;
+  depth: number;
+  classification: ImpactClassification;
   edge: NeighborResult["edge"];
 }
 
-interface QueueItem {
-  id: string;
-  depth: number;
-  chainConfidence: number;
-}
-
-function classify(changeType: ChangeType, depth: number): ImpactClassification | null {
-  if (changeType === "addition") return null;
-  if (changeType === "behavior_change") return "behavioral";
-  if (changeType === "signature_change" || changeType === "removal") {
-    return depth === 1 ? "breaking" : "behavioral";
-  }
-  return null;
+function classify(changeType: ChangeType, depth: number): ImpactClassification {
+  return depth === 1 && (changeType === "signature_change" || changeType === "removal") ? "breaking" : "behavioral";
 }
 
 function dedupeInboundByStrongestEdge(inbound: NeighborResult[]): NeighborResult[] {
@@ -56,32 +39,21 @@ function dedupeInboundByStrongestEdge(inbound: NeighborResult[]): NeighborResult
   return [...bestByNode.values()];
 }
 
-function compareDetails(a: ImpactDetail, b: ImpactDetail): number {
-  if (a.classification !== b.classification) return a.classification === "breaking" ? -1 : 1;
-  if (a.signals.fanIn !== b.signals.fanIn) return b.signals.fanIn - a.signals.fanIn;
-  if (a.signals.tested !== b.signals.tested) return a.signals.tested ? 1 : -1;
-  if (a.signals.coChangeScore !== b.signals.coChangeScore) return b.signals.coChangeScore - a.signals.coChangeScore;
-  if (a.chainConfidence !== b.chainConfidence) return b.chainConfidence - a.chainConfidence;
-  if (a.depth !== b.depth) return a.depth - b.depth;
-  return a.file.localeCompare(b.file) || a.name.localeCompare(b.name);
+function compareItems(a: ImpactItem, b: ImpactItem): number {
+  return a.depth - b.depth
+    || a.node.file.localeCompare(b.node.file)
+    || a.node.start_line - b.node.start_line
+    || a.node.name.localeCompare(b.node.name);
 }
 
-export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[] {
-  const { seeds, changeType, store, maxDepth = 5, signalComputer: providedSignalComputer } = params;
+/** Callers and implementors of the seeds, breadth-first up to `maxDepth`, by depth then file then line. */
+export function collectImpact(params: CollectImpactParams): ImpactItem[] {
+  const { seeds, changeType, store, maxDepth = 5 } = params;
   if (changeType === "addition") return [];
 
-  const queue: QueueItem[] = [];
-  const seen = new Map<string, { depth: number; chainConfidence: number }>();
-  const detailsByNode = new Map<string, ImpactDetail>();
-
-  const changedNodeIds: string[] = [];
-  for (const node of seeds) {
-    queue.push({ id: node.id, depth: 0, chainConfidence: 1 });
-    seen.set(node.id, { depth: 0, chainConfidence: 1 });
-    changedNodeIds.push(node.id);
-  }
-
-  const signalComputer = providedSignalComputer ?? createSignalComputer(store);
+  const queue = seeds.map((node) => ({ id: node.id, depth: 0 }));
+  const seen = new Set(seeds.map((node) => node.id));
+  const items: ImpactItem[] = [];
 
   while (queue.length > 0) {
     const current = queue.shift()!;
@@ -89,55 +61,50 @@ export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[
 
     const inboundCalls = store.getNeighbors(current.id, { direction: "in", kind: "calls" });
     const inboundImplements = store.getNeighbors(current.id, { direction: "in", kind: "implements" });
-    const inbound = dedupeInboundByStrongestEdge([...inboundCalls, ...inboundImplements]);
-
-    for (const neighbor of inbound) {
+    for (const neighbor of dedupeInboundByStrongestEdge([...inboundCalls, ...inboundImplements])) {
+      if (seen.has(neighbor.node.id)) continue;
+      seen.add(neighbor.node.id);
       const depth = current.depth + 1;
-      const chainConfidence = Math.min(current.chainConfidence, neighbor.edge.provenance.confidence);
-      const existing = seen.get(neighbor.node.id);
-
-      if (existing && (existing.depth < depth || (existing.depth === depth && existing.chainConfidence >= chainConfidence))) {
-        continue;
-      }
-
-      seen.set(neighbor.node.id, { depth, chainConfidence });
-      queue.push({ id: neighbor.node.id, depth, chainConfidence });
-
-      const classification = classify(changeType, depth);
-      if (!classification) continue;
-
-      detailsByNode.set(neighbor.node.id, {
-        nodeId: neighbor.node.id,
-        name: neighbor.node.name,
-        file: neighbor.node.file,
-        depth,
-        classification,
-        chainConfidence,
-        signals: signalComputer.compute(neighbor.node.id, changedNodeIds),
-        edge: neighbor.edge,
-      });
+      queue.push({ id: neighbor.node.id, depth });
+      items.push({ node: neighbor.node, depth, classification: classify(changeType, depth), edge: neighbor.edge });
     }
   }
 
-  return [...detailsByNode.values()].sort(compareDetails);
+  return items.sort(compareItems);
 }
 
-export function collectImpact(params: CollectImpactParams): ImpactItem[] {
-  return collectImpactDetails(params).map(({ nodeId, name, file, depth, classification }) => ({
-    nodeId,
-    name,
-    file,
-    depth,
-    classification,
-  }));
+const TEST_FILE = /\.(test|spec)\.tsx?$/;
+
+/** A test case, or a helper or module of a test file: listed by file, apart from the rows. */
+function isTest(node: GraphNode): boolean {
+  return node.kind === "test" || TEST_FILE.test(node.file);
 }
 
-function buildEmptyImpactDiagnostic(seeds: GraphNode[], signalComputer: SignalComputer, maxDepth: number): string {
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+/** The heading, then each test file reached, sorted, with its case count when above one. */
+function formatTestsReached(tests: GraphNode[]): string[] {
+  const casesByFile = new Map<string, number>();
+  for (const node of tests) {
+    casesByFile.set(node.file, (casesByFile.get(node.file) ?? 0) + (node.kind === "test" ? 1 : 0));
+  }
+  const files = [...casesByFile.keys()].sort();
+  const caseCount = tests.filter((node) => node.kind === "test").length;
+  return [
+    `Tests reached (${plural(caseCount, "case")} in ${plural(files.length, "file")}):`,
+    ...files.map((file) => (casesByFile.get(file)! > 1 ? `${file} (${casesByFile.get(file)})` : file)),
+  ];
+}
+
+function buildEmptyImpactDiagnostic(seeds: GraphNode[], store: GraphStore, maxDepth: number): string {
+  const signalComputer = createSignalComputer(store);
   const lines = seeds.map((node) => {
     if (node.kind === "interface") {
       return `No call-edge dependents found for interface '${node.name}'. Consider checking implementors via symbol_graph.`;
     }
-    if (signalComputer.compute(node.id, []).roles.includes("entry-point")) {
+    if (signalComputer.compute(node.id).roles.includes("entry-point")) {
       return `No dependents found — '${node.name}' is an entry point with no callers.`;
     }
     return `No dependents found for '${node.name}' within depth ${maxDepth}.`;
@@ -204,33 +171,24 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
     );
   }
 
-  const signalComputer = createSignalComputer(params.store);
-  const hits = collectImpactDetails({
+  const hits = collectImpact({
     seeds: targetNodes,
     changeType: params.changeType,
     store: params.store,
     maxDepth: params.maxDepth,
-    signalComputer,
   });
 
   if (hits.length === 0) {
-    return withFreshness(buildEmptyImpactDiagnostic(targetNodes, signalComputer, params.maxDepth ?? 5));
+    return withFreshness(buildEmptyImpactDiagnostic(targetNodes, params.store, params.maxDepth ?? 5));
   }
 
-  const lines = hits.flatMap((hit) => {
-    const node = params.store.getNode(hit.nodeId);
-    if (!node) return [];
-    const anchor = computeAnchor(node, params.projectRoot);
-    const why = formatImpactWhy(hit.signals, hit.chainConfidence);
-    return [
-      `${formatAnchorLocation(anchor)}  ${hit.name}  ${hit.classification}  depth:${hit.depth}${anchor.stale ? " [stale]" : ""}  ${why}`,
-    ];
+  const lines = hits.filter((hit) => !isTest(hit.node)).map((hit) => {
+    const anchor = computeAnchor(hit.node, params.projectRoot);
+    return `${formatAnchorLocation(anchor)}  ${hit.node.name}  ${hit.classification}  depth:${hit.depth}${anchor.stale ? " [stale]" : ""}`;
   });
+  const tests = hits.map((hit) => hit.node).filter(isTest);
+  if (tests.length > 0) lines.push(...(lines.length > 0 ? [""] : []), ...formatTestsReached(tests));
 
-  const hitNodes = hits.flatMap((hit) => {
-    const node = params.store.getNode(hit.nodeId);
-    return node ? [node] : [];
-  });
-  const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
-  return withFreshness(body, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
+  const hitNodes = hits.map((hit) => hit.node);
+  return withFreshness(`${lines.join("\n")}\n`, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
 }

@@ -91,9 +91,9 @@ test("BUG #074: impact on an interface traverses implements edges via collectImp
       store,
       maxDepth: 5,
     });
-    expect(hits).toEqual([
-      { nodeId: "src/iface.ts::MyStore:2", name: "MyStore", file: "src/iface.ts", depth: 1, classification: "breaking" },
-      { nodeId: "src/iface.ts::useStore:3", name: "useStore", file: "src/iface.ts", depth: 2, classification: "behavioral" },
+    expect(hits).toMatchObject([
+      { node: { id: "src/iface.ts::MyStore:2", name: "MyStore", file: "src/iface.ts" }, depth: 1, classification: "breaking" },
+      { node: { id: "src/iface.ts::useStore:3", name: "useStore", file: "src/iface.ts" }, depth: 2, classification: "behavioral" },
     ]);
   } finally {
     store.close();
