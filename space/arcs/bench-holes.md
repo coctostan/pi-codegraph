@@ -54,7 +54,7 @@ Next: slice 5 (Keep the declarations of a file that fails to parse), no branch y
 12. **Record the re-run in decision 0003** — delivers `space/decisions/0003-*.md` with the per-task rows against the three targets and the pick-rate and spend lines, and `NOW.md` routing what it finds · proof a read of the decision against `bun bench/verdict.ts --on-results bench/results/rerun-1`'s output · blocked-by 11 · status next
 
 ## Not yet specified
-- From slice 4: an existing `.codegraph/graph.db` skips unchanged files on re-index, so an extractor change (slice 4's test nodes, and those of slice 5 (Keep the declarations of a file that fails to parse) and slice 7 (Keep each call's site on its edge)) reaches it only when a file changes or the db is deleted; the bench indexes fresh worktrees.
+- From slice 4: an existing `.codegraph/graph.db` skips unchanged files on re-index, so an extractor change (the test nodes of slice 4 (Attribute test-callback calls to test nodes), and the changes of slice 5 (Keep the declarations of a file that fails to parse) and slice 7 (Keep each call's site on its edge)) reaches it only when a file changes or the db is deleted; the bench indexes fresh worktrees.
 - From slice 4: test callers count toward fan-in, so an exported function called only from tests loses `entry-point`, and impact's "entry point with no callers" note with it.
 
 ## Out of scope
