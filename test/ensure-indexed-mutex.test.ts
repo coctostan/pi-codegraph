@@ -43,14 +43,7 @@ describe("RC-E: ensureIndexed coalesces parallel calls", () => {
       },
       on() {},
     };
-    const prevDev = process.env.CODEGRAPH_DEVMODE;
-    process.env.CODEGRAPH_DEVMODE = "1";
-    try {
-      mod.default(mockPi as any);
-    } finally {
-      if (prevDev === undefined) delete process.env.CODEGRAPH_DEVMODE;
-      else process.env.CODEGRAPH_DEVMODE = prevDev;
-    }
+    mod.default(mockPi as any);
 
     try {
       const ctx = { cwd: root };

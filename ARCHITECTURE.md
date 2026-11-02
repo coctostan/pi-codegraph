@@ -51,7 +51,7 @@
 └──────────────────────────────────────────────────────────┘
 ```
 
-Default registration exposes 3 public tools. `symbol_graph` is the unified public symbol lookup surface; shared compact/source and contract renderers live in `src/tools/symbol-card.ts` and `src/tools/symbol-contract.ts`. Phase 5 removed the zero-usage dev-only tools and the zero-usage mutating tools; no tools register under `CODEGRAPH_DEVMODE=1` today. `symbol_search` remains internal-only for same-process callers.
+Default registration exposes 3 public tools. `symbol_graph` is the unified public symbol lookup surface; shared compact/source and contract renderers live in `src/tools/symbol-card.ts` and `src/tools/symbol-contract.ts`. Phase 5 removed the zero-usage dev-only tools and the zero-usage mutating tools. `symbol_search` remains internal-only for same-process callers.
 
 ## Indexing Pipeline
 

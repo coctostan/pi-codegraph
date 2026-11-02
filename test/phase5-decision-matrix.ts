@@ -32,21 +32,21 @@ export const phase5ToolDecisions: Record<Phase5Tool, Phase5Decision> = {
     calls: 0,
     decision: "delete",
     evidence:
-      "Zero developer calls under CODEGRAPH_DEVMODE=1 in the observation window. symbol_graph / impact / trace covered every structural query.",
+      "Zero developer calls in dev mode in the observation window. symbol_graph / impact / trace covered every structural query.",
   },
   graph_overview: {
     surface: "dev",
     calls: 0,
     decision: "delete",
     evidence:
-      "Zero developer calls under CODEGRAPH_DEVMODE=1 in the observation window. symbol_graph plus impact covered the hub / neighborhood questions it targeted.",
+      "Zero developer calls in dev mode in the observation window. symbol_graph plus impact covered the hub / neighborhood questions it targeted.",
   },
   dead_code: {
     surface: "dev",
     calls: 0,
     decision: "delete",
     evidence:
-      "Zero developer calls under CODEGRAPH_DEVMODE=1 in the observation window. Manual review plus impact covered the unreferenced-symbols question it targeted.",
+      "Zero developer calls in dev mode in the observation window. Manual review plus impact covered the unreferenced-symbols question it targeted.",
   },
 };
 
@@ -68,10 +68,6 @@ export const expectedDefaultPublicTools = [
   "trace",
   ...(["resolve_edge", "delete_edge"] as const).filter((name) => !isRemoved(name)),
 ];
-
-export const expectedDevModeTools = (["graph_query", "graph_overview", "dead_code"] as const).filter(
-  (name) => !isRemoved(name),
-);
 
 export const expectedDefaultPublicToolDescriptions = new Map<string, string>([
   ["symbol_graph", "Summarize a symbol with relationships, tests, and key metadata."],

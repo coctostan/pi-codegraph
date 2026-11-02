@@ -220,4 +220,4 @@ Throughout all milestones:
 3. **Freshness matters as much as coverage.** Cached graph state must not silently mislead.
 4. **Incremental by default.** Recompute only what changed.
 5. **TypeScript first.** Keep one language excellent before expanding.
-6. **The agent is a collaborator.** Unresolved or agent-authored knowledge should remain explicit, reviewable, and evidence-backed.
+6. **Read-only surface.** Static and runtime analysis fill the graph; no tool takes an agent-authored edge, and unresolved knowledge stays explicit as unresolved edges and Trust levels.

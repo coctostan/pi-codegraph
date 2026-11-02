@@ -45,14 +45,7 @@ describe("RC-D: lastIndexError clears on store-health evidence", () => {
       },
       on() {},
     };
-    const prevDev = process.env.CODEGRAPH_DEVMODE;
-    process.env.CODEGRAPH_DEVMODE = "1";
-    try {
-      mod.default(mockPi as any);
-    } finally {
-      if (prevDev === undefined) delete process.env.CODEGRAPH_DEVMODE;
-      else process.env.CODEGRAPH_DEVMODE = prevDev;
-    }
+    mod.default(mockPi as any);
 
     // Patch listFiles to throw a configurable message on every call. The
     // throw propagates up through `indexProject` into `ensureIndexed`'s

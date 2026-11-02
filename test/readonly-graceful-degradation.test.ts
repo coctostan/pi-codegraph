@@ -26,16 +26,6 @@ function mockLspClient(store: SqliteGraphStore): ITsServerClient {
     async shutdown() {},
   };
 }
-function withCodegraphDevMode<T>(callback: () => T): T {
-  const previous = process.env.CODEGRAPH_DEVMODE;
-  process.env.CODEGRAPH_DEVMODE = "1";
-  try {
-    return callback();
-  } finally {
-    if (previous === undefined) delete process.env.CODEGRAPH_DEVMODE;
-    else process.env.CODEGRAPH_DEVMODE = previous;
-  }
-}
 describe("Bug #038: readonly database graceful degradation", () => {
   const testDirs: string[] = [];
   afterEach(() => {
@@ -139,7 +129,7 @@ describe("Bug #038: readonly database graceful degradation", () => {
       },
       on() {},
     };
-    withCodegraphDevMode(() => mod.default(mockPi as any));
+    mod.default(mockPi as any);
 
     const originalDefinition = TsServerClient.prototype.definition;
     TsServerClient.prototype.definition = async () => ({ file: "src/hello.ts", line: 1, col: 1 });
@@ -178,7 +168,7 @@ describe("Bug #038: readonly database graceful degradation", () => {
       },
       on() {},
     };
-    withCodegraphDevMode(() => mod.default(mockPi as any));
+    mod.default(mockPi as any);
     const originalReferences = TsServerClient.prototype.references;
     TsServerClient.prototype.references = async () => [];
     try {
@@ -213,7 +203,7 @@ describe("Bug #038: readonly database graceful degradation", () => {
       },
       on() {},
     };
-    withCodegraphDevMode(() => mod.default(mockPi as any));
+    mod.default(mockPi as any);
 
     const originalDefinition = TsServerClient.prototype.definition;
     TsServerClient.prototype.definition = async () => ({ file: "src/hello.ts", line: 1, col: 1 });
