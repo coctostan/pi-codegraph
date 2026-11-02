@@ -42,10 +42,10 @@ const UNRESOLVED = "__unresolved__::";
 
 type CallEnd = GraphEdge["call_end"];
 
-/** A caller's callee: a resolved node, or an unresolved call's rendered `? <name> (unresolved, <file>:<line>)` line. */
+/** A caller's callee: a resolved node, or an unresolved call's edge and its rendered `? <name> (unresolved, <file>:<line>)` line. */
 interface Callee {
   node?: GraphNode;
-  unresolved?: string;
+  unresolved?: { edge: GraphEdge; line: string };
   end: CallEnd;
   file: string;
   line: number;
@@ -70,14 +70,14 @@ function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
       // Tree-sitter's evidence is `<callee>:<line>:<col>`, the callee's start.
       const evidenceLine = Number(edge.provenance.evidence.split(":").at(-2));
       const line = Number.isInteger(evidenceLine) ? evidenceLine : (edge.call_end?.line ?? 0);
-      return { unresolved: `? ${name} (unresolved, ${caller.file}:${line})`, end: edge.call_end, file: caller.file, line };
+      return { unresolved: { edge, line: `? ${name} (unresolved, ${caller.file}:${line})` }, end: edge.call_end, file: caller.file, line };
     });
   return [...byId.values(), ...unresolved].sort(
     (a, b) =>
       (endsBefore(a.end, b.end) ? -1 : endsBefore(b.end, a.end) ? 1 : 0) ||
       a.file.localeCompare(b.file) ||
       a.line - b.line ||
-      (a.node?.id ?? a.unresolved!).localeCompare(b.node?.id ?? b.unresolved!),
+      (a.node?.id ?? a.unresolved!.line).localeCompare(b.node?.id ?? b.unresolved!.line),
   );
 }
 
@@ -85,6 +85,8 @@ interface StaticTrace {
   lines: Array<{ line: string; stale: boolean }>;
   /** Each node printed in full, in print order. */
   nodeIds: string[];
+  /** Each unresolved call printed, for the freshness check. */
+  unresolvedEdges: GraphEdge[];
 }
 
 /** The call tree below `entry`: each node printed once, a repeat as a reference, and a count of the callees cut at the depth cap. */
@@ -92,6 +94,7 @@ function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: stri
   const printed = new Set<string>();
   const lines: StaticTrace["lines"] = [];
   const cut: GraphNode[] = [];
+  const unresolvedEdges: GraphEdge[] = [];
   const visit = (node: GraphNode, depth: number): void => {
     const indent = "  ".repeat(depth);
     if (printed.has(node.id)) {
@@ -107,7 +110,10 @@ function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: stri
     }
     for (const callee of orderedCallees(store, node)) {
       if (callee.node) visit(callee.node, depth + 1);
-      else lines.push({ line: `${indent}  ${callee.unresolved}`, stale: false });
+      else {
+        lines.push({ line: `${indent}  ${callee.unresolved!.line}`, stale: false });
+        unresolvedEdges.push(callee.unresolved!.edge);
+      }
     }
   };
   visit(entry, 0);
@@ -117,14 +123,14 @@ function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: stri
   while (cut.length > 0) {
     const node = cut.pop()!;
     for (const callee of orderedCallees(store, node)) {
-      const key = callee.node?.id ?? `${node.id}\0${callee.unresolved}`;
+      const key = callee.node?.id ?? `${node.id}\0${callee.unresolved!.line}`;
       if (printed.has(key) || omitted.has(key)) continue;
       omitted.add(key);
       if (callee.node) cut.push(callee.node);
     }
   }
   if (omitted.size > 0) lines.push({ line: `${omitted.size} more omitted beyond depth ${STATIC_TRACE_DEPTH}`, stale: false });
-  return { lines, nodeIds: [...printed] };
+  return { lines, nodeIds: [...printed], unresolvedEdges };
 }
 
 function formatStoredTraceLine(
@@ -303,7 +309,7 @@ function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
   }
 
   const staticTrace = buildStaticTrace(params.store, node, params.projectRoot, signalComputer);
-  const staticEdges = collectStaticTraceEdges(params.store, staticTrace.nodeIds);
+  const staticEdges = [...collectStaticTraceEdges(params.store, staticTrace.nodeIds), ...staticTrace.unresolvedEdges];
   const freshness = traceFreshness(params, node, staticTrace.nodeIds, [], staticEdges);
   const staticStale = staticTrace.lines.some((step) => step.stale) || freshness.status !== "fresh";
   const body = `${[formatModeHeader("static", staticStale), ...staticTrace.lines.map((step) => step.line)].join("\n")}\n`;
