@@ -16,7 +16,7 @@ A measured verdict, keep, freeze or retire, on whether codegraph's three tools p
 - [ ] On a `keep` verdict, the latest `main` CI run shows `test/pi-host-load.test.ts` passing under `node`, `Test & Type-check` green on Node 22 and the current Node, and `test/output-hashline-compat.test.ts`'s sibling case run, not skipped, against a pi-hashline-readmap clone; on `freeze` or `retire`, that work sits in Out of scope citing decision 0002 — verified by `gh run view <id> --log` at close, or a read of this file
 
 ## Now
-slice 4 (Record the verdict) is active on branch `earns-its-keep/04-record-verdict`. Next action: write decision 0002 by its plan.
+slice 5 (Return the lookup status from the tool functions) is next, no branch yet; slice 4 (Record the verdict) merged as #77, decision 0002 reading `keep`, so slice 7 (Exercise what CI skips) runs. Next action: run `slice` in a fresh session.
 
 ## Seams
 - Bench runner: `bench/run.ts` drives `pi -p --mode json --no-session` for one cell (task × arm × model × repeat) in a pinned worktree of the target repo, codegraph on by default and off by `-xt symbol_graph,impact,trace`; observed as `bench/results/<cell>.json`; tests in `test/bench-run.test.ts` against a recorded transcript fixture.
@@ -35,11 +35,12 @@ slice 4 (Record the verdict) is active on branch `earns-its-keep/04-record-verdi
 3. **Run the 72 cells** — delivers `bench/results/` with every cell graded and the verdict printed · proof `bun bench/verdict.ts` exits 0 and prints the verdict; the token spend recorded in the reconcile line · blocked-by 2 · status done
    `bench/results/` holds the 72 cells, run by `bench/run.ts` unedited from `eefef8dc`, three at a time, repeat-major with arms interleaved; none failed or was rerun · deviation: none; no cell was incorrect, so the From slice 2 negated-`none` case never arose · evidence: `bun bench/verdict.ts` exits 0, wins 3/6 (cc-headers-tests, compact-diff-impact, source-snippet-impact), prints `keep`; all 72 cells correct; spend $9.63 and 5,525,446 `tokens.total` (on arm $4.20, off $5.43); `bun run check && bun test` 504 pass · `b5e55e58`
 4. **Record the verdict** — delivers `space/decisions/0002-*.md` with the verdict and per-task numbers, `NOW.md` routing its consequence, and this arc reshaped to keep or drop slice 7 · proof a read of the decision against `bun bench/verdict.ts`'s output · blocked-by 3 · status done
-   `space/decisions/0002-keep-codegraph.md` records `keep` with the six per-task rows and the pick-rate, cost and spend caveats; `NOW.md` Next routes Python support and the three lost tasks as candidate arcs; slice 7 kept by a `From slice 4` route · deviation: none; corrects From slice 3's cost line, median cost agreeing with median tokens on 4 of 6 tasks, not 5, cc-payload-trace the second disagreement, no win changed · evidence: a check script passes 16 of 16 against `bun bench/verdict.ts` (exit 0, wins 3/6, `keep`) and the cells, each of 4 probed mutations red; `bun run check && bun test` 504 pass; standards review converged, no findings
+   `space/decisions/0002-keep-codegraph.md` records `keep` with the six per-task rows and the pick-rate, cost and spend caveats; `NOW.md` Next routes Python support and the three lost tasks as candidate arcs; slice 7 kept by a `From slice 4` route · deviation: none; corrects From slice 3's cost line, median cost agreeing with median tokens on 4 of 6 tasks, not 5, cc-payload-trace the second disagreement, no win changed · evidence: a check script passes 16 of 16 against `bun bench/verdict.ts` (exit 0, wins 3/6, `keep`) and the cells, each of 4 probed mutations red; `bun run check && bun test` 504 pass; standards review converged, no findings · `a46a0c97`
 5. **Return the lookup status from the tool functions** — delivers `symbolGraph`, `impact` and `trace` reporting whether each requested name resolved to exactly one node, and `execute()` setting `isError` from that, the string-returning callers in `test/` kept working · proof `test/extension-not-found-is-error.test.ts` stays green, a new status test red → green, `bun run check && bun test` · blocked-by — · status next
 6. **Retire the dev-mode remnants** — delivers `src/config/dev-mode.ts`, `test/dev-mode.test.ts` and the `CODEGRAPH_DEVMODE` toggles in the 12 tests that set it removed, README's dev-mode line and `[source: agent]` label dropped, ROADMAP's Principle 6 rewritten for the read-only surface · proof `test/docs-tool-surface.test.ts` red → green on the new assertions, `bun run check && bun test` · blocked-by — · status next
 7. **Exercise what CI skips** — delivers `test/pi-host-load.test.ts` loading the extension and calling a tool under `node` as well as Bun, `Test & Type-check` on Node 22 and the current Node, and CI cloning pi-hashline-readmap so the sibling case runs · proof the slice PR's CI log shows each running and green, then `main`'s · blocked-by 4 · status next
    Runs only on a `keep` verdict; slice 4 (Record the verdict) moves it to Out of scope otherwise.
+   From slice 4: decision 0002 reads keep, so this slice runs.
 
 ## Not yet specified
 
@@ -52,3 +53,4 @@ slice 4 (Record the verdict) is active on branch `earns-its-keep/04-record-verdi
 
 ## Decisions
 - [0001 The public surface is three read-only tools](../decisions/0001-three-tool-public-surface.md)
+- [0002 Codegraph is kept](../decisions/0002-keep-codegraph.md)
