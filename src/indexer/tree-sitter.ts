@@ -76,6 +76,23 @@ function isExportedNode(node: SyntaxNode): boolean {
   return false;
 }
 
+const TEST_CALLEES = new Set(["test", "it"]);
+const CALLBACK_TYPES = new Set(["arrow_function", "function_expression"]);
+
+/** A `test(`/`it(` call's callback and its title, null when the title is no literal; null when `n` is no such call. */
+function testCall(n: SyntaxNode): { title: string | null; callback: SyntaxNode } | null {
+  const callee = n.childForFieldName("function");
+  if (callee?.type !== "identifier" || !TEST_CALLEES.has(callee.text)) return null;
+  const args = (n.childForFieldName("arguments")?.namedChildren ?? []).filter((a) => a.type !== "comment");
+  const callback = args.find((a) => CALLBACK_TYPES.has(a.type));
+  if (!callback) return null;
+  const first = args[0]!;
+  const literal =
+    first.type === "string" ||
+    (first.type === "template_string" && !first.namedChildren.some((c) => c.type === "template_substitution"));
+  return { title: literal ? first.text.slice(1, -1) : null, callback };
+}
+
 function extractFunctionSignature(node: SyntaxNode): string | undefined {
   const params = node.childForFieldName("parameters");
   if (!params) return undefined;
@@ -218,6 +235,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
   const aliasToOriginal = new Map<string, string>();
   const namespaceImports = new Set<string>();
+  // A test callback's start index → the node its calls belong to: its test node, or the module for a non-literal title.
+  const callbackOwners = new Map<number, string>();
 
   try {
     const parser = new Parser();
@@ -308,6 +327,15 @@ export function extractFile(file: string, content: string): ExtractionResult {
               });
             }
           }
+        }
+        const tc = testCall(n);
+        if (tc) {
+          const startLine = tc.callback.startPosition.row + 1;
+          const name = tc.title === null ? null : `${file} > ${tc.title}`;
+          if (name !== null) {
+            addNode(nodes, file, "test", name, startLine, tc.callback.endPosition.row + 1, contentHash, false);
+          }
+          callbackOwners.set(tc.callback.startIndex, name === null ? moduleNode.id : nodeId(file, name, startLine));
         }
       }
 
@@ -441,7 +469,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
       return `${node.text}:${node.startPosition.row + 1}:${node.startPosition.column + 1}`;
     }
     const visitCalls = (n: SyntaxNode, currentFunctionId: string | null): void => {
-      let nextFunctionId = currentFunctionId;
+      let nextFunctionId = callbackOwners.get(n.startIndex) ?? currentFunctionId;
 
       if (n.type === "function_declaration") {
         const nameNode = n.childForFieldName("name");

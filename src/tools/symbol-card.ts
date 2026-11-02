@@ -66,7 +66,9 @@ export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbol
     }
   }
 
-  const callers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id);
+  const allCallers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id);
+  const callers = allCallers.filter((nr) => nr.node.kind !== "test");
+  const testCallers = allCallers.filter((nr) => nr.node.kind === "test");
   const callees = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.source === node.id);
   const imports = allNeighbors.filter((nr) => nr.edge.kind === "imports" && nr.edge.source === node.id);
   const extendsOut = allNeighbors.filter((nr) => nr.edge.kind === "extends" && nr.edge.source === node.id);
@@ -74,6 +76,7 @@ export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbol
 
   const relSections: string[] = [];
   if (callers.length > 0) relSections.push(formatRelGroup("Callers", callers));
+  if (testCallers.length > 0) relSections.push(formatTestCallers(testCallers));
   if (callees.length > 0) relSections.push(formatRelGroup("Callees", callees));
   if (imports.length > 0) relSections.push(formatRelGroup("Imports", imports));
   if (extendsOut.length > 0) relSections.push(formatRelGroup("Extends", extendsOut));
@@ -173,6 +176,24 @@ export function symbolCard(params: SymbolCardParams): string {
   return prependTrustHeader(body, { stats, hasLocalExceptions: anchor.stale || renderedSource.hasLocalExceptions });
 }
 
+const TEST_CALLER_FILE_LIMIT = 10;
+
+/** The files of the test cases calling a node, sorted, cut to the ones the card names. */
+export function namedTestCallerFiles(tests: NeighborResult[]): string[] {
+  return [...new Set(tests.map((nr) => nr.node.file))].sort().slice(0, TEST_CALLER_FILE_LIMIT);
+}
+
+/** Test cases calling the node, by file, each with its case count when above one. */
+function formatTestCallers(tests: NeighborResult[]): string {
+  const fileCount = new Set(tests.map((nr) => nr.node.file)).size;
+  const named = namedTestCallerFiles(tests).map((file) => {
+    const count = tests.filter((nr) => nr.node.file === file).length;
+    return count > 1 ? `${file} (${count})` : file;
+  });
+  const suffix = fileCount > named.length ? ` (+${fileCount - named.length} more files)` : "";
+  const fileWord = fileCount === 1 ? "file" : "files";
+  return `  Test callers (${tests.length} in ${fileCount} ${fileWord}):  ${named.join(", ")}${suffix}`;
+}
 function formatRelGroup(label: string, neighbors: NeighborResult[]): string {
   const top = neighbors.slice(0, 5);
   const lines: string[] = [];

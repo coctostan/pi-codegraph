@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { runLspIndexStage } from "../src/indexer/lsp.js";
+import { extractFile } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 
 function mkStore() {
@@ -196,6 +197,32 @@ test("AC21: running the LSP stage twice produces no duplicate edges (idempotent)
   const out = store.getEdgesBySource(caller.id).filter((e) => e.provenance.source === "lsp");
   expect(out).toHaveLength(1); // exactly 1, not 2
   expect(out[0]!.target).toBe(callee.id);
+
+  store.close();
+});
+
+test("a call inside a test callback resolves to its target with the test node kept as the caller", async () => {
+  const { store, callee } = mkStore();
+  const extracted = extractFile("tests/b.test.ts", ['test("targets", () => {', "  target();", "});"].join("\n"));
+  store.addNode(extracted.module);
+  for (const node of extracted.nodes) store.addNode(node);
+  for (const edge of extracted.edges) store.addEdge(edge);
+
+  const client: ITsServerClient = {
+    async definition(file, line, col) {
+      expect([file, line, col]).toEqual(["tests/b.test.ts", 2, 3]);
+      return { file: "src/b.ts", line: 1, col: 17 };
+    },
+    async references() { return []; },
+    async implementations() { return []; },
+    async shutdown() {},
+  };
+
+  await runLspIndexStage(store, "/project", client);
+
+  expect(store.getUnresolvedEdges()).toHaveLength(0);
+  const callers = store.getNeighbors(callee.id, { direction: "in", kind: "calls" });
+  expect(callers.map((c) => [c.node.name, c.edge.provenance.source])).toEqual([["tests/b.test.ts > targets", "lsp"]]);
 
   store.close();
 });
