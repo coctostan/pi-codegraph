@@ -49,6 +49,8 @@ export interface GraphEdge {
   kind: EdgeKind;
   provenance: Provenance;
   created_at: number;
+  /** A `calls` edge's call site: the 1-based line and column of its call expression's last character. */
+  call_end?: { line: number; col: number };
 }
 
 export function nodeId(file: string, name: string, startLine: number): string {

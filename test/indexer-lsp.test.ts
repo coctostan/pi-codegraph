@@ -3,6 +3,7 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { runLspIndexStage } from "../src/indexer/lsp.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
+import type { GraphEdge } from "../src/graph/types.js";
 
 function mkStore() {
   const store = new SqliteGraphStore();
@@ -197,6 +198,45 @@ test("AC21: running the LSP stage twice produces no duplicate edges (idempotent)
   const out = store.getEdgesBySource(caller.id).filter((e) => e.provenance.source === "lsp");
   expect(out).toHaveLength(1); // exactly 1, not 2
   expect(out[0]!.target).toBe(callee.id);
+
+  store.close();
+});
+
+test("the LSP stage's upgraded edges keep their call_end, and an edge it leaves unresolved keeps its own", async () => {
+  const { store, caller, callee } = mkStore();
+  const call = (target: string, evidence: string, line: number): GraphEdge => ({
+    source: caller.id,
+    target,
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence, content_hash: "h-a" },
+    created_at: line,
+    call_end: { line, col: 12 },
+  });
+  const other = { ...callee, id: "src/c.ts::other:1", name: "other", file: "src/c.ts" };
+  store.addNode(other);
+  store.addEdge(call("__unresolved__::target:0", "target:2:5", 2));
+  store.addEdge(call(other.id, "other:3:5", 3));
+  store.addEdge(call("__unresolved__::missing:0", "missing:4:5", 4));
+
+  const client: ITsServerClient = {
+    async definition(_file, line) {
+      if (line === 2) return { file: "src/b.ts", line: 1, col: 17 };
+      if (line === 3) return { file: "src/c.ts", line: 1, col: 17 };
+      return null;
+    },
+    async references() { return []; },
+    async implementations() { return []; },
+    async shutdown() {},
+  };
+
+  await runLspIndexStage(store, "/project", client);
+
+  const rows = store.getEdgesBySource(caller.id).map((e) => [e.target, e.provenance.source, e.call_end]);
+  expect(rows.sort()).toEqual([
+    ["__unresolved__::missing:0", "tree-sitter", { line: 4, col: 12 }],
+    [callee.id, "lsp", { line: 2, col: 12 }],
+    [other.id, "lsp", { line: 3, col: 12 }],
+  ].sort());
 
   store.close();
 });
