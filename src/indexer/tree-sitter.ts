@@ -82,11 +82,13 @@ function isExportedNode(node: SyntaxNode): boolean {
 const TEST_CALLEES = new Set(["test", "it"]);
 const CALLBACK_TYPES = new Set(["arrow_function", "function_expression"]);
 
-// Each declaration's field that binds names; every identifier under it counts as bound, a default value's too.
+// Each declaration's field that binds names.
 const BINDING_FIELDS: Record<string, string> = {
   function_declaration: "name",
+  function_signature: "name",
   generator_function_declaration: "name",
   function_expression: "name",
+  generator_function: "name",
   class_declaration: "name",
   abstract_class_declaration: "name",
   class: "name",
@@ -99,6 +101,19 @@ const BINDING_FIELDS: Record<string, string> = {
   for_in_statement: "left",
 };
 const BOUND_NAME_TYPES = new Set(["identifier", "type_identifier", "shorthand_property_identifier_pattern"]);
+// The part of a pattern that binds: not a default value nor a computed key, which are expressions.
+const PATTERN_BINDING_FIELD: Record<string, string> = {
+  pair_pattern: "value",
+  assignment_pattern: "left",
+  object_assignment_pattern: "left",
+};
+
+function collectBoundNames(node: SyntaxNode, into: Set<string>): void {
+  if (BOUND_NAME_TYPES.has(node.type)) into.add(node.text);
+  const field = PATTERN_BINDING_FIELD[node.type];
+  const parts = field ? [node.childForFieldName(field)] : node.namedChildren;
+  for (const part of parts) if (part) collectBoundNames(part, into);
+}
 
 /** A package (`yaml`, `@scope/pkg`) or scheme (`node:fs`, `bun:test`) specifier, not `./`, `/`, `#`, `~/` or `@/`. */
 // shortcut: a tsconfig `baseUrl` import like `src/x` and a monorepo's workspace package read as packages, so their
@@ -297,7 +312,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
     walk(tree.rootNode, (n) => {
       const binding = BINDING_FIELDS[n.type] && n.childForFieldName(BINDING_FIELDS[n.type]!);
-      if (binding) walk(binding, (b) => BOUND_NAME_TYPES.has(b.type) && boundNames.add(b.text));
+      if (binding) collectBoundNames(binding, boundNames);
       if (n.type === "function_declaration") {
         const nameNode = n.childForFieldName("name");
         if (!nameNode) return;
@@ -387,6 +402,12 @@ export function extractFile(file: string, content: string): ExtractionResult {
       }
 
       if (n.type === "import_statement") {
+        // `import x = require("pkg")` binds a local and makes no `imports` edge.
+        const requireClause = n.namedChildren.find((c) => c.type === "import_require_clause");
+        const requireLocal = requireClause?.namedChildren.find((c) => c.type === "identifier");
+        const requireSource = requireClause?.childForFieldName("source");
+        if (requireLocal && requireSource) addImportLocal(requireLocal.text, isPackageSpecifier(requireSource.text.slice(1, -1)));
+
         const sourceNode = n.childForFieldName("source");
         if (!sourceNode) return;
 

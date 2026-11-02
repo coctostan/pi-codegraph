@@ -93,6 +93,35 @@ test("a global or package name the file binds itself keeps its edge", () => {
   expect(calleesOf(source, "run")).toEqual(["Map", "fetch", "parse", "setTimeout"]);
 });
 
+test("a name used only as a default value or computed key stays unbound, and import-equals counts as an import", () => {
+  const source = [
+    'import parse = require("yaml");',
+    'import local = require("./local");',
+    "export function run({ cb = fetch, [queueMicrotask]: it }: Opts, [m = Map] = []) {",
+    "  const { req = setTimeout } = opts;",
+    "  queueMicrotask();",
+    "  fetch();",
+    "  new Map();",
+    "  setTimeout();",
+    "  parse('x');",
+    "  local();",
+    "}",
+  ].join("\n");
+  expect(calleesOf(source, "run")).toEqual(["local"]);
+});
+
+test("an ambient declaration or a named generator expression binds its name", () => {
+  const source = [
+    "declare function fetch(path: string): void;",
+    "export function run() {",
+    "  fetch('local');",
+    "  const g = function* structuredClone() { yield 1; };",
+    "  structuredClone();",
+    "}",
+  ].join("\n");
+  expect(calleesOf(source, "run")).toEqual(["fetch", "structuredClone"]);
+});
+
 test("a db at schema_version 1 re-extracts every file once, then keeps its hashes", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-cg-external-calls-upgrade-"));
   const dbPath = join(root, "graph.db");
