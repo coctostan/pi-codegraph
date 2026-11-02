@@ -20,6 +20,7 @@ test("a literal-titled test( or it( callback becomes a test node spanning the ca
     "it(`drops the rest`, function () {",
     "  drop();",
     "});",
+    'test(/* regression */ "keeps a comment", () => keep());',
   ].join("\n");
 
   const tests = extractFile(file, content).nodes.filter((n) => n.kind === "test");
@@ -27,6 +28,7 @@ test("a literal-titled test( or it( callback becomes a test node spanning the ca
   expect(tests.map((n) => [n.name, n.start_line, n.end_line])).toEqual([
     [`${file} > adds one`, 2, 4],
     [`${file} > drops the rest`, 5, 7],
+    [`${file} > keeps a comment`, 8, 8],
   ]);
 });
 

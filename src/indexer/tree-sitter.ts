@@ -83,7 +83,7 @@ const CALLBACK_TYPES = new Set(["arrow_function", "function_expression"]);
 function testCall(n: SyntaxNode): { title: string | null; callback: SyntaxNode } | null {
   const callee = n.childForFieldName("function");
   if (callee?.type !== "identifier" || !TEST_CALLEES.has(callee.text)) return null;
-  const args = n.childForFieldName("arguments")?.namedChildren ?? [];
+  const args = (n.childForFieldName("arguments")?.namedChildren ?? []).filter((a) => a.type !== "comment");
   const callback = args.find((a) => CALLBACK_TYPES.has(a.type));
   if (!callback) return null;
   const first = args[0]!;

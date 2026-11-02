@@ -35,7 +35,12 @@ test("the card lists test cases apart from the 5-name Callers cap, by file", () 
       "  Test callers (13 in 12 files):  tests/t10.test.ts, tests/t11.test.ts, tests/t12.test.ts, tests/t13.test.ts, " +
         "tests/t14.test.ts, tests/t15.test.ts, tests/t16.test.ts, tests/t17.test.ts, tests/t18.test.ts, tests/t19.test.ts (+2 more files)",
     );
-    expect(text).not.toContain("> one");
+    // No file exists under /nonexistent, so the Trust block names every node in the card's freshness scope.
+    const affected = text.split("\n").find((line) => line.startsWith("- affected symbols:"))!;
+    expect(affected).toContain("tests/t10.test.ts > case");
+    expect(affected).toContain("tests/t19.test.ts > case");
+    expect(affected).not.toContain("tests/t20.test.ts > case");
+    expect(affected).not.toContain("> one");
   } finally {
     store.close();
   }
