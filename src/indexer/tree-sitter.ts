@@ -101,7 +101,8 @@ const BINDING_FIELDS: Record<string, string> = {
 const BOUND_NAME_TYPES = new Set(["identifier", "type_identifier", "shorthand_property_identifier_pattern"]);
 
 /** A package (`yaml`, `@scope/pkg`) or scheme (`node:fs`, `bun:test`) specifier, not `./`, `/`, `#`, `~/` or `@/`. */
-// shortcut: a tsconfig `baseUrl` import like `src/x` reads as a package, upgrade when an indexed repo uses one.
+// shortcut: a tsconfig `baseUrl` import like `src/x` and a monorepo's workspace package read as packages, so their
+// calls go unrecorded; upgrade when an indexed repo uses one, by resolving the specifier against tsconfig and workspaces.
 const isPackageSpecifier = (specifier: string): boolean => /^(?:[a-z][a-z0-9+.-]*:|@?[a-z0-9])/i.test(specifier);
 
 /** A `test(`/`it(` call's callback and its title, null when the title is no literal; null when `n` is no such call. */
