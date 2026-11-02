@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 test("impact appends always-on why annotations with chain confidence", () => {
   const projectRoot = join(tmpdir(), `pi-cg-impact-signals-${Date.now()}`);
@@ -25,7 +25,7 @@ test("impact appends always-on why annotations with chain confidence", () => {
       created_at: 1,
     });
 
-    const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
+    const out = impactResult({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toMatch(
       /src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:0, fan-out:1, roles:none, coverage:untested, co-change:0\.00, chain-confidence:0\.80\]/,

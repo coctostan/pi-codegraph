@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 function setupWalkFixture() {
   const projectRoot = join(tmpdir(), `pi-cg-repro-080-${Date.now()}`);
@@ -35,7 +35,7 @@ function setupWalkFixture() {
 test("trace labels a missing entry as a symbol lookup failure", () => {
   const fixture = setupWalkFixture();
   try {
-    const output = trace({ entry: "runPipeline", store: fixture.store, projectRoot: fixture.projectRoot });
+    const output = traceResult({ entry: "runPipeline", store: fixture.store, projectRoot: fixture.projectRoot }).text;
 
     expect(output).toContain('Symbol "runPipeline" not found');
   } finally {
@@ -46,13 +46,13 @@ test("trace labels a missing entry as a symbol lookup failure", () => {
 test("trace suggests the real symbol location when the file filter misses", () => {
   const fixture = setupWalkFixture();
   try {
-    const directOutput = trace({ entry: "walk", file: fixture.file, store: fixture.store, projectRoot: fixture.projectRoot });
-    const wrongFileOutput = trace({
+    const directOutput = traceResult({ entry: "walk", file: fixture.file, store: fixture.store, projectRoot: fixture.projectRoot }).text;
+    const wrongFileOutput = traceResult({
       entry: "walk",
       file: "src/does-not-exist.ts",
       store: fixture.store,
       projectRoot: fixture.projectRoot,
-    });
+    }).text;
 
     expect(directOutput).toContain("walk");
     expect(wrongFileOutput).toContain("src/walk.ts");

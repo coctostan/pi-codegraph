@@ -13,6 +13,7 @@ import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.j
 import { createSignalComputer, type NodeSignals } from "../output/signals.js";
 import { renderSymbolCardBody, renderSymbolSourceSection } from "./symbol-card.js";
 import { renderSymbolContractBody } from "./symbol-contract.js";
+import { formatAmbiguousMatches } from "./symbol-resolution.js";
 
 export interface SymbolGraphParams {
   name: string;
@@ -21,11 +22,6 @@ export interface SymbolGraphParams {
   limit?: number;
   store: GraphStore;
   projectRoot: string;
-}
-
-export interface RenderedSymbolNeighborhood {
-  body: string;
-  hasLocalExceptions: boolean;
 }
 
 function isAgentEdgeStale(nr: NeighborResult, store: GraphStore): boolean {
@@ -70,10 +66,6 @@ function buildSection(
   };
 }
 
-function hasStaleItems(section: NeighborSection): boolean {
-  return section.items.some((item) => item.anchor.stale);
-}
-
 /** Map (edgeKind, direction) to a human-readable section title. */
 function sectionTitle(edgeKind: string, direction: "in" | "out"): string {
   switch (edgeKind) {
@@ -100,25 +92,8 @@ function sectionTitle(edgeKind: string, direction: "in" | "out"): string {
   }
 }
 
-export function renderLegacyNeighborhoodBody(params: SymbolGraphParams): RenderedSymbolNeighborhood {
-  const { name, file, limit = 10, store, projectRoot } = params;
-  const nodes = store.findNodes(name, file);
-  if (nodes.length === 0) {
-    return { body: `Symbol "${name}" not found`, hasLocalExceptions: false };
-  }
-  if (nodes.length > 1) {
-    const lines: string[] = [`Multiple matches for "${name}":\n`];
-    for (const node of nodes) {
-      const anchor = computeAnchor(node, projectRoot);
-      const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
-    }
-    return {
-      body: `${lines.join("\n")}\n`,
-      hasLocalExceptions: lines.some((line) => line.includes("[stale]")),
-    };
-  }
-    const node = nodes[0]!;
+function renderNeighborhoodBody(params: SymbolGraphParams, node: GraphNode): string {
+  const { limit = 10, store, projectRoot } = params;
   const symbolAnchor = computeAnchor(node, projectRoot);
   const signalComputer = createSignalComputer(store);
   const allNeighbors = store.getNeighbors(node.id);
@@ -162,13 +137,10 @@ export function renderLegacyNeighborhoodBody(params: SymbolGraphParams): Rendere
     if (unresolvedResults.length > 0) {
     namedSections.push({ title: "Unresolved", section: buildSection(unresolvedResults, limit, projectRoot, store) });
   }
-  return {
-    body: formatNeighborhood(
-      { name: node.name, kind: node.kind, anchor: symbolAnchor, signals: signalComputer.compute(node.id) },
-      namedSections,
-    ),
-    hasLocalExceptions: symbolAnchor.stale || namedSections.some((ns) => hasStaleItems(ns.section)),
-  };
+  return formatNeighborhood(
+    { name: node.name, kind: node.kind, anchor: symbolAnchor, signals: signalComputer.compute(node.id) },
+    namedSections,
+  );
 }
 
 function collectVisibleNeighborhoodScope(params: SymbolGraphParams, node: GraphNode): {
@@ -240,19 +212,18 @@ function collectDefaultCardScope(params: SymbolGraphParams, node: GraphNode): {
   };
 }
 
-function collectSymbolGraphScope(params: SymbolGraphParams): {
+function collectSymbolGraphScope(params: SymbolGraphParams, nodes: GraphNode[]): {
   targetNodes: GraphNode[];
   resultNodes: GraphNode[];
   resultEdges: GraphEdge[];
 } {
-  const resolvedNodes = params.store.findNodes(params.name, params.file);
-  const targetNodes = resolvedNodes.length === 1 ? [resolvedNodes[0]!] : [];
+  const targetNodes = nodes.length === 1 ? [nodes[0]!] : [];
   const resultNodes = new Map<string, GraphNode>();
   const resultEdges: GraphEdge[] = [];
 
-  for (const node of resolvedNodes) resultNodes.set(node.id, node);
-  if (resolvedNodes.length === 1) {
-    const node = resolvedNodes[0]!;
+  for (const node of nodes) resultNodes.set(node.id, node);
+  if (nodes.length === 1) {
+    const node = nodes[0]!;
     const scoped = (params.include ?? []).includes("neighborhood")
       ? collectVisibleNeighborhoodScope(params, node)
       : collectDefaultCardScope(params, node);
@@ -262,48 +233,34 @@ function collectSymbolGraphScope(params: SymbolGraphParams): {
 
   return { targetNodes, resultNodes: [...resultNodes.values()], resultEdges };
 }
-/** The rendered card plus whether `name` (scoped by `file`) resolved to exactly one node. */
-export function symbolGraphResult(params: SymbolGraphParams): { text: string; resolved: boolean } {
-  const { include } = params;
-  const resolvedNodes = params.store.findNodes(params.name, params.file);
-  const useNeighborhoodBase = (include ?? []).includes("neighborhood");
-  const base = useNeighborhoodBase
-    ? renderLegacyNeighborhoodBody(params)
-    : renderSymbolCardBody({
-        name: params.name,
-        file: params.file,
-        store: params.store,
-        projectRoot: params.projectRoot,
-      });
-  let body = base.body;
-  if (resolvedNodes.length === 1 && (include ?? []).includes("contract")) {
-    const renderedContract = renderSymbolContractBody({
-      name: params.name,
-      file: params.file,
-      store: params.store,
-      projectRoot: params.projectRoot,
-    });
-    body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${renderedContract.body}`;
+
+/**
+ * The rendered card plus whether `name` (scoped by `file`) resolved to exactly one node. `nodes`, when given, is the
+ * `findNodes(name, file)` result the caller already holds, so the call looks the name up once.
+ */
+export function symbolGraphResult(params: SymbolGraphParams & { nodes?: GraphNode[] }): { text: string; resolved: boolean } {
+  const { name, store, projectRoot } = params;
+  const include = params.include ?? [];
+  const nodes = params.nodes ?? store.findNodes(name, params.file);
+  let body: string;
+  if (nodes.length === 0) {
+    body = `Symbol "${name}" not found`;
+  } else if (nodes.length > 1) {
+    body = formatAmbiguousMatches(name, nodes, projectRoot);
+  } else {
+    const node = nodes[0]!;
+    body = include.includes("neighborhood")
+      ? renderNeighborhoodBody(params, node)
+      : renderSymbolCardBody({ node, store, projectRoot }).body;
+    const extras = [
+      include.includes("contract") ? renderSymbolContractBody({ node, store, projectRoot }).body : null,
+      include.includes("source") ? renderSymbolSourceSection({ node, store, projectRoot }).body : null,
+    ];
+    for (const extra of extras) {
+      if (extra !== null) body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${extra}`;
+    }
   }
 
-  if (resolvedNodes.length === 1 && (include ?? []).includes("source")) {
-    const renderedSource = renderSymbolSourceSection({
-      name: params.name,
-      file: params.file,
-      store: params.store,
-      projectRoot: params.projectRoot,
-    });
-    body = `${body}${body.endsWith("\n") ? "\n" : "\n\n"}${renderedSource.body}`;
-  }
-
-  const freshness = evaluateFreshness({
-    store: params.store,
-    projectRoot: params.projectRoot,
-    ...collectSymbolGraphScope(params),
-  });
-  return { text: prependFreshnessHeader(body, freshness), resolved: resolvedNodes.length === 1 };
-}
-
-export function symbolGraph(params: SymbolGraphParams): string {
-  return symbolGraphResult(params).text;
+  const freshness = evaluateFreshness({ store, projectRoot, ...collectSymbolGraphScope(params, nodes) });
+  return { text: prependFreshnessHeader(body, freshness), resolved: nodes.length === 1 };
 }

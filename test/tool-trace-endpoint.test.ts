@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace resolves endpoint entries through routes_to edges to the same deterministic coverage-backed trace policy", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-endpoint-${Date.now()}`);
@@ -45,7 +45,7 @@ test("trace resolves endpoint entries through routes_to edges to the same determ
       ],
     });
 
-    const output = trace({ entry: "endpoint:GET:/users", store, projectRoot });
+    const output = traceResult({ entry: "endpoint:GET:/users", store, projectRoot }).text;
     expect(output).toContain("mode: coverage");
     expect(output).toContain("usersTest");
     expect(output).toContain("handler");

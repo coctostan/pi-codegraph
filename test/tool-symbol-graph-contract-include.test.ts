@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { suppressFreshTrustHeader } from "../src/output/read-only-ceremony.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import * as symbolContractTool from "../src/tools/symbol-contract.js";
 
 function setupContractFixture(): { projectRoot: string; store: SqliteGraphStore; cleanup: () => void } {
@@ -70,21 +70,14 @@ function setupContractFixture(): { projectRoot: string; store: SqliteGraphStore;
 }
 
 test("symbolGraph appends the standalone symbol_contract body when include contains contract", () => {
-  const renderSymbolContractBody = (symbolContractTool as any).renderSymbolContractBody as
-    | ((params: { name: string; file?: string; store: SqliteGraphStore; projectRoot: string }) => { body: string; hasLocalExceptions: boolean })
-    | undefined;
-  if (typeof renderSymbolContractBody !== "function") {
-    throw new Error("renderSymbolContractBody is not exported from symbol-contract");
-  }
-
   const { projectRoot, store, cleanup } = setupContractFixture();
   try {
-    const base = symbolGraph({ name: "validate", store, projectRoot });
-    const rendered = renderSymbolContractBody({ name: "validate", store, projectRoot });
+    const base = symbolGraphResult({ name: "validate", store, projectRoot }).text;
+    const rendered = symbolContractTool.renderSymbolContractBody({ node: store.findNodes("validate")[0]!, store, projectRoot });
     const standaloneBody = suppressFreshTrustHeader(
       symbolContractTool.symbolContract({ name: "validate", store, projectRoot }),
     );
-    const withContract = symbolGraph({ name: "validate", include: ["contract"] as any, store, projectRoot });
+    const withContract = symbolGraphResult({ name: "validate", include: ["contract"] as any, store, projectRoot }).text;
     expect(standaloneBody).toBe(rendered.body);
     expect(withContract.startsWith(base)).toBe(true);
     expect(withContract.slice(base.length)).toBe(`\n${standaloneBody}`);
@@ -97,8 +90,8 @@ test("symbolGraph appends the standalone symbol_contract body when include conta
 test("symbolGraph keeps unknown-symbol contract lookups explicit without duplicating the empty state", () => {
   const { projectRoot, store, cleanup } = setupContractFixture();
   try {
-    const base = symbolGraph({ name: "doesNotExist", store, projectRoot });
-    const withContract = symbolGraph({ name: "doesNotExist", include: ["contract"] as any, store, projectRoot });
+    const base = symbolGraphResult({ name: "doesNotExist", store, projectRoot }).text;
+    const withContract = symbolGraphResult({ name: "doesNotExist", include: ["contract"] as any, store, projectRoot }).text;
     expect(withContract).toBe(base);
     expect(withContract).toContain('Symbol "doesNotExist" not found');
     expect((withContract.match(/Symbol "doesNotExist" not found/g) ?? []).length).toBe(1);
@@ -124,7 +117,7 @@ test("symbolGraph keeps ambiguous contract lookups explicit without duplicating 
       content_hash: dupHash,
     });
 
-    const ambiguous = symbolGraph({ name: "validate", include: ["contract"] as any, store, projectRoot });
+    const ambiguous = symbolGraphResult({ name: "validate", include: ["contract"] as any, store, projectRoot }).text;
     expect((ambiguous.match(/Multiple matches for "validate":/g) ?? []).length).toBe(1);
     expect(ambiguous).toContain("src/validate.ts");
     expect(ambiguous).toContain("src/validate-class.ts");

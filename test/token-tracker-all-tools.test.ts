@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { resetSession, appendTokenMeta } from "../src/tools/token-tracker.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 beforeEach(() => {
   resetSession();
 });
@@ -23,7 +23,7 @@ function makeTestEnv() {
 test("appendTokenMeta works with impact", () => {
   const { projectRoot, store, cleanup } = makeTestEnv();
   try {
-    const text = impact({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot });
+    const text = impactResult({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot }).text;
     const output = appendTokenMeta("impact", { symbols: ["foo"] }, text, store, projectRoot);
     expect(output).toContain("_meta:");
     expect(output).toContain("session_calls:1");
@@ -35,11 +35,11 @@ test("appendTokenMeta works with impact", () => {
 test("session accumulates across repeated kept tool calls", () => {
   const { projectRoot, store, cleanup } = makeTestEnv();
   try {
-    const first = impact({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot });
+    const first = impactResult({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot }).text;
     const firstOutput = appendTokenMeta("impact", { symbols: ["foo"] }, first, store, projectRoot);
     expect(firstOutput).toContain("session_calls:1");
 
-    const second = impact({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot });
+    const second = impactResult({ symbols: ["foo"], changeType: "behavior_change", store, projectRoot }).text;
     const secondOutput = appendTokenMeta("impact", { symbols: ["foo"] }, second, store, projectRoot);
     expect(secondOutput).toContain("session_calls:2");
   } finally {

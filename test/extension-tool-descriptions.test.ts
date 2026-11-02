@@ -1,7 +1,11 @@
 import { test } from "bun:test";
-import { expectedDefaultPublicToolDescriptions } from "./phase5-decision-matrix.js";
+
 test("pi extension registers the approved descriptions for the default public tools", async () => {
-  const expected = expectedDefaultPublicToolDescriptions;
+  const expected = new Map([
+    ["symbol_graph", "Summarize a symbol with relationships, tests, and key metadata."],
+    ["impact", "Classify blast radius for changed symbols."],
+    ["trace", "Return an execution path from an entry point, coverage-backed when available."],
+  ]);
   const expectedIncludeDescription = "Extra sections to include.";
   const registeredTools: Array<{ name: string; description: string; parameters?: any }> = [];
   const mockPi = {

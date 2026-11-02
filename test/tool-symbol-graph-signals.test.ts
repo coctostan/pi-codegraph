@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbolGraph renders inline role tags on header and resolved neighbors", () => {
   const projectRoot = join(tmpdir(), `pi-cg-sg-signals-${Date.now()}`);
@@ -47,7 +47,7 @@ test("symbolGraph renders inline role tags on header and resolved neighbors", ()
       created_at: 1,
     });
 
-    const out = symbolGraph({ name: "shared", include: ["neighborhood"] as any, store, projectRoot });
+    const out = symbolGraphResult({ name: "shared", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     expect(out).toMatch(/src\/shared\.ts  1:[0-9a-f]{3} \[entry-point, tested\]/);
     expect(out).not.toMatch(/src\/shared\.ts:1:[0-9a-f]{4}/);

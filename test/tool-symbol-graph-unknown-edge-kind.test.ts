@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbolGraph renders unknown edge kind with generic title instead of dropping it", () => {
   const projectRoot = join(tmpdir(), `pi-cg-unknown-edge-${Date.now()}`);
@@ -37,7 +37,7 @@ test("symbolGraph renders unknown edge kind with generic title instead of droppi
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "alpha", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "alpha", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Should NOT silently drop the edge
     expect(output).toContain("beta");

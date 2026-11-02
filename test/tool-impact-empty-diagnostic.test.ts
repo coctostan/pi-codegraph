@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 function tmpProject(): string {
   const root = join(tmpdir(), `pi-cg-impact-diag-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -18,7 +18,7 @@ test("impact() entry-point seed — fanIn 0, no callers — emits entry-point di
   try {
     store.addNode({ id: "src/entry.ts::entryPoint:1", kind: "function", name: "entryPoint", file: "src/entry.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
 
-    const out = impact({ symbols: ["entryPoint"], changeType: "signature_change", store, projectRoot, maxDepth: 5 });
+    const out = impactResult({ symbols: ["entryPoint"], changeType: "signature_change", store, projectRoot, maxDepth: 5 }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found — 'entryPoint' is an entry point with no callers.");
     // Diagnostic must end with a trailing newline so downstream callers aren't glued to it.
@@ -36,7 +36,7 @@ test("impact() interface seed without implementors — emits interface diagnosti
   try {
     store.addNode({ id: "src/iface.ts::GraphStore:1", kind: "interface", name: "GraphStore", file: "src/iface.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
 
-    const out = impact({ symbols: ["GraphStore"], changeType: "removal", store, projectRoot, maxDepth: 5 });
+    const out = impactResult({ symbols: ["GraphStore"], changeType: "removal", store, projectRoot, maxDepth: 5 }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toContain("No call-edge dependents found for interface 'GraphStore'. Consider checking implementors via symbol_graph.");
     expect(out.endsWith("\n")).toBe(true);
@@ -54,7 +54,7 @@ test("impact() genuinely isolated symbol (non-entry, non-interface, no inbound) 
     // Not exported → not an entry-point per signal roles; not an interface; no inbound edges.
     store.addNode({ id: "src/util.ts::sha256Hex:1", kind: "function", name: "sha256Hex", file: "src/util.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: false });
 
-    const out = impact({ symbols: ["sha256Hex"], changeType: "removal", store, projectRoot, maxDepth: 5 });
+    const out = impactResult({ symbols: ["sha256Hex"], changeType: "removal", store, projectRoot, maxDepth: 5 }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found for 'sha256Hex' within depth 5.");
     expect(out.endsWith("\n")).toBe(true);
@@ -73,7 +73,7 @@ test("impact() multiple seeds with mixed empty categories — one line per seed 
     store.addNode({ id: "src/entry.ts::entryPoint:1", kind: "function", name: "entryPoint", file: "src/entry.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
     store.addNode({ id: "src/iface.ts::GraphStore:1", kind: "interface", name: "GraphStore", file: "src/iface.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
 
-    const out = impact({ symbols: ["entryPoint", "GraphStore"], changeType: "signature_change", store, projectRoot, maxDepth: 5 });
+    const out = impactResult({ symbols: ["entryPoint", "GraphStore"], changeType: "signature_change", store, projectRoot, maxDepth: 5 }).text;
     const entryIdx = out.indexOf("'entryPoint' is an entry point");
     const ifaceIdx = out.indexOf("interface 'GraphStore'");
     expect(entryIdx).toBeGreaterThan(-1);

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 function sha256Hex(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -42,7 +42,7 @@ test("trace returns a disambiguation list when entry matches multiple symbols", 
       content_hash: sha256Hex(helperContent),
     });
 
-    const output = trace({ entry: "sha256Hex", store, projectRoot });
+    const output = traceResult({ entry: "sha256Hex", store, projectRoot }).text;
 
     expect(output).toContain('Multiple matches for "sha256Hex"');
     expect(output).toMatch(/src\/hash\.ts  1:[0-9a-f]{3}/);

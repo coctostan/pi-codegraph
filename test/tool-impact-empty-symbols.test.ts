@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 function setupProjectWithGraph() {
   const projectRoot = join(tmpdir(), `pi-cg-impact-empty-symbols-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -27,13 +27,13 @@ function setupProjectWithGraph() {
 test("impact() returns error message when symbols is empty array", () => {
   const { projectRoot, store } = setupProjectWithGraph();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: [],
       changeType: "behavior_change",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     expect(out).toContain("Trust: fresh");
     expect(out).toContain("Error");
     expect(out).toContain("symbols");
@@ -47,13 +47,13 @@ test("impact() returns error message when symbols is empty array", () => {
 test("impact() returns error message when symbols is undefined", () => {
   const { projectRoot, store } = setupProjectWithGraph();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: undefined as any,
       changeType: "behavior_change",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     expect(out).toContain("Trust: fresh");
     expect(out).toContain("Error");
     expect(out).toContain("symbols");
@@ -66,13 +66,13 @@ test("impact() returns error message when symbols is undefined", () => {
 test("impact() returns error message for invalid changeType", () => {
   const { projectRoot, store } = setupProjectWithGraph();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: ["shared"],
       changeType: "invalid_type" as any,
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toContain("Error");
     expect(out).toContain("changeType");

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 test("impact reports stale dependency freshness warning for incomplete blast radius", () => {
   const projectRoot = join(tmpdir(), `pi-cg-impact-freshness-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -26,11 +26,11 @@ test("impact reports stale dependency freshness warning for incomplete blast rad
     store.setFileHash("src/shared.ts", sharedHash);
     store.setFileHash("src/caller.ts", callerHash);
 
-    const fresh = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot });
+    const fresh = impactResult({ symbols: ["shared"], changeType: "signature_change", store, projectRoot }).text;
     expect(fresh.split("\n")[0]).toBe("Trust: fresh");
 
     writeFileSync(join(projectRoot, "src", "caller.ts"), callerV2);
-    const stale = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot });
+    const stale = impactResult({ symbols: ["shared"], changeType: "signature_change", store, projectRoot }).text;
     expect(stale).toContain("Trust: partial");
     expect(stale).toContain("changed files: src/caller.ts");
     expect(stale).toContain("affected symbols: caller, shared");

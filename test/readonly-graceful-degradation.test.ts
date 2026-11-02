@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { TsServerClient } from "../src/indexer/tsserver-client.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
@@ -104,7 +104,7 @@ describe("Bug #038: readonly database graceful degradation", () => {
     const projectRoot = createTestProject();
     const dbPath = populateStore(projectRoot);
     const store = openReadonly(dbPath);
-    const result = symbolGraph({ name: "alpha", store, projectRoot });
+    const result = symbolGraphResult({ name: "alpha", store, projectRoot }).text;
     expect(result).toContain("alpha");
     expect(result).toContain("function");
     store.close();

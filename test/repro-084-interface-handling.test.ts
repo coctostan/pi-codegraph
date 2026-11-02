@@ -6,7 +6,7 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { resolveImplementations } from "../src/indexer/lsp-resolver.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 function addIndexedFile(store: SqliteGraphStore, file: string, content: string): void {
   const extracted = extractFile(file, content);
@@ -37,26 +37,26 @@ test("repro #076: symbolGraph contract output for interfaces should list interfa
   const store = new SqliteGraphStore();
   try {
     addIndexedFile(store, "src/store.ts", storeFile);
-    const graphStoreOutput = symbolGraph({
+    const graphStoreOutput = symbolGraphResult({
       name: "GraphStore",
       file: "src/store.ts",
       include: ["contract"],
       store,
       projectRoot,
-    });
+    }).text;
 
     expect(graphStoreOutput).toContain("## Contract: GraphStore");
     expect(graphStoreOutput).toContain("### Methods");
     expect(graphStoreOutput).toContain("addNode(node: GraphNode): void");
     expect(graphStoreOutput).toContain("getNode(id: string): GraphNode | null");
 
-    const graphStatisticsOutput = symbolGraph({
+    const graphStatisticsOutput = symbolGraphResult({
       name: "GraphStatistics",
       file: "src/store.ts",
       include: ["contract"],
       store,
       projectRoot,
-    });
+    }).text;
 
     expect(graphStatisticsOutput).toContain("## Contract: GraphStatistics");
     expect(graphStatisticsOutput).toContain("### Fields");

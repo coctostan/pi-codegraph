@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphNode } from "../src/graph/types.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 function createCoverageFixture(includeUnresolved = false): {
   projectRoot: string;
@@ -47,7 +47,7 @@ function createCoverageFixture(includeUnresolved = false): {
 test("trace reports unknown freshness for unresolved stored coverage steps", () => {
   const fixture = createCoverageFixture(true);
   try {
-    const output = trace({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot });
+    const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot }).text;
     expect(output).toContain("Trust: unknown");
     expect(output).toContain("trace path may be unreliable; refresh index before relying on this result");
     expect(output).toContain("src/app.ts::removed:9  unresolved [stale]");
@@ -61,7 +61,7 @@ test("trace reports changed files and row-level stale markers for stale stored t
   const fixture = createCoverageFixture(false);
   try {
     writeFileSync(join(fixture.projectRoot, "src", "app.ts"), "export function prod() { return 2; }\n");
-    const output = trace({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot });
+    const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot }).text;
     expect(output).toContain("Trust: partial");
     expect(output).toContain("changed files: src/app.ts");
     expect(output).toContain("affected symbols: prod");
@@ -77,7 +77,7 @@ test("trace reports deleted files for stored trace steps whose files were remove
   const fixture = createCoverageFixture(false);
   try {
     unlinkSync(join(fixture.projectRoot, "src", "app.ts"));
-    const output = trace({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot });
+    const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot }).text;
     expect(output).toContain("Trust: partial");
     expect(output).toContain("deleted files: src/app.ts");
     expect(output).toContain("mode: coverage [stale]");

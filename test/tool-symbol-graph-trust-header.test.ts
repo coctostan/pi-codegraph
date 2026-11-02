@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbolGraph prepends the shared trust header and keeps stale row markers local", () => {
   const projectRoot = join(tmpdir(), `pi-cg-sg-trust-${Date.now()}`);
@@ -56,7 +56,7 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
       created_at: 1,
     });
 
-    const freshOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
+    const freshOutput = symbolGraphResult({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot }).text;
     const freshLines = freshOutput.trimEnd().split("\n");
 
     expect(freshLines[0]).toBe("Trust: fresh");
@@ -76,7 +76,7 @@ test("symbolGraph prepends the shared trust header and keeps stale row markers l
       created_at: 2,
     });
 
-    const mixedOutput = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
+    const mixedOutput = symbolGraphResult({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot }).text;
     const mixedLines = mixedOutput.trimEnd().split("\n");
 
     expect(mixedLines[0]).toBe("Trust: partial");

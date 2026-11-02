@@ -40,17 +40,17 @@ test("collectImpact follows inbound `implements` edges: interface change reaches
     // useStore calls MyStore
     addEdge(store, "src/app.ts::useStore:1", "src/impl.ts::MyStore:1", "calls", 0.7);
 
-    const sig = collectImpact({ symbols: ["Store"], changeType: "signature_change", store, maxDepth: 5 });
+    const sig = collectImpact({ seeds: store.findNodes("Store"), changeType: "signature_change", store, maxDepth: 5 });
     expect(sig).toEqual([
       { nodeId: "src/impl.ts::MyStore:1", name: "MyStore", file: "src/impl.ts", depth: 1, classification: "breaking" },
       { nodeId: "src/app.ts::useStore:1", name: "useStore", file: "src/app.ts", depth: 2, classification: "behavioral" },
     ]);
 
-    const removal = collectImpact({ symbols: ["Store"], changeType: "removal", store, maxDepth: 5 });
+    const removal = collectImpact({ seeds: store.findNodes("Store"), changeType: "removal", store, maxDepth: 5 });
     expect(removal.map((h) => h.name)).toEqual(["MyStore", "useStore"]);
     expect(removal.find((h) => h.name === "MyStore")?.classification).toBe("breaking");
 
-    const behavioral = collectImpact({ symbols: ["Store"], changeType: "behavior_change", store, maxDepth: 5 });
+    const behavioral = collectImpact({ seeds: store.findNodes("Store"), changeType: "behavior_change", store, maxDepth: 5 });
     expect(behavioral.map((h) => h.classification)).toEqual(["behavioral", "behavioral"]);
   } finally {
     store.close();
@@ -67,7 +67,7 @@ test("collectImpact deduplicates a node that both `calls` and `implements` a cha
     addEdge(store, "src/dual.ts::Dual:1", "src/iface.ts::Store:1", "implements", 0.9);
     addEdge(store, "src/dual.ts::Dual:1", "src/iface.ts::Store:1", "calls", 0.6);
 
-    const hits = collectImpact({ symbols: ["Store"], changeType: "signature_change", store, maxDepth: 5 });
+    const hits = collectImpact({ seeds: store.findNodes("Store"), changeType: "signature_change", store, maxDepth: 5 });
     // No duplicates for Dual.
     expect(hits.filter((h) => h.nodeId === "src/dual.ts::Dual:1")).toHaveLength(1);
     // It must be classified as the breaking dependent at depth 1.

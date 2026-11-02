@@ -8,7 +8,7 @@ import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { stripTrustHeader } from "../src/output/read-only-ceremony.js";
-import { renderLegacyNeighborhoodBody, symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 
 test("symbol_graph schema accepts only neighborhood, contract, and source includes", () => {
@@ -35,7 +35,7 @@ test("symbol_graph schema accepts only neighborhood, contract, and source includ
   expect(Value.Check(schema, { name: "foo", include: ["signals"] })).toBe(false);
   expect(Value.Check(schema, { name: "foo", include: ["wat"] })).toBe(false);
 });
-test("include:['neighborhood'] returns the byte-identical legacy body and stays the active base when combined", () => {
+test("include:['neighborhood'] renders the neighborhood body and stays the active base when combined", () => {
   const projectRoot = join(tmpdir(), `pi-cg-sg-legacy-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src/a.ts"), "import { bar } from './b';\n\nexport function foo() {\n  bar();\n}\n");
@@ -57,17 +57,15 @@ test("include:['neighborhood'] returns the byte-identical legacy body and stays 
       provenance: { source: "tree-sitter", confidence: 0.5, evidence: "direct call", content_hash: hashA },
       created_at: Date.now(),
     });
-    const expected = renderLegacyNeighborhoodBody({ name: "foo", store, projectRoot }).body;
-    const neighborhood = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }));
-    const combined = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "contract"] as any, store, projectRoot }));
+    const neighborhood = stripTrustHeader(symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text);
+    const combined = stripTrustHeader(symbolGraphResult({ name: "foo", include: ["neighborhood", "contract"] as any, store, projectRoot }).text);
 
-
-    expect(neighborhood).toBe(expected);
+    expect(neighborhood).toContain("### Callees");
     expect(neighborhood.toLowerCase()).not.toContain("deprecated");
     expect(neighborhood).not.toContain("use symbol_graph instead");
     expect(neighborhood).not.toContain("symbol_card(");
     expect(neighborhood).not.toContain("symbol_contract(");
-    expect(combined.startsWith(expected)).toBe(true);
+    expect(combined.startsWith(neighborhood)).toBe(true);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

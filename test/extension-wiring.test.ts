@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { isRemoved } from "./phase5-decision-matrix.js";
 test("pi extension registers symbol_graph tool with correct schema", async () => {
   const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
   const mockPi = {
@@ -22,35 +21,6 @@ test("pi extension registers symbol_graph tool with correct schema", async () =>
   expect(schema.required).not.toContain("file");
 });
 
-if (!isRemoved("resolve_edge")) {
-  test("pi extension registers resolve_edge tool with correct schema", async () => {
-    const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
-    const mockPi = {
-      registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
-        registeredTools.push(tool);
-      },
-      on() {},
-    };
-  const { default: piCodegraph } = await import("../src/index.js");
-  piCodegraph(mockPi as any);
-    const reTool = registeredTools.find((t) => t.name === "resolve_edge");
-  expect(reTool).toBeDefined();
-    const schema = reTool!.parameters as any;
-    expect(schema.properties.source).toBeDefined();
-    expect(schema.properties.target).toBeDefined();
-    expect(schema.properties.kind).toBeDefined();
-    expect(schema.properties.evidence).toBeDefined();
-    expect(schema.required).toContain("source");
-    expect(schema.required).toContain("target");
-    expect(schema.required).toContain("kind");
-    expect(schema.required).toContain("evidence");
-    expect(schema.properties.sourceFile).toBeDefined();
-    expect(schema.properties.targetFile).toBeDefined();
-    expect(schema.required).not.toContain("sourceFile");
-    expect(schema.required).not.toContain("targetFile");
-  });
-}
-
 test("pi extension registers trace tool with correct schema", async () => {
   const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
   const mockPi = {
@@ -72,35 +42,3 @@ test("pi extension registers trace tool with correct schema", async () => {
   expect(schema.required).toContain("entry");
   expect(schema.required).not.toContain("file");
 });
-
-if (!isRemoved("delete_edge")) {
-  test("pi extension registers delete_edge tool with correct schema", async () => {
-  const registeredTools: Array<{ name: string; parameters: unknown; execute: Function }> = [];
-  const mockPi = {
-    registerTool(tool: { name: string; parameters: unknown; execute: Function }) {
-      registeredTools.push(tool);
-    },
-    on() {},
-  };
-
-  const { default: piCodegraph } = await import("../src/index.js");
-  piCodegraph(mockPi as any);
-
-  const deTool = registeredTools.find((t) => t.name === "delete_edge");
-  expect(deTool).toBeDefined();
-
-  const schema = deTool!.parameters as any;
-  expect(schema.properties.source).toBeDefined();
-  expect(schema.properties.target).toBeDefined();
-  expect(schema.properties.kind).toBeDefined();
-  expect(schema.required).toContain("source");
-  expect(schema.required).toContain("target");
-  expect(schema.required).toContain("kind");
-  expect(schema.properties.sourceFile).toBeDefined();
-  expect(schema.properties.targetFile).toBeDefined();
-  expect(schema.required).not.toContain("sourceFile");
-  expect(schema.required).not.toContain("targetFile");
-  // No evidence param (unlike resolve_edge)
-  expect(schema.properties.evidence).toBeUndefined();
-  });
-}

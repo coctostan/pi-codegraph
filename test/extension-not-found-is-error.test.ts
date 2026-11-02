@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Value } from "typebox/value";
-import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import piCodegraph, { getSharedStoreForTesting, resetStoreForTesting } from "../src/index.js";
 
 const roots: string[] = [];
 
@@ -76,5 +76,26 @@ test("a found symbol is not an error", async () => {
     ["trace", { entry: "alpha" }],
   ] as const) {
     expect((await run(name, params)).isError).toBe(false);
+  }
+});
+
+test("each tool looks a requested name up once per call", async () => {
+  const run = setup();
+  await run("trace", { entry: "alpha" }); // index first, so indexing's own lookups stay out of the count
+  const store = getSharedStoreForTesting()!;
+  const findNodes = store.findNodes.bind(store);
+  let lookups = 0;
+  store.findNodes = (name, file) => {
+    if (name === "alpha") lookups++;
+    return findNodes(name, file);
+  };
+  for (const [name, params] of [
+    ["symbol_graph", { name: "alpha", include: ["neighborhood", "contract", "source"] }],
+    ["impact", { symbols: ["alpha"], changeType: "removal" }],
+    ["trace", { entry: "alpha" }],
+  ] as const) {
+    lookups = 0;
+    await run(name, params);
+    expect({ name, lookups }).toEqual({ name, lookups: 1 });
   }
 });

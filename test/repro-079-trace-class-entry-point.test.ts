@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace does not stop at a class entry point that has methods", () => {
   const projectRoot = join(tmpdir(), `pi-cg-repro-079-${Date.now()}`);
@@ -28,7 +28,7 @@ test("trace does not stop at a class entry point that has methods", () => {
     for (const node of extracted.nodes) store.addNode(node);
     for (const edge of extracted.edges) store.addEdge(edge);
 
-    const output = trace({ entry: "SqliteGraphStore", file, store, projectRoot });
+    const output = traceResult({ entry: "SqliteGraphStore", file, store, projectRoot }).text;
     expect(output).not.toMatch(/SqliteGraphStore\s+class .*leaf/);
     expect(output).toMatch(/constructor|class entry:/);
   } finally {

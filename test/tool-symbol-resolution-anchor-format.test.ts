@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { formatAmbiguousMatches } from "../src/tools/symbol-resolution.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 function sha256Hex(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -48,7 +48,7 @@ test("symbolGraph neighborhood ambiguity uses file-separated candidate anchors",
     store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: sha256Hex(aContent) });
     store.addNode({ id: "src/b.ts::foo:1", kind: "class", name: "foo", file: "src/b.ts", start_line: 1, end_line: 1, content_hash: sha256Hex(bContent) });
 
-    const output = symbolGraph({ name: "foo", include: ["neighborhood"], store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", include: ["neighborhood"], store, projectRoot }).text;
 
     expect(output).toContain('Multiple matches for "foo"');
     expect(output).toContain("src/a.ts  1:cef  foo (function)");

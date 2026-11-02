@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 function setupFooBar(): {
   projectRoot: string;
@@ -39,11 +39,11 @@ function setupFooBar(): {
 test("symbolGraph reports partial freshness for stale returned neighborhood evidence", () => {
   const { projectRoot, store, cleanup } = setupFooBar();
   try {
-    const fresh = symbolGraph({ name: "foo", include: ["neighborhood"], store, projectRoot });
+    const fresh = symbolGraphResult({ name: "foo", include: ["neighborhood"], store, projectRoot }).text;
     expect(fresh.split("\n")[0]).toBe("Trust: fresh");
 
     writeFileSync(join(projectRoot, "src", "bar.ts"), "export function bar() { return 2; }\n");
-    const partial = symbolGraph({ name: "foo", include: ["neighborhood"], store, projectRoot });
+    const partial = symbolGraphResult({ name: "foo", include: ["neighborhood"], store, projectRoot }).text;
     expect(partial).toContain("Trust: partial");
     expect(partial).toContain("changed files: src/bar.ts");
     expect(partial).toContain("affected symbols: bar");
@@ -57,7 +57,7 @@ test("symbolGraph reports stale freshness when the target symbol file changed", 
   const { projectRoot, store, cleanup } = setupFooBar();
   try {
     writeFileSync(join(projectRoot, "src", "foo.ts"), "export function foo() { return bar() + 1; }\n");
-    const stale = symbolGraph({ name: "foo", include: ["neighborhood"], store, projectRoot });
+    const stale = symbolGraphResult({ name: "foo", include: ["neighborhood"], store, projectRoot }).text;
     expect(stale).toContain("Trust: stale");
     expect(stale).toContain("changed files: src/foo.ts");
     expect(stale).toContain("affected symbols: bar, foo");
@@ -91,7 +91,7 @@ test("symbolGraph freshness ignores stale neighbors omitted by the rendered limi
     }
 
     writeFileSync(join(projectRoot, "src", "dep2.ts"), "export function dep2() { return 99; }\n");
-    const output = symbolGraph({ name: "root", include: ["neighborhood"], limit: 2, store, projectRoot });
+    const output = symbolGraphResult({ name: "root", include: ["neighborhood"], limit: 2, store, projectRoot }).text;
     expect(output.split("\n")[0]).toBe("Trust: fresh");
     expect(output).toContain("dep0");
     expect(output).toContain("dep1");

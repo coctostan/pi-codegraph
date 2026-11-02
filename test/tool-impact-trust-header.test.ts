@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 test("impact prepends the shared trust header and marks stale-file scenarios as stale", () => {
   const projectRoot = join(tmpdir(), `pi-cg-impact-trust-${Date.now()}`);
@@ -58,13 +58,13 @@ test("impact prepends the shared trust header and marks stale-file scenarios as 
     store.setFileHash("src/shared.ts", sharedHash);
     store.setFileHash("src/caller.ts", callerHash);
 
-    const freshOutput = impact({
+    const freshOutput = impactResult({
       symbols: ["shared"],
       changeType: "signature_change",
       store,
       projectRoot,
       maxDepth: 3,
-    });
+    }).text;
     const freshLines = freshOutput.trimEnd().split("\n");
 
     expect(freshLines[0]).toBe("Trust: fresh");
@@ -72,13 +72,13 @@ test("impact prepends the shared trust header and marks stale-file scenarios as 
 
     writeFileSync(join(projectRoot, "src", "caller.ts"), callerV2);
 
-    const staleOutput = impact({
+    const staleOutput = impactResult({
       symbols: ["shared"],
       changeType: "signature_change",
       store,
       projectRoot,
       maxDepth: 3,
-    });
+    }).text;
     const staleLines = staleOutput.trimEnd().split("\n");
 
     expect(staleLines[0]).toBe("Trust: partial");

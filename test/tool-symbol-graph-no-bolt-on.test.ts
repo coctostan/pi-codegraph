@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbolGraph natively renders implements edges without bolt-on suffix", () => {
   const projectRoot = join(tmpdir(), `pi-cg-nobolt-${Date.now()}`);
@@ -36,7 +36,7 @@ test("symbolGraph natively renders implements edges without bolt-on suffix", () 
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "MyInterface", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "MyInterface", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Implemented By should appear natively (from symbol-graph.ts, not bolt-on)
     expect(output).toContain("### Implemented By");
