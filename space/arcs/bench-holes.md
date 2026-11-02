@@ -16,7 +16,7 @@ Codegraph's graph stops hiding holes and its output stops carrying noise, on the
 - [ ] `bench/results/rerun-1/` holds 36 on-arm cells (6 tasks × 2 models × 3 repeats), `bun bench/verdict.ts --on-results bench/results/rerun-1` exits 0 against the stored off arm, a `piVersion` mismatch being an audit problem that sends the off arm to a re-run beside them, and `space/decisions/0003-*.md` records its output against three targets: every cell correct; a ≥25% median token or turn cut on at least 2 of tool-call-path, cc-payload-trace, enclosing-sg-symbols-tests and cc-headers-tests; `keep` — verified by that command and a read of the decision at close
 
 ## Now
-Active: slice 5 (Keep the declarations of a file that fails to parse) on branch `bench-holes/05-partial-parse`; next: build it test-first from `test/indexer-partial-parse.test.ts`.
+Active: slice 5 (Keep the declarations of a file that fails to parse) on branch `bench-holes/05-partial-parse` (pushed, built, proved, no PR yet); stopped in review: the standards round after a fix round raised two new high findings (1 → 2), both fixed at `63a7ce22` and unreviewed. Next: the human's go for a third standards round, then reconcile and land.
 
 ## Seams
 - Extractor: `extractFile` in `src/indexer/tree-sitter.ts`, returning the module, nodes and edges; tests in `test/indexer-*.test.ts` on inline sources.
