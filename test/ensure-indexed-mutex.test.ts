@@ -33,7 +33,7 @@ describe("RC-E: ensureIndexed coalesces parallel calls", () => {
     mod.setIndexProjectForTesting(async () => {
       indexCallCount++;
       await gate;
-      return { indexed: 0, skipped: 0, removed: 0, errors: 0, timings: {} };
+      return { indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} };
     });
 
     let sgExecute: Function | undefined;
@@ -67,7 +67,7 @@ describe("RC-E: ensureIndexed coalesces parallel calls", () => {
       let secondCallCount = 0;
       mod.setIndexProjectForTesting(async () => {
         secondCallCount++;
-        return { indexed: 0, skipped: 0, removed: 0, errors: 0, timings: {} };
+        return { indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} };
       });
 
       await sgExecute!("after-reset", { name: "alpha" }, undefined, undefined, ctx);

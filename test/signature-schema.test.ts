@@ -44,7 +44,7 @@ test("GraphNode signature field exists and SQLite column is nullable", () => {
   expect(retrieved2!.signature).toBeUndefined();
 });
 
-test("signature column is added via migration on existing databases", () => {
+test("signature and file_hashes.partial columns are added via migration on existing databases", () => {
   const dir = join(tmpdir(), "pi-codegraph-tests");
   mkdirSync(dir, { recursive: true });
   const dbPath = join(dir, `sig-migration-${Date.now()}.sqlite`);
@@ -88,6 +88,8 @@ test("signature column is added via migration on existing databases", () => {
     };
     store.addNode(node);
     expect(store.getNode(node.id)!.signature).toBe("(x: string) => void");
+    store.setFileHash("src/a.ts", "h1", true);
+    expect(store.queryRows("SELECT file, partial FROM file_hashes")).toEqual([{ file: "src/a.ts", partial: 1 }]);
     store.close();
   } finally {
     rmSync(dbPath, { force: true });

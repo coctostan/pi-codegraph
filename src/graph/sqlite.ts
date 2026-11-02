@@ -76,7 +76,8 @@ export class SqliteGraphStore implements GraphStore {
       CREATE TABLE IF NOT EXISTS file_hashes (
         file TEXT PRIMARY KEY,
         hash TEXT NOT NULL,
-        indexed_at INTEGER NOT NULL
+        indexed_at INTEGER NOT NULL,
+        partial INTEGER NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS test_trace_steps (
@@ -114,6 +115,21 @@ export class SqliteGraphStore implements GraphStore {
     }
     if (!nodeColumns.some((column) => column.name === "signature")) {
       this.db.prepare("ALTER TABLE nodes ADD COLUMN signature TEXT").run();
+    }
+    const fileHashColumns = this.db.prepare("PRAGMA table_info(file_hashes)").all() as Array<{ name: string }>;
+    if (!fileHashColumns.some((column) => column.name === "partial")) {
+      // One transaction: a column added without the invalidation would skip it on every later open.
+      this.db.exec("BEGIN");
+      try {
+        this.db.prepare("ALTER TABLE file_hashes ADD COLUMN partial INTEGER NOT NULL DEFAULT 0").run();
+        // The extractor before this column left a file that parsed with errors module-only: re-extract every file once,
+        // and rerun the git stage (its `__git_cochange_head__` row), whose edges the re-extraction drops.
+        this.db.prepare("UPDATE file_hashes SET hash = ''").run();
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
     }
   }
 
@@ -265,8 +281,8 @@ export class SqliteGraphStore implements GraphStore {
     return row?.hash ?? null;
   }
 
-  setFileHash(file: string, hash: string): void {
-    this.db.prepare(`INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at) VALUES (?, ?, ?)`).run(file, hash, Date.now());
+  setFileHash(file: string, hash: string, partial = false): void {
+    this.db.prepare(`INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at, partial) VALUES (?, ?, ?, ?)`).run(file, hash, Date.now(), partial ? 1 : 0);
   }
 
   getStatistics(projectRoot?: string): GraphStatistics {

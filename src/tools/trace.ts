@@ -177,7 +177,7 @@ function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
   });
 
   if (resolved.kind === "ambiguous") {
-    return prependFreshnessHeader(resolved.text, emptyFreshness);
+    return prependFreshnessHeader(resolved.text, traceFreshness(params, null, resolved.nodes.map((n) => n.id)));
   }
   if (resolved.kind === "not_found") {
     if (params.file) {

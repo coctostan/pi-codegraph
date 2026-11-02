@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { createSignalComputer } from "../src/output/signals.js";
+import { evaluateFreshness } from "../src/output/freshness.js";
 
 const _require = createRequire(import.meta.url);
 
@@ -97,6 +98,10 @@ test("SqliteGraphStore.hasCoverageData returns false on a legacy DB lacking grap
       // construction; that path must stay alive too so signal-rendering tools
       // continue to work against pre-#082 graph databases.
       expect(() => createSignalComputer(store)).not.toThrow();
+
+      // Nor can it gain file_hashes.partial, so the Trust note names no partial file.
+      const node = { id: "src/a.ts::f:1", kind: "function" as const, name: "f", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: "h" };
+      expect(evaluateFreshness({ store, projectRoot: tmpdir(), targetNodes: [node] }).partialFiles).toEqual([]);
     } finally {
       store.close();
     }
