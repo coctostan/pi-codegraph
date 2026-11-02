@@ -57,7 +57,7 @@ test("trace static DFS terminates on recursive call cycles and includes all reac
     expect(output).toContain("gamma");
 
     // Each name should appear exactly once in the step lines (not the trust header)
-    const stepLines = output.split("\n").filter((l) => l.includes("function"));
+    const stepLines = output.split("\n").filter((l) => l.includes("src/rec.ts  "));
     expect(stepLines).toHaveLength(3);
   } finally {
     store.close();
