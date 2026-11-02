@@ -115,7 +115,7 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    expect(baselineText.startsWith("Trust: fresh\n## foo (function)")).toBe(true);
+    expect(baselineText.startsWith("Trust: fresh\n- coverage: unknown, no coverage report indexed\n## foo (function)")).toBe(true);
 
     const suppressed = await (tool as any).execute(
       "call-2",
@@ -127,7 +127,7 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
     const suppressedText = (suppressed.content[0] as any).text as string;
     expect(suppressedText.includes("## Trust")).toBe(false);
     expect(suppressedText.includes("Trust: ")).toBe(false);
-    expect(suppressedText).toBe(baselineText.split("\n").slice(1).join("\n"));
+    expect(suppressedText).toBe(baselineText.split("\n").slice(2).join("\n"));
   } finally {
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
@@ -219,7 +219,7 @@ test("suppressTrustHeader:false is byte-identical to omitting the flag (trace, n
     );
     const omittedText = (omitted.content[0] as any).text as string;
     const explicitText = (explicit.content[0] as any).text as string;
-    expect(omittedText.startsWith("Trust: fresh\nmode: static (heuristic, no runtime evidence)")).toBe(true);
+    expect(omittedText.startsWith("Trust: fresh\n- coverage: unknown, no coverage report indexed\nmode: static (heuristic, no runtime evidence)")).toBe(true);
     expect(explicitText).toBe(omittedText);
   } finally {
     resetStoreForTesting();

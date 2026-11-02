@@ -85,9 +85,8 @@ export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbol
     lines.push(...relSections);
   }
 
-  lines.push("");
-  lines.push("### Signals");
-  lines.push(formatRoleTags(signals));
+  const tags = formatRoleTags(signals);
+  if (tags) lines.push("", "### Signals", tags);
 
   return {
     body: lines.join("\n") + "\n",
@@ -167,9 +166,8 @@ export function symbolCard(params: SymbolCardParams): string {
   }
 
   // Signals
-  lines.push("");
-  lines.push("### Signals");
-  lines.push(formatRoleTags(signals));
+  const tags = formatRoleTags(signals);
+  if (tags) lines.push("", "### Signals", tags);
 
   const body = lines.join("\n") + "\n";
   return prependTrustHeader(body, { stats, hasLocalExceptions: anchor.stale || renderedSource.hasLocalExceptions });

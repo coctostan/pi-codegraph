@@ -62,7 +62,7 @@ test("trace with suppressTrustHeader:true omits the non-fresh Trust header", asy
       { cwd: projectRoot } as any,
     );
     const baselineText = (baseline.content[0] as any).text as string;
-    expect(baselineText.startsWith("Trust: fresh\nmode: static (heuristic, no runtime evidence)")).toBe(true);
+    expect(baselineText.startsWith("Trust: fresh\n- coverage: unknown, no coverage report indexed\nmode: static (heuristic, no runtime evidence)")).toBe(true);
   } finally {
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });

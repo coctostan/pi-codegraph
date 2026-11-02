@@ -14,7 +14,7 @@ const fakeClient: ITsServerClient = {
   async shutdown() {},
 };
 
-test("manually-populated store with no coverage stage emits coverage-unknown", () => {
+test("manually-populated store with no coverage stage carries no coverage tag", () => {
   const store = new SqliteGraphStore();
   try {
     store.addNode({
@@ -29,13 +29,13 @@ test("manually-populated store with no coverage stage emits coverage-unknown", (
     });
     const signals = createSignalComputer(store).compute("src/x.ts::fn:1");
     expect(signals.coverageKnown).toBe(false);
-    expect(formatRoleTags(signals)).toContain("coverage-unknown");
+    expect(formatRoleTags(signals)).toBe("[entry-point, leaf]");
   } finally {
     store.close();
   }
 });
 
-test("freshly indexed project without coverage reports emits untested (coverage stage ran with no data)", async () => {
+test("freshly indexed project without coverage reports leaves coverage unknown, never untested", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-fresh-cov-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(
@@ -46,14 +46,13 @@ test("freshly indexed project without coverage reports emits untested (coverage 
   const store = new SqliteGraphStore();
   try {
     await indexProject(projectRoot, store, { lspClientFactory: () => fakeClient });
-    expect(store.hasCoverageData()).toBe(true);
+    expect(store.hasCoverageData()).toBe(false);
 
     const fn = store.findNodes("fn", "src/app.ts")[0]!;
     const signals = createSignalComputer(store).compute(fn.id);
-    expect(signals.coverageKnown).toBe(true);
+    expect(signals.coverageKnown).toBe(false);
     expect(signals.tested).toBe(false);
-    expect(formatRoleTags(signals)).toContain("untested");
-    expect(formatRoleTags(signals)).not.toContain("coverage-unknown");
+    expect(formatRoleTags(signals)).not.toContain("untested");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

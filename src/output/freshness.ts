@@ -18,6 +18,8 @@ export interface FreshnessReport {
   deletedFiles: FreshnessFileDetail[];
   affectedSymbols: string[];
   staleEdgeCount: number;
+  /** True when the result names a node and no coverage report was indexed, so no line carries a coverage tag. */
+  coverageUnknown: boolean;
   message: string;
   recommendation?: string;
 }
@@ -154,6 +156,7 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     deletedFiles,
     affectedSymbols,
     staleEdgeCount: report.staleEdgeCount,
+    coverageUnknown: nodesById.size > 0 && !params.store.hasCoverageData(),
     message,
     recommendation: params.recommendation,
   };
@@ -168,7 +171,8 @@ function formatFiles(label: string, files: FreshnessFileDetail[]): string | null
 }
 
 export function formatFreshnessHeader(report: FreshnessReport): string {
-  if (report.status === "fresh") return "Trust: fresh";
+  const coverage = report.coverageUnknown ? "- coverage: unknown, no coverage report indexed" : null;
+  if (report.status === "fresh") return coverage ? `Trust: fresh\n${coverage}` : "Trust: fresh";
   const lines = [`Trust: ${report.status}`];
   const changed = formatFiles("changed files", report.changedFiles);
   const deleted = formatFiles("deleted files", report.deletedFiles);
@@ -176,6 +180,7 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
   if (deleted) lines.push(deleted);
   if (report.affectedSymbols.length > 0) lines.push(`- affected symbols: ${report.affectedSymbols.join(", ")}`);
   if (report.staleEdgeCount > 0) lines.push(`- stale edges: ${report.staleEdgeCount}`);
+  if (coverage) lines.push(coverage);
   lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
   return lines.join("\n");
 }

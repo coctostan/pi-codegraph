@@ -74,7 +74,7 @@ function formatStoredTraceLine(
   const stale = anchor.stale || node.content_hash !== storedHash;
   const tags = formatRoleTags(signalComputer.compute(node.id));
   return {
-    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""} ${tags}`,
+    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${stale ? " [stale]" : ""}${tags ? ` ${tags}` : ""}`,
     stale,
   };
 }
@@ -89,7 +89,7 @@ function formatNodeLine(
   const signals = signalComputer.compute(node.id);
   const tags = formatRoleTags({ ...signals, roles: rolesOverride ?? signals.roles });
   return {
-    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""} ${tags}`,
+    line: `${formatAnchorLocation(anchor)}  ${node.name}  ${node.kind}${anchor.stale ? " [stale]" : ""}${tags ? ` ${tags}` : ""}`,
     stale: anchor.stale,
   };
 }

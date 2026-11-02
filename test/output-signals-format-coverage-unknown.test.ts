@@ -12,10 +12,9 @@ const base: NodeSignals = {
   coverageKnown: false,
 };
 
-test("formatRoleTags emits coverage-unknown when coverage is not indexed", () => {
-  expect(formatRoleTags({ ...base, tested: false, coverageKnown: false })).toBe(
-    "[leaf, coverage-unknown]",
-  );
+test("formatRoleTags carries no coverage tag when coverage is not indexed", () => {
+  expect(formatRoleTags({ ...base, tested: false, coverageKnown: false })).toBe("[leaf]");
+  expect(formatRoleTags({ ...base, roles: [], tested: false, coverageKnown: false })).toBe("");
 });
 
 test("formatRoleTags emits untested when coverage is indexed but symbol has no tested_by edge", () => {
