@@ -4,7 +4,7 @@ import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 
 export type SymbolResolution =
   | { kind: "not_found"; text: string }
-  | { kind: "ambiguous"; text: string }
+  | { kind: "ambiguous"; text: string; nodes: GraphNode[] }
   | { kind: "unique"; node: GraphNode };
 
 export function formatAmbiguousMatches(name: string, nodes: GraphNode[], projectRoot: string): string {
@@ -29,7 +29,7 @@ export function resolveUniqueSymbol(params: {
     return { kind: "not_found", text: `${params.notFoundLabel} "${params.name}" not found` };
   }
   if (nodes.length > 1) {
-    return { kind: "ambiguous", text: formatAmbiguousMatches(params.name, nodes, params.projectRoot) };
+    return { kind: "ambiguous", text: formatAmbiguousMatches(params.name, nodes, params.projectRoot), nodes };
   }
   return { kind: "unique", node: nodes[0]! };
 }
