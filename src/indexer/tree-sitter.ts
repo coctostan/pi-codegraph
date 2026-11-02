@@ -5,6 +5,7 @@ import ts from "tree-sitter-typescript";
 
 import type { GraphEdge, GraphNode, NodeKind } from "../graph/types.js";
 import { nodeId } from "../graph/types.js";
+import { JS_GLOBALS } from "./js-globals.js";
 
 export interface ExtractionResult {
   module: GraphNode;
@@ -80,6 +81,28 @@ function isExportedNode(node: SyntaxNode): boolean {
 
 const TEST_CALLEES = new Set(["test", "it"]);
 const CALLBACK_TYPES = new Set(["arrow_function", "function_expression"]);
+
+// Each declaration's field that binds names; every identifier under it counts as bound, a default value's too.
+const BINDING_FIELDS: Record<string, string> = {
+  function_declaration: "name",
+  generator_function_declaration: "name",
+  function_expression: "name",
+  class_declaration: "name",
+  abstract_class_declaration: "name",
+  class: "name",
+  enum_declaration: "name",
+  variable_declarator: "name",
+  required_parameter: "pattern",
+  optional_parameter: "pattern",
+  arrow_function: "parameter",
+  catch_clause: "parameter",
+  for_in_statement: "left",
+};
+const BOUND_NAME_TYPES = new Set(["identifier", "type_identifier", "shorthand_property_identifier_pattern"]);
+
+/** A package (`yaml`, `@scope/pkg`) or scheme (`node:fs`, `bun:test`) specifier, not `./`, `/`, `#`, `~/` or `@/`. */
+// shortcut: a tsconfig `baseUrl` import like `src/x` reads as a package, upgrade when an indexed repo uses one.
+const isPackageSpecifier = (specifier: string): boolean => /^(?:[a-z][a-z0-9+.-]*:|@?[a-z0-9])/i.test(specifier);
 
 /** A `test(`/`it(` call's callback and its title, null when the title is no literal; null when `n` is no such call. */
 function testCall(n: SyntaxNode): { title: string | null; callback: SyntaxNode } | null {
@@ -246,6 +269,17 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
   const aliasToOriginal = new Map<string, string>();
   const namespaceImports = new Set<string>();
+  // Local names: every one the file imports, those imported from a package, and every other one it binds.
+  const importedLocals = new Set<string>();
+  const packageLocals = new Set<string>();
+  const boundNames = new Set<string>();
+  const addImportLocal = (local: string, fromPackage: boolean) => {
+    importedLocals.add(local);
+    if (fromPackage) packageLocals.add(local);
+  };
+  // A call to a package import or a JS global is no project hole; a name the file binds itself keeps its edge.
+  const isExternalCallee = (name: string): boolean =>
+    !boundNames.has(name) && (packageLocals.has(name) || (!importedLocals.has(name) && JS_GLOBALS.has(name)));
   // A test callback's start index → the node its calls belong to: its test node, or the module for a non-literal title.
   const callbackOwners = new Map<number, string>();
   let partial = false;
@@ -261,6 +295,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
         : Boolean((tree.rootNode as unknown as { hasError: unknown }).hasError);
 
     walk(tree.rootNode, (n) => {
+      const binding = BINDING_FIELDS[n.type] && n.childForFieldName(BINDING_FIELDS[n.type]!);
+      if (binding) walk(binding, (b) => BOUND_NAME_TYPES.has(b.type) && boundNames.add(b.text));
       if (n.type === "function_declaration") {
         const nameNode = n.childForFieldName("name");
         if (!nameNode) return;
@@ -354,11 +390,13 @@ export function extractFile(file: string, content: string): ExtractionResult {
         if (!sourceNode) return;
 
         const evidence = sourceNode.text;
+        const fromPackage = isPackageSpecifier(evidence.slice(1, -1));
         const importClause = n.namedChildren.find((c) => c.type === "import_clause");
         if (!importClause) return;
 
-        const hasDefault = importClause.namedChildren.some((c) => c.type === "identifier");
-        if (hasDefault) {
+        const defaultName = importClause.namedChildren.find((c) => c.type === "identifier");
+        if (defaultName) {
+          addImportLocal(defaultName.text, fromPackage);
           pushEdge({
             source: moduleNode.id,
             target: unresolvedId("default"),
@@ -378,6 +416,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
           const nsNameNode = nsImport.namedChildren.find((c) => c.type === "identifier");
           if (nsNameNode) {
             namespaceImports.add(nsNameNode.text);
+            addImportLocal(nsNameNode.text, fromPackage);
             pushEdge({
               source: moduleNode.id,
               target: unresolvedId("*"),
@@ -405,6 +444,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
             if (aliasNode) {
               aliasToOriginal.set(aliasNode.text, originalName);
             }
+            addImportLocal((aliasNode ?? nameNode).text, fromPackage);
             pushEdge({
               source: moduleNode.id,
               target: unresolvedId(originalName),
@@ -500,7 +540,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
       if (nextFunctionId && n.type === "call_expression") {
         const callee = n.childForFieldName("function");
-        if (callee?.type === "identifier") {
+        if (callee?.type === "identifier" && !isExternalCallee(callee.text)) {
           pushEdge({
             source: nextFunctionId,
             target: unresolvedId(aliasToOriginal.get(callee.text) ?? callee.text),
@@ -518,7 +558,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
         if (callee?.type === "member_expression") {
           const obj = callee.childForFieldName("object");
           const prop = callee.childForFieldName("property");
-          if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text)) {
+          if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text) && !isExternalCallee(obj.text)) {
             pushEdge({
               source: nextFunctionId,
               target: unresolvedId(prop.text),
@@ -538,7 +578,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
       if (nextFunctionId && n.type === "new_expression") {
         const ctor = n.childForFieldName("constructor");
-        if (ctor?.type === "identifier") {
+        if (ctor?.type === "identifier" && !isExternalCallee(ctor.text)) {
           pushEdge({
             source: nextFunctionId,
             target: unresolvedId(ctor.text),
