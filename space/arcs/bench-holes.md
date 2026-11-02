@@ -16,7 +16,7 @@ Codegraph's graph stops hiding holes and its output stops carrying noise, on the
 - [ ] `bench/results/rerun-1/` holds 36 on-arm cells (6 tasks × 2 models × 3 repeats), `bun bench/verdict.ts --on-results bench/results/rerun-1` exits 0 against the stored off arm, a `piVersion` mismatch being an audit problem that sends the off arm to a re-run beside them, and `space/decisions/0003-*.md` records its output against three targets: every cell correct; a ≥25% median token or turn cut on at least 2 of tool-call-path, cc-payload-trace, enclosing-sg-symbols-tests and cc-headers-tests; `keep` — verified by that command and a read of the decision at close
 
 ## Now
-Active: slice 8 (Render static trace as an ordered call tree), branch `bench-holes/08-trace-tree`; next action: build it by its inline plan.
+Active: slice 8 (Render static trace as an ordered call tree), branch `bench-holes/08-trace-tree` at `72c7e349`, built as shaped; stopped: `trace-cc-payload` renders 11,768 chars against its 5,400 cap, and no in-shape form reaches it (depth 3 with every unresolved line, same-file paths dropped: 6,658). Awaiting the human's call on a reshape by `shape` in a fresh session.
 
 ## Seams
 - Extractor: `extractFile` in `src/indexer/tree-sitter.ts`, returning the module, nodes and edges; tests in `test/indexer-*.test.ts` on inline sources.
