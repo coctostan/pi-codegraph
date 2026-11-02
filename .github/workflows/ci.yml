@@ -10,15 +10,20 @@ on:
 
 jobs:
   ci:
-    name: Test & Type-check # required status check name; do not rename
+    name: Test & Type-check (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "*"] # "current" takes Node's index head, a v27 alpha on 2026-11-02
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node }}
+          check-latest: true # resolve from the stable manifest, not the runner's newest cached Node
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -30,11 +35,25 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Clone pi-hashline-readmap for the sibling hashline case
+        run: |
+          git clone --depth 1 https://github.com/coctostan/pi-hashline-readmap ../pi-hashline-readmap
+          cd ../pi-hashline-readmap && npm ci --omit=dev --omit=peer --omit=optional --ignore-scripts
+
       - name: Type-check
         run: bun run check
 
       - name: Test
         run: bun test
+
+  required:
+    name: Test & Type-check # required status check name; do not rename
+    needs: ci
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every Node leg passed
+        run: test "${{ needs.ci.result }}" = success
 
   pi-latest:
     name: Compatibility (latest pi host)
