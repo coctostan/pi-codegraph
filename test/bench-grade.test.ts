@@ -18,14 +18,18 @@ test("grade is correct when every key item appears and no forbidden one does", (
   expect(result).toEqual({ correct: true, answer: "- src/tools/impact.ts\n- src/tools/trace.ts", missing: [], unexpected: [] });
 });
 
-test("grade lists missing and forbidden items and marks the cell incorrect", () => {
-  const result = grade(key, "<answer>src/tools/impact.ts, src/output/anchoring.ts</answer>");
-  expect(result.correct).toBe(false);
-  expect(result.missing).toEqual(["tools/trace.ts"]);
-  expect(result.unexpected).toEqual(["output/anchoring.ts"]);
+test("grade marks a closed answer missing a key item incorrect", () => {
+  const result = grade(key, "<answer>src/tools/impact.ts</answer>");
+  expect(result).toMatchObject({ correct: false, missing: ["tools/trace.ts"], unexpected: [] });
+});
+
+test("grade marks a complete answer naming a forbidden item incorrect", () => {
+  const result = grade(key, "<answer>src/tools/impact.ts, src/tools/trace.ts, src/output/anchoring.ts</answer>");
+  expect(result).toMatchObject({ correct: false, missing: [], unexpected: ["output/anchoring.ts"] });
 });
 
 test("grade ignores key items outside the answer block and fails a reply without one", () => {
   const result = grade(key, "Found tools/impact.ts and tools/trace.ts.");
   expect(result).toEqual({ correct: false, answer: null, missing: key.all, unexpected: [] });
+  expect(grade({ all: [] }, "no answer block").correct).toBe(false);
 });
