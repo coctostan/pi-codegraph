@@ -17,7 +17,7 @@ Coding agents waste tool calls fishing for context. They grep for a function nam
 - **"What calls this function?"** → `symbol_graph` returns a compact symbol card by default; add `include: ["neighborhood"]` for the full relationship neighborhood
 - **"What breaks if I change this?"** → `impact` traces downstream dependents by change type
 - **"What does this function promise?"** → `symbol_graph` with `include: ["contract"]` appends behavioral contract details from code and tests
-- **"Show me the execution path"** → `trace` returns an ordered, anchored call chain
+- **"Show me the execution path"** → `trace` returns an anchored call tree in call-site order
 - **"Show me the source"** → `symbol_graph` with `include: ["source"]` appends anchored source for the resolved symbol
 
 Editable anchor locations are rendered as two adjacent fields: the file path as context, then a bare `LINE:HASH` token, for example `src/a.ts  10:abc`. The `LINE:HASH` token uses the same exact-line xxhash algorithm as pi-hashline-readmap (only a trailing CR is ignored; whitespace is significant).
@@ -107,6 +107,7 @@ After installing the toolchain, re-run `bun install` (or `npm install`).
 Summarize a symbol with relationships, tests, and key metadata.
 By default, `symbol_graph({ name: "validateToken" })` already includes test signals in the compact card.
 Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.
+The card lists up to 5 callers, then the test cases calling the symbol by file (`Test callers (<n> in <m> files)`), callees and imports; `"neighborhood"` adds implementors, importers and every other edge kind.
 ```
 symbol_graph({ name: "validateToken" })
 symbol_graph({ name: "validateToken", file: "src/auth.ts" })
@@ -117,16 +118,17 @@ symbol_graph({ name: "validateToken", include: ["neighborhood", "contract", "sou
 ```
 #### `impact`
 Classify blast radius for changed symbols.
-Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`.
+It follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5). Each row is `<file>  <LINE:HASH>  <name>  <class>  depth:<n>`, by depth then file: a direct dependent of a `signature_change` or `removal` is `breaking`, every other dependent `behavioral`. The test files and test cases reached follow in one `Tests reached (<c> cases in <f> files):` list.
+Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`; `"addition"` returns a note, no dependents.
 ```
 impact({ symbols: ["validateToken"], changeType: "signature_change" })
 impact({ symbols: ["validateToken"], changeType: "removal" })
-impact({ symbols: ["validateToken"], changeType: "behavior_change" })
-impact({ symbols: ["validateToken"], changeType: "addition" })
+impact({ symbols: ["validateToken"], changeType: "behavior_change", maxDepth: 2 })
 ```
 
 #### `trace`
-Return an execution path from an entry point, coverage-backed when available.
+Return the call tree below an entry point, or a covering test's recorded path when coverage has one.
+The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a test run recorded a path through the entry, `trace` prints that path instead, under `mode: coverage`. The entry is a function, endpoint or test case.
 ```
 trace({ entry: "loginHandler" })
 ```

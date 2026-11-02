@@ -50,7 +50,7 @@ const ImpactParams = Type.Object({
     { description: "Change kind." },
   ),
   maxDepth: Type.Optional(
-    Type.Number({ description: "Maximum traversal depth." }),
+    Type.Number({ description: "Maximum caller levels to follow; default 5." }),
   ),
   suppressTrustHeader: Type.Optional(
     Type.Boolean({ description: "Omit the Trust header." }),
@@ -58,7 +58,7 @@ const ImpactParams = Type.Object({
 });
 
 const TraceParams = Type.Object({
-  entry: Type.String({ description: "Entry symbol or endpoint." }),
+  entry: Type.String({ description: "Entry symbol, endpoint, or test case." }),
   file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
   suppressTrustHeader: Type.Optional(
     Type.Boolean({ description: "Omit the Trust header." }),
@@ -405,10 +405,9 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     name: "symbol_graph",
     label: "Symbol Graph",
     description: "Summarize a symbol with relationships, tests, and key metadata.",
-    promptSnippet: "Look up a TypeScript symbol: callers, callees, tests, contract, and anchored source",
+    promptSnippet: "Look up a TypeScript symbol: callers (test cases listed by file), callees, tests, contract, and anchored source",
     promptGuidelines: [
-      "Use symbol_graph to find who calls or implements a symbol instead of chaining grep and read.",
-      "symbol_graph anchors (`file  LINE:HASH`) are editable with the edit tool without re-reading the file.",
+      "Use symbol_graph to find who calls a symbol instead of chaining grep and read: it lists the test cases among its callers by file, and `include: [\"neighborhood\"]` adds implementors and importers.",
     ],
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -466,9 +465,10 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     name: "impact",
     label: "Impact",
     description: "Classify blast radius for changed symbols.",
-    promptSnippet: "Classify what breaks when TypeScript symbols change (breaking / behavioral / safe dependents)",
+    promptSnippet: "List the callers a TypeScript symbol change reaches, directly or indirectly, each breaking or behavioral, then the tests reached",
     promptGuidelines: [
       "Run impact on the symbols you are about to change before editing a shared function, class, or interface.",
+      "impact follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5): a direct dependent of a `signature_change` or `removal` is breaking, every other dependent behavioral, and the test files and cases reached come last in one `Tests reached` list.",
     ],
     parameters: ImpactParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -495,9 +495,12 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "trace",
     label: "Trace",
-    description: "Return an execution path from an entry point, coverage-backed when available.",
-    promptSnippet: "Trace the ordered call path from a TypeScript entry point, endpoint, or test",
-    promptGuidelines: ["Use trace to follow what an entry point executes instead of reading each callee by hand."],
+    description: "Return the call tree below an entry point, or a covering test's recorded path when coverage has one.",
+    promptSnippet: "Trace what a TypeScript function, endpoint, or test calls, as a call tree in call-site order",
+    promptGuidelines: [
+      "Use trace to follow what an entry point executes instead of reading each callee by hand.",
+      "trace prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `(see above)`, an unresolved call is a `? name (unresolved, file:line)` line, and `N more omitted beyond depth 3` counts the rest, so trace a deeper callee to continue. When a test run recorded a path through the entry, it prints that path instead, under `mode: coverage`.",
+    ],
     parameters: TraceParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const { projectRoot, store } = await prepare(ctx, signal);
