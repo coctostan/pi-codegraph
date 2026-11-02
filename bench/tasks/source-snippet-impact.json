@@ -1,0 +1,19 @@
+{
+  "id": "source-snippet-impact",
+  "kind": "impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "question": "I'm about to change the signature of `readSourceSnippet` in src/output/source.ts. Which functions in src/ would be affected, the ones that call it directly and the ones that reach it through other functions, up to the tool entry points? List the affected function names, one per line.",
+  "key": {
+    "all": [
+      "renderSymbolSourceSection",
+      "symbolCard",
+      "symbolGraph"
+    ],
+    "none": [
+      "renderSymbolContractBody",
+      "symbolContract"
+    ]
+  },
+  "keyCheckedBy": "git grep -w at cb5f75f8 -- src: readSourceSnippet's one caller is renderSymbolSourceSection (symbol-card.ts:41), called by symbolCard (symbol-card.ts:156) and symbolGraph (symbol-graph.ts:289), called by index.ts's symbol_graph execute (444); symbolCard has no caller in src; read of symbol-graph.ts:265-303 and symbol-contract.ts, which never imports source.ts; lsp references agree for readSourceSnippet and symbolCard"
+}

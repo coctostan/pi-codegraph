@@ -1,0 +1,12 @@
+{
+  "id": "tool-call-path",
+  "kind": "trace",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "question": "When an agent's first call to one of this extension's tools arrives in a session, what runs between the tool's execute handler and the result it returns, including how the project gets indexed? Name the functions in the order they run.",
+  "key": {
+    "all": ["prepare", "getOrCreateProject", "ensureIndexed", "indexProject", "ensureHashInit", "finalizeReadOnlyOutput", "toolResult"],
+    "none": ["formatStatus"]
+  },
+  "keyCheckedBy": "read of src/index.ts at cb5f75f8: each of the three execute handlers (414, 473, 502) awaits prepare (261), which calls getOrCreateProject (175), setStatus and raceAbort(ensureIndexed (206) → indexProjectImpl, which is indexProject (113)), then ensureHashInit; each handler then calls its tool function, finalizeReadOnlyOutput (279) and toolResult (323); formatStatus (354) serves only /codegraph status"
+}

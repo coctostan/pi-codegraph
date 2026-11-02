@@ -1,0 +1,16 @@
+{
+  "id": "enclosing-sg-symbols-tests",
+  "kind": "test-mapping",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "question": "Which test files exercise `findEnclosingSgSymbols` in src/sg.ts? I want to rerun them after I change it. List the test file paths.",
+  "key": {
+    "all": [
+      "tests/context-hygiene-sg.test.ts",
+      "tests/issue-234-sql-mapper.test.ts",
+      "tests/issue-242-sql-boundary-consumers.test.ts",
+      "tests/json-mapper-root-array-sg.test.ts"
+    ]
+  },
+  "keyCheckedBy": "git grep -w findEnclosingSgSymbols 756406f2: the four test files import it from ../src/sg.js and call it (context-hygiene-sg:78, issue-234-sql-mapper:179, issue-242-sql-boundary-consumers:103, json-mapper-root-array-sg:71); no other test names it; tests reaching it only through the sg tool are not required"
+}

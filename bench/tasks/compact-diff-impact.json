@@ -1,0 +1,21 @@
+{
+  "id": "compact-diff-impact",
+  "kind": "impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "question": "I'm changing what `generateCompactOrFullDiff` in src/edit-diff.ts returns. Which functions would I need to check: everything that calls it, directly or through other functions, up to where the tools are registered? List the function names, one per line.",
+  "key": {
+    "all": [
+      "buildEditResult",
+      "registerEditTool",
+      "generateWriteDiff",
+      "executeWrite",
+      "registerWriteTool"
+    ],
+    "none": [
+      "pendingPreviewLines",
+      "pendingWritePreviewParts"
+    ]
+  },
+  "keyCheckedBy": "git grep at 756406f2 -- '*.ts' ':!tests': callers are buildEditResult (edit.ts:1129), called only from registerEditTool's execute (edit.ts:1321), and generateWriteDiff (write.ts:127), called by executeWrite (write.ts:324), called from registerWriteTool (write.ts:410); both register functions are called from index.ts (184, 193); pendingPreviewLines and pendingWritePreviewParts call buildDiffData, not it; lsp references agree"
+}
