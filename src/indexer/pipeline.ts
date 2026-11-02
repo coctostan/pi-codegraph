@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
@@ -29,12 +30,14 @@ function toPosixPath(p: string): string {
   return p.split(sep).join("/");
 }
 
+const SKIPPED_DIRS = new Set(["node_modules", ".megapowers", ".git"]);
+
 function walkTsFiles(root: string): string[] {
   const out: string[] = [];
 
   const walk = (dir: string) => {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
-      if (ent.name === "node_modules" || ent.name === ".megapowers" || ent.name === ".git") continue;
+      if (SKIPPED_DIRS.has(ent.name)) continue;
       const full = join(dir, ent.name);
 
       if (ent.isDirectory()) {
@@ -52,6 +55,37 @@ function walkTsFiles(root: string): string[] {
   return out;
 }
 
+/** `git check-ignore` exits 0 when the path is ignored, 1 when not. */
+function isIgnoredByGit(root: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "-q", "."], { cwd: root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+/** The `.ts`/`.tsx` files git lists under `root`, tracked or untracked but not ignored; the walk outside a repo. */
+function listTsFiles(root: string): string[] {
+  let listed: string[];
+  try {
+    listed = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).split("\0").filter(Boolean);
+  } catch {
+    return walkTsFiles(root);
+  }
+  // A root its repo ignores (a dotfiles repo's `/*`) lists nothing; index it as a plain tree, as outside a repo.
+  if (listed.length === 0 && isIgnoredByGit(root)) return walkTsFiles(root);
+  // A Set drops the repeat an unmerged path gets per conflict stage; lstat keeps regular files as the walk does, dropping symlinks and tracked files deleted from disk.
+  return [...new Set(listed)]
+    .filter((rel) => (rel.endsWith(".ts") || rel.endsWith(".tsx")) && !rel.split("/").some((part) => SKIPPED_DIRS.has(part)))
+    .map((rel) => join(root, rel))
+    .filter((abs) => lstatSync(abs, { throwIfNoEntry: false })?.isFile() === true);
+}
+
 export async function indexProject(
   projectRoot: string,
   store: GraphStore,
@@ -60,7 +94,7 @@ export async function indexProject(
   const timings: Record<string, number> = {};
 
   const tsStart = performance.now();
-  const files = walkTsFiles(projectRoot);
+  const files = listTsFiles(projectRoot);
 
   let indexed = 0;
   let skipped = 0;
