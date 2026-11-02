@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
@@ -41,6 +41,8 @@ test("indexProject in a repo indexes the files git lists, leaving ignored ones a
   git(root, "commit", "-q", "-m", "c1");
   write(root, "src/untracked.tsx");
   write(root, "dist/built.ts");
+  // The walk skips symlinks (Dirent.isFile); git lists them, so the git path must too.
+  symlinkSync(join(root, "src", "a.ts"), join(root, "src", "link.ts"));
   rmSync(join(root, "src", "gone.ts"));
 
   const store = new SqliteGraphStore();

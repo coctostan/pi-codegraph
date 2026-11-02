@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
@@ -79,11 +79,11 @@ function listTsFiles(root: string): string[] {
   }
   // A root its repo ignores (a dotfiles repo's `/*`) lists nothing; index it as a plain tree, as outside a repo.
   if (listed.length === 0 && isIgnoredByGit(root)) return walkTsFiles(root);
-  // A Set drops the repeat an unmerged path gets per conflict stage; existsSync drops a tracked file deleted from disk.
+  // A Set drops the repeat an unmerged path gets per conflict stage; lstat keeps regular files as the walk does, dropping symlinks and tracked files deleted from disk.
   return [...new Set(listed)]
     .filter((rel) => (rel.endsWith(".ts") || rel.endsWith(".tsx")) && !rel.split("/").some((part) => SKIPPED_DIRS.has(part)))
     .map((rel) => join(root, rel))
-    .filter((abs) => existsSync(abs));
+    .filter((abs) => lstatSync(abs, { throwIfNoEntry: false })?.isFile() === true);
 }
 
 export async function indexProject(
