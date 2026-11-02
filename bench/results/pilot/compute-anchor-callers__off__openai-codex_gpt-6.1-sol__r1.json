@@ -1,0 +1,45 @@
+{
+  "cell": "compute-anchor-callers__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "compute-anchor-callers",
+  "repo": "pi-codegraph",
+  "commit": "4bb35a7063fa381fe71a34037a3d2ec6a2e90022",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "80f13e7a6ac73138032b8c8cca00fd50acf8baa0",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:06:45.476Z",
+  "wallMs": 11381,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 1907,
+    "output": 82,
+    "cacheRead": 1152,
+    "cacheWrite": 0,
+    "total": 3141
+  },
+  "costUsd": 0.0047492,
+  "toolCalls": {
+    "grep": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nsrc/tools/trace.ts\nsrc/tools/symbol-contract.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/symbol-card.ts\nsrc/tools/impact.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "src/tools/trace.ts\nsrc/tools/symbol-contract.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/symbol-card.ts\nsrc/tools/impact.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
