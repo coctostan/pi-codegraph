@@ -97,7 +97,8 @@
     "params": { "symbols": ["generateCompactOrFullDiff"], "changeType": "behavior_change" },
     "expect": {
       "resolves": true,
-      "all": ["buildEditResult", "registerEditTool", "generateWriteDiff", "executeWrite", "registerWriteTool", "Tests reached"],
+      "all": ["buildEditResult", "registerEditTool", "generateWriteDiff", "executeWrite", "registerWriteTool"],
+      "ordered": ["Tests reached", "tests/"],
       "none": ["pendingPreviewLines", "pendingWritePreviewParts", "fan-in", "chain-confidence", "untested"]
     }
   },
@@ -109,7 +110,8 @@
     "params": { "symbols": ["readSourceSnippet"], "changeType": "signature_change" },
     "expect": {
       "resolves": true,
-      "all": ["renderSymbolSourceSection", "symbolCard", "symbolGraph", "Tests reached"],
+      "all": ["renderSymbolSourceSection", "symbolCard", "symbolGraph"],
+      "ordered": ["Tests reached", "test/"],
       "none": ["renderSymbolContractBody", "symbolContract", "fan-in", "chain-confidence", "untested"]
     }
   }

@@ -105,16 +105,20 @@ export async function runProbes(probes: Probe[], reposDir: string): Promise<Prob
   return results;
 }
 
-async function main(): Promise<number> {
-  const prefix = process.argv[2] ?? "";
-  const probes: Probe[] = JSON.parse(readFileSync(join(import.meta.dir, "probes.json"), "utf8"));
+/** The CLI: 0 when every probe whose id starts with `prefix` passes, 1 when one fails, 2 when none match. */
+export async function main(
+  prefix = process.argv[2] ?? "",
+  probesPath = join(import.meta.dir, "probes.json"),
+  // shortcut: bench repos are resolved as siblings of this checkout, as in bench/run.ts; take a flag when the bench leaves this machine.
+  reposDir = resolve(import.meta.dir, "..", ".."),
+): Promise<number> {
+  const probes: Probe[] = JSON.parse(readFileSync(probesPath, "utf8"));
   const selected = probes.filter((p) => p.id.startsWith(prefix));
   if (selected.length === 0) {
     console.error(`no probe id starts with "${prefix}"`);
     return 2;
   }
-  // shortcut: bench repos are resolved as siblings of this checkout, as in bench/run.ts; take a flag when the bench leaves this machine.
-  const results = await runProbes(selected, resolve(import.meta.dir, "..", ".."));
+  const results = await runProbes(selected, reposDir);
   for (const r of results) {
     console.log(r.failures.length === 0 ? `PASS ${r.id} (${r.chars} chars)` : `FAIL ${r.id} (${r.chars} chars): ${r.failures.join("; ")}`);
   }

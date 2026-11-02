@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkProbe, runProbes, type Probe } from "../bench/probe.js";
+import { checkProbe, main, runProbes, type Probe } from "../bench/probe.js";
 
 test("checkProbe passes output meeting every expectation", () => {
   const out = { text: "Trust: fresh\nprepare\n  getOrCreateProject\n  ensureIndexed\n", isError: false };
@@ -79,7 +79,13 @@ test("runProbes calls the tool on an indexed worktree at the pinned commit and l
     ]);
     expect(git("worktree", "list").split("\n")).toHaveLength(1);
     expect(existsSync(join(repo, ".codegraph"))).toBe(false);
+
+    const probesPath = join(reposDir, "probes.json");
+    writeFileSync(probesPath, JSON.stringify(probes));
+    expect(await main("pinned", probesPath, reposDir)).toBe(0);
+    expect(await main("", probesPath, reposDir)).toBe(1);
+    expect(await main("nope", probesPath, reposDir)).toBe(2);
   } finally {
     rmSync(reposDir, { recursive: true, force: true });
   }
-}, 60_000);
+}, 120_000);
