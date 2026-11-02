@@ -135,7 +135,8 @@ function formatSection(title: string, section: NeighborSection): string {
 
   for (const item of section.items) {
     const staleMarker = item.anchor.stale ? " [stale]" : "";
-    const signalTags = item.signals ? ` ${formatRoleTags(item.signals)}` : "";
+    const tags = item.signals ? formatRoleTags(item.signals) : "";
+    const signalTags = tags ? ` ${tags}` : "";
     lines.push(
       `  ${formatAnchorLocation(item.anchor)}  ${item.name}  ${item.edgeKind}  confidence:${item.confidence}  ${item.provenanceSource}${staleMarker}${signalTags}`,
     );
@@ -157,7 +158,8 @@ export function formatNeighborhood(
   sections: NamedSection[],
 ): string {
   const staleMarker = symbol.anchor.stale ? " [stale]" : "";
-  const signalTags = symbol.signals ? ` ${formatRoleTags(symbol.signals)}` : "";
+  const tags = symbol.signals ? formatRoleTags(symbol.signals) : "";
+  const signalTags = tags ? ` ${tags}` : "";
   const header = `## ${symbol.name} (${symbol.kind})\n${formatAnchorLocation(symbol.anchor)}${staleMarker}${signalTags}`;
   const renderedSections = sections
     .map((s) => formatSection(s.title, s.section))

@@ -78,18 +78,17 @@ function cleanup(fixture: Fixture): void {
   rmSync(fixture.projectRoot, { recursive: true, force: true });
 }
 
-test("evaluateFreshness returns Trust: fresh for fresh scoped target nodes", () => {
+test("evaluateFreshness returns Trust: fresh for fresh scoped target nodes, naming unknown coverage once", () => {
   const fixture = createFixture();
   try {
-    const fresh = evaluateFreshness({
-      store: fixture.store,
-      projectRoot: fixture.projectRoot,
-      targetNodes: [fixture.target],
-      resultNodes: [fixture.target],
-      resultEdges: [],
-    });
+    const scope = { store: fixture.store, projectRoot: fixture.projectRoot, targetNodes: [fixture.target], resultNodes: [fixture.target], resultEdges: [] };
+    const fresh = evaluateFreshness(scope);
     expect(fresh.status).toBe("fresh");
-    expect(formatFreshnessHeader(fresh)).toBe("Trust: fresh");
+    expect(formatFreshnessHeader(fresh)).toBe("Trust: fresh\n- coverage: unknown, no coverage report indexed");
+    expect(formatFreshnessHeader(evaluateFreshness({ store: fixture.store, projectRoot: fixture.projectRoot }))).toBe("Trust: fresh");
+
+    fixture.store.markCoverageIndexed();
+    expect(formatFreshnessHeader(evaluateFreshness(scope))).toBe("Trust: fresh");
   } finally {
     cleanup(fixture);
   }

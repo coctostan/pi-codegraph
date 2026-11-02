@@ -55,6 +55,7 @@ test("trace prepends a runtime-backed trust header and degrades to mixed when a 
     });
     store.setFileHash("src/app.ts", appHash);
     store.setFileHash("test/app.test.ts", testHash);
+    store.markCoverageIndexed();
 
     const freshOutput = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
     const freshLines = freshOutput.trimEnd().split("\n");

@@ -171,14 +171,18 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
   };
 }
 
+// Null when no coverage report was indexed, even over tested_by edges an earlier report left:
+// the Trust block says so once instead of every line.
+function coverageTag(signals: NodeSignals): string | null {
+  if (!signals.coverageKnown) return null;
+  return signals.tested ? "tested" : "untested";
+}
+
+/** `[roles, coverage]`, or "" when the node has neither. */
 export function formatRoleTags(signals: NodeSignals): string {
-  const coverageTag = signals.tested
-    ? "tested"
-    : signals.coverageKnown
-      ? "untested"
-      : "coverage-unknown";
-  const tags = [...sortRoles(signals.roles, ROLE_ORDER), coverageTag];
-  return `[${tags.join(", ")}]`;
+  const coverage = coverageTag(signals);
+  const tags = [...sortRoles(signals.roles, ROLE_ORDER), ...(coverage ? [coverage] : [])];
+  return tags.length > 0 ? `[${tags.join(", ")}]` : "";
 }
 
 export function formatImpactWhy(signals: NodeSignals, chainConfidence?: number): string {
@@ -187,10 +191,7 @@ export function formatImpactWhy(signals: NodeSignals, chainConfidence?: number):
   const chainPart = typeof chainConfidence === "number"
     ? `, chain-confidence:${chainConfidence.toFixed(2)}`
     : "";
-  const coverageText = signals.tested
-    ? "tested"
-    : signals.coverageKnown
-      ? "untested"
-      : "unknown";
-  return `[fan-in:${signals.fanIn}, fan-out:${signals.fanOut}, roles:${rolesText}, coverage:${coverageText}, co-change:${signals.coChangeScore.toFixed(2)}${chainPart}]`;
+  const coverage = coverageTag(signals);
+  const coveragePart = coverage ? `, coverage:${coverage}` : "";
+  return `[fan-in:${signals.fanIn}, fan-out:${signals.fanOut}, roles:${rolesText}${coveragePart}, co-change:${signals.coChangeScore.toFixed(2)}${chainPart}]`;
 }

@@ -338,13 +338,17 @@ export class SqliteGraphStore implements GraphStore {
     } catch {
       // Pre-#082 DBs opened read-only skip the migration, so graph_metadata
       // may be missing: "no such table". Treat that as 'coverage state
-      // unknown' so signal-rendering tools fall back to coverage-unknown
+      // unknown' so signal-rendering tools omit the coverage tag
       // instead of crashing on legacy graph databases.
       return false;
     }
   }
 
-  markCoverageIndexed(): void {
+  markCoverageIndexed(indexed = true): void {
+    if (!indexed) {
+      this.db.prepare(`DELETE FROM graph_metadata WHERE key = ?`).run("coverage_indexed");
+      return;
+    }
     this.db
       .prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`)
       .run("coverage_indexed", "1");

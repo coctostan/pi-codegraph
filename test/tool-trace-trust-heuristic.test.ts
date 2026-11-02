@@ -45,10 +45,13 @@ test("trace prepends the shared trust header for static heuristic paths without 
     const lines = output.trimEnd().split("\n");
 
     expect(lines[0]).toBe("Trust: fresh");
-    expect(lines[1]).toBe("mode: static (heuristic, no runtime evidence)");
-    expect(lines[2]).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
-    expect(lines[2]).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
-    expect(lines[2]).toContain("entry  function");
+    expect(lines[1]).toBe("- coverage: unknown, no coverage report indexed");
+    expect(lines[2]).toBe("mode: static (heuristic, no runtime evidence)");
+    expect(lines[3]).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
+    expect(lines[3]).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
+    expect(lines[3]).toContain("entry  function");
+    // first has no role and coverage is unknown: no tag, no trailing space
+    expect(lines[4]).toMatch(/first  function$/);
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });
