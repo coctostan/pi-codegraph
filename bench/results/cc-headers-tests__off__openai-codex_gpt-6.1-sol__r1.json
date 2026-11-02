@@ -1,0 +1,46 @@
+{
+  "cell": "cc-headers-tests__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:41:37.929Z",
+  "wallMs": 39181,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 20280,
+    "output": 483,
+    "cacheRead": 44288,
+    "cacheWrite": 0,
+    "total": 65051
+  },
+  "costUsd": 0.049818799999999996,
+  "toolCalls": {
+    "grep": 3,
+    "read": 2
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThese test files directly call `buildAnthropicCcHeaders`:\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "These test files directly call `buildAnthropicCcHeaders`:\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

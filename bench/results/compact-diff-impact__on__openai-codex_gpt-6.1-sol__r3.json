@@ -1,0 +1,61 @@
+{
+  "cell": "compact-diff-impact__on__openai-codex_gpt-6.1-sol__r3",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:56:55.178Z",
+  "wallMs": 33106,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 8115,
+      "lsp": 8154,
+      "ast-grep": 350,
+      "coverage": 1,
+      "git": 1204
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 7843,
+    "output": 337,
+    "cacheRead": 7424,
+    "cacheWrite": 0,
+    "total": 15604
+  },
+  "costUsd": 0.0197984,
+  "toolCalls": {
+    "symbol_graph": 5,
+    "read": 2
+  },
+  "codegraphCalls": 5,
+  "stopReason": "stop",
+  "finalText": "<answer>\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\nbuildEditResult\nregisterEditTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "generateWriteDiff\nexecuteWrite\nregisterWriteTool\nbuildEditResult\nregisterEditTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

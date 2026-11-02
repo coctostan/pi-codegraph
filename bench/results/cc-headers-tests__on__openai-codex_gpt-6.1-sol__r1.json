@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__openai-codex_gpt-6.1-sol__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:42:21.420Z",
+  "wallMs": 31837,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1585,
+      "lsp": 3607,
+      "ast-grep": 67,
+      "coverage": 1,
+      "git": 1279
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 10570,
+    "output": 281,
+    "cacheRead": 7808,
+    "cacheWrite": 0,
+    "total": 18659
+  },
+  "costUsd": 0.024730799999999997,
+  "toolCalls": {
+    "symbol_graph": 2,
+    "find": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 2,
+  "stopReason": "stop",
+  "finalText": "<answer>\n- tests/anthropicCcAuthModes.test.ts\n- tests/anthropicCcBetaComposition.test.ts\n- tests/anthropicCcHeaderSuppression.test.ts\n- tests/anthropicCcInlineToolsBetaFlags.test.ts\n- tests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "- tests/anthropicCcAuthModes.test.ts\n- tests/anthropicCcBetaComposition.test.ts\n- tests/anthropicCcHeaderSuppression.test.ts\n- tests/anthropicCcInlineToolsBetaFlags.test.ts\n- tests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

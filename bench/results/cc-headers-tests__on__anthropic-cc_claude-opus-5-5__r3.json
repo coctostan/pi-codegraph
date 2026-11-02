@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:53:02.827Z",
+  "wallMs": 25894,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1526,
+      "lsp": 3118,
+      "ast-grep": 55,
+      "coverage": 1,
+      "git": 1224
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 10,
+    "output": 1501,
+    "cacheRead": 46621,
+    "cacheWrite": 29987,
+    "total": 78119
+  },
+  "costUsd": 0.2792802,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 2,
+    "bash": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Five test files import and call `buildAnthropicCcHeaders` directly. The code graph labels the function \"untested\", but that's wrong: a text search turns up these five direct callers.\n\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nMany more tests run the function indirectly. It's called by `streamAnthropicCc` (`src/anthropic-cc/stream.ts`), and by `buildAnthropicCcRequestFromContext` and `buildAnthropicCcRequest` (`src/anthropic-cc/request.ts`). About 79 test files use one of these or the stream helpers in `tests/helpers/pi099.ts`. Some of them check headers closely, such as `anthropicCcRequestHeaders`, `anthropicCcOAuthAuthMode`, `anthropicCcClaude5WireAuth`, `anthropicCcClaude5WireIdentity`, `anthropicCcManagedBetaIsolation`, `anthropicCcManagedBetaRequest` and `anthropicCcInlineToolsBetaWire`. If your change affects behaviour and not just types, run the whole suite after the five direct tests pass.\n\n<answer>\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,61 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:51:43.840Z",
+  "wallMs": 11669,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1773,
+      "lsp": 5027,
+      "ast-grep": 59,
+      "coverage": 1,
+      "git": 257
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 681,
+    "cacheRead": 8179,
+    "cacheWrite": 5214,
+    "total": 14082
+  },
+  "costUsd": 0.0569998,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "In `src/`, `readSourceSnippet` has only one direct caller. The other functions reach it through that caller.\n\n- **Direct caller:** `renderSymbolSourceSection` (`src/tools/symbol-card.ts:41`). The signature change will break this call.\n- **Through `renderSymbolSourceSection`:**\n  - `symbolCard` (`src/tools/symbol-card.ts:156`). Nothing in `src/` calls it, so it is an entry point itself.\n  - `symbolGraph` (`src/tools/symbol-graph.ts:289`).\n- **Through `symbolGraph`:** `piCodegraph` (`src/index.ts:444`). This is the extension entry point that registers the tools.\n\nThe impact analysis also listed some test-file harnesses in `test/` that reach `piCodegraph`. I left them out because they aren't in `src/`.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

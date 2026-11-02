@@ -1,0 +1,48 @@
+{
+  "cell": "tool-call-path__off__openai-codex_gpt-6.1-sol__r3",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:58:31.640Z",
+  "wallMs": 53234,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 37252,
+    "output": 1324,
+    "cacheRead": 77696,
+    "cacheWrite": 0,
+    "total": 116272
+  },
+  "costUsd": 0.0955136,
+  "toolCalls": {
+    "ls": 1,
+    "find": 1,
+    "read": 13,
+    "grep": 4
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThe call order is:\n\n1. **Tool `execute` → `prepare`** (`src/index.ts:261`):\n   - Check cancellation.\n   - `getOrCreateProject(ctx.cwd)` → on first use, create `.codegraph/` and construct `SqliteGraphStore` → `openDb` → `initSchema`, using `.codegraph/graph.db`.\n   - `setStatus` marks indexing underway.\n   - `ensureIndexed` starts `indexProjectImpl` (normally **`indexProject`**); `raceAbort` waits cancellation-aware.\n\n2. **`indexProject`** (`src/indexer/pipeline.ts`), in order:\n   - `walkTsFiles`: recursively discover `.ts`/`.tsx`, excluding `node_modules`, `.megapowers`, and `.git`.\n   - For each file: `readFileSync` → `sha256Hex` → `store.getFileHash`. Skip unchanged files; otherwise `deleteFile` for an existing version → `extractFile` (Tree-sitter) → `addNode`/`addEdge` → `setFileHash`.\n   - `listFiles` → `deleteFile` for removed files, excluding internal `__…` records.\n   - Construct `TsServerClient` → `runLspIndexStage` to resolve/confirm call edges → `client.shutdown`.\n   - `runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`, on changed files.\n   - `runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`, storing test edges/traces.\n   - `runGitCoChangeStage`, adding Git co-change relationships when HEAD changed.\n\n3. **Back in `prepare`**:\n   - `ensureIndexed` records/clears indexing errors and clears the in-flight promise.\n   - `setStatus` clears the status or reports failure.\n   - `ensureHashInit` initializes anchor hashing.\n\n4. **Tool-specific work** (`src/index.ts:414–519`):\n   - **`symbol_graph`:** `store.findNodes` → for a unique match, `getClient` → `resolveMissingCallers` →, for interfaces, `resolveImplementations`; wait through `raceAbort` → `symbolGraph`.\n   - **`impact`:** `impact`.\n   - **`trace`:** `trace`.\n\n   These render graph-derived output with anchors and freshness information (`evaluateFreshness` → `prependFreshnessHeader`).\n\n5. **Common return path:** `finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled` → `toolResult` → `extractAnchors`.\n\nThe result contains text, lookup-success/error status, and structured `{ text, anchors, indexingFailed }`.\n\nImportantly, indexing is **not session-first-call-only**: every tool call invokes `ensureIndexed`; concurrent calls share an in-flight index, and subsequent runs skip unchanged files. Indexing failures are generally recorded so tools can continue against available graph data.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "The call order is:\n\n1. **Tool `execute` → `prepare`** (`src/index.ts:261`):\n   - Check cancellation.\n   - `getOrCreateProject(ctx.cwd)` → on first use, create `.codegraph/` and construct `SqliteGraphStore` → `openDb` → `initSchema`, using `.codegraph/graph.db`.\n   - `setStatus` marks indexing underway.\n   - `ensureIndexed` starts `indexProjectImpl` (normally **`indexProject`**); `raceAbort` waits cancellation-aware.\n\n2. **`indexProject`** (`src/indexer/pipeline.ts`), in order:\n   - `walkTsFiles`: recursively discover `.ts`/`.tsx`, excluding `node_modules`, `.megapowers`, and `.git`.\n   - For each file: `readFileSync` → `sha256Hex` → `store.getFileHash`. Skip unchanged files; otherwise `deleteFile` for an existing version → `extractFile` (Tree-sitter) → `addNode`/`addEdge` → `setFileHash`.\n   - `listFiles` → `deleteFile` for removed files, excluding internal `__…` records.\n   - Construct `TsServerClient` → `runLspIndexStage` to resolve/confirm call edges → `client.shutdown`.\n   - `runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`, on changed files.\n   - `runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`, storing test edges/traces.\n   - `runGitCoChangeStage`, adding Git co-change relationships when HEAD changed.\n\n3. **Back in `prepare`**:\n   - `ensureIndexed` records/clears indexing errors and clears the in-flight promise.\n   - `setStatus` clears the status or reports failure.\n   - `ensureHashInit` initializes anchor hashing.\n\n4. **Tool-specific work** (`src/index.ts:414–519`):\n   - **`symbol_graph`:** `store.findNodes` → for a unique match, `getClient` → `resolveMissingCallers` →, for interfaces, `resolveImplementations`; wait through `raceAbort` → `symbolGraph`.\n   - **`impact`:** `impact`.\n   - **`trace`:** `trace`.\n\n   These render graph-derived output with anchors and freshness information (`evaluateFreshness` → `prependFreshnessHeader`).\n\n5. **Common return path:** `finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled` → `toolResult` → `extractAnchors`.\n\nThe result contains text, lookup-success/error status, and structured `{ text, anchors, indexingFailed }`.\n\nImportantly, indexing is **not session-first-call-only**: every tool call invokes `ensureIndexed`; concurrent calls share an in-flight index, and subsequent runs skip unchanged files. Indexing failures are generally recorded so tools can continue against available graph data.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

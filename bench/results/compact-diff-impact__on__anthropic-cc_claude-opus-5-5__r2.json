@@ -1,0 +1,61 @@
+{
+  "cell": "compact-diff-impact__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:50:07.876Z",
+  "wallMs": 16812,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 9844,
+      "lsp": 10873,
+      "ast-grep": 190,
+      "coverage": 1,
+      "git": 966
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 998,
+    "cacheRead": 9788,
+    "cacheWrite": 7404,
+    "total": 18198
+  },
+  "costUsd": 0.08118159999999999,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Two paths lead to `generateCompactOrFullDiff`: one through the edit tool and one through the write tool. I found them with the impact tool and confirmed them with grep.\n\n**Edit path (`src/edit.ts`)**\n- `buildEditResult` (line 1129) calls `generateCompactOrFullDiff` directly.\n- `registerEditTool` calls `buildEditResult` (line 1321) inside its tool's execute handler.\n\n**Write path (`src/write.ts`)**\n- `generateWriteDiff` (line 127) calls `generateCompactOrFullDiff` directly.\n- `executeWrite` calls `generateWriteDiff` (line 324).\n- `registerWriteTool` calls `executeWrite` (line 410) inside its tool's execute handler.\n\n`registerEditTool` and `registerWriteTool` are where the tools are registered, so I stopped there. One level up, `piHashlineReadmapExtension` in `index.ts` calls both of them. Many test helpers also reach this code through the registered tools, such as `callEditTool`, `captureEditTool`, `callWriteTool` and `getWriteTool`. Those tests are worth re-running after the change.\n\n<answer>\nbuildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

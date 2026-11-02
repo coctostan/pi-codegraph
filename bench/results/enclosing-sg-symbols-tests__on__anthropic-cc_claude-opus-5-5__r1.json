@@ -1,0 +1,63 @@
+{
+  "cell": "enclosing-sg-symbols-tests__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:11.637Z",
+  "wallMs": 20441,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 6554,
+      "lsp": 6901,
+      "ast-grep": 188,
+      "coverage": 1,
+      "git": 826
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 1579,
+    "cacheRead": 36453,
+    "cacheWrite": 10638,
+    "total": 48684
+  },
+  "costUsd": 0.1240306,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 2,
+    "read": 1,
+    "bash": 3
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Four test files exercise `findEnclosingSgSymbols`. The symbol graph tags it `[untested]`, but that's wrong: these four files import and call it directly.\n\n- `tests/context-hygiene-sg.test.ts` calls it directly. It also reaches it through the `ast_search` tool (`registerSgTool`) by setting `PI_CONTEXT_HYGIENE_DEBUG=1`.\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nThe only other caller is `registerSgTool` in `src/sg.ts` (line 415). It calls the function only when `PI_CONTEXT_HYGIENE_DEBUG === \"1\"` and the match spans no more than a set number of files. Many other sg tests (e.g. `sg-output-consumers`, `sg.format`) register the tool, but none of them set that flag, so they never reach `findEnclosingSgSymbols`. The one exception is `context-hygiene-sg.test.ts`, which is already listed.\n\nTo rerun them:\n```\nnpx vitest run tests/context-hygiene-sg.test.ts tests/issue-234-sql-mapper.test.ts tests/json-mapper-root-array-sg.test.ts tests/issue-242-sql-boundary-consumers.test.ts\n```\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

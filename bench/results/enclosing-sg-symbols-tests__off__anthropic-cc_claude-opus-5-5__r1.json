@@ -1,0 +1,46 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:16.479Z",
+  "wallMs": 16373,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 1065,
+    "cacheRead": 20316,
+    "cacheWrite": 5853,
+    "total": 27248
+  },
+  "costUsd": 0.07224320000000001,
+  "toolCalls": {
+    "grep": 5,
+    "read": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four test files reach `findEnclosingSgSymbols`. Each one imports it from `../src/sg.js` and calls it directly:\n\n- `tests/context-hygiene-sg.test.ts` is also the only test that reaches it through the sg tool. In `src/sg.ts:415` the tool calls it only when `PI_CONTEXT_HYGIENE_DEBUG=1`, and this file sets that variable while registering the tool with `registerSgTool`.\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\n`tests/context-hygiene-debug-tool.test.ts` also sets that variable, but it never uses the sg tool, so it doesn't call the function.\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

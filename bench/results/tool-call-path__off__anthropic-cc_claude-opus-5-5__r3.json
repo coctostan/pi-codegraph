@@ -1,0 +1,47 @@
+{
+  "cell": "tool-call-path__off__anthropic-cc_claude-opus-5-5__r3",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:58:17.651Z",
+  "wallMs": 26823,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 10,
+    "output": 2679,
+    "cacheRead": 17003,
+    "cacheWrite": 16394,
+    "total": 36086
+  },
+  "costUsd": 0.1881726,
+  "toolCalls": {
+    "bash": 1,
+    "read": 2,
+    "grep": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "On the first call, every tool's `execute` runs the same shared path, `prepare()`. `symbol_graph` adds one extra step after it. All of this is in `src/index.ts` unless another file is named.\n\n**1. `prepare(ctx, signal)`**\n1. `signal?.throwIfAborted()` runs first.\n2. `getOrCreateProject(ctx.cwd)` finds no entry for this project root yet. It creates `.codegraph/` with `mkdirSync`, opens `new SqliteGraphStore(\".codegraph/graph.db\")`, and saves a `ProjectState` (store, `client: null`, `indexing: null`, an empty `resolving` map). It also sets `sharedStore`.\n3. `setStatus(ctx, \"codegraph: indexing…\")` shows a status line.\n4. `raceAbort(ensureIndexed(projectRoot, state), signal)`:\n   - `ensureIndexed` starts one indexing run and stores it in `state.indexing`, so calls that arrive at the same time wait on the same run.\n   - Inside it, `indexProjectImpl`, which is `indexProject` from `src/indexer/pipeline.ts`, runs:\n     1. `walkTsFiles` collects the `.ts`/`.tsx` files, skipping `node_modules`, `.git` and `.megapowers`.\n     2. For each file it calls `readFileSync`, then `sha256Hex`, then `store.getFileHash`. A file whose hash hasn't changed is skipped. Otherwise it calls `store.deleteFile` if the file was indexed before, then `extractFile` (tree-sitter), then `store.addNode`/`addEdge`, then `store.setFileHash`.\n     3. Files no longer on disk are removed with `store.listFiles()` and `store.deleteFile`.\n     4. `new TsServerClient(projectRoot)`, then `runLspIndexStage`, then `client.shutdown()`.\n     5. `runAstGrepIndexStage` runs on the changed files only.\n     6. `runCoverageIndexStage` reads `.codegraph/coverage`.\n     7. `runGitCoChangeStage` runs last.\n   - When indexing finishes, `ensureIndexed` sets or clears `lastIndexError`. It calls `dbIsWritable` if there were errors, and an error thrown by indexing is caught and recorded the same way. In `finally` it resets `state.indexing = null`.\n   - `raceAbort` only stops this caller from waiting if the signal aborts. Indexing keeps running for other callers.\n5. `setStatus` runs in a `finally`: it clears the status line, or shows \"codegraph: indexing failed\".\n6. `ensureHashInit()` (`src/output/anchoring.ts`) loads `xxhash-wasm` for the `LINE:HASH` anchors.\n\n**2. Extra step for `symbol_graph` only**\nIt calls `store.findNodes`. If exactly one node matches, it runs `getClient`, which starts a tsserver lazily. Then it runs `resolveMissingCallers`, plus `resolveImplementations` if the node is an interface. This work is shared per symbol through `state.resolving` and wrapped in `raceAbort`.\n\n**3. Rendering**\nThe tool's own function builds the text: `symbolGraph(...)`, `impact(...)` or `trace(...)`.\n\n**4. `finalizeReadOnlyOutput`**\nIt runs `suppressFreshTrustHeader`, then `stripTrustHeader` only if `suppressTrustHeader` is set. It then puts the `indexingFailedNote()` text in front, and finally calls `appendTokenMetaIfEnabled`.\n\n**5. `toolResult(output, isError)`**\nIt builds `content` and `structuredContent` `{ text, anchors: extractAnchors(output), indexingFailed }`, and that object is returned.\n\n<answer>\nIn `src/index.ts`, each tool's `execute` (`symbol_graph`, `impact`, `trace`) runs these in order:\n\n1. `prepare(ctx, signal)`, which calls:\n   1. `signal.throwIfAborted()`\n   2. `getOrCreateProject(ctx.cwd)`: on the first call it creates `.codegraph/` and opens `new SqliteGraphStore(\".codegraph/graph.db\")`, then saves the `ProjectState` and `sharedStore`.\n   3. `setStatus(ctx, \"codegraph: indexing…\")`\n   4. `raceAbort(ensureIndexed(projectRoot, state), signal)`: `ensureIndexed` stores a single shared run in `state.indexing`. That run calls `indexProjectImpl`, which is `indexProject` in `src/indexer/pipeline.ts`:\n      - `walkTsFiles`\n      - for each file: `readFileSync`, `sha256Hex`, `store.getFileHash` (unchanged files are skipped), then `store.deleteFile` if it was indexed before, `extractFile` (tree-sitter), `store.addNode`/`addEdge`, `store.setFileHash`\n      - removal of deleted files with `store.listFiles` and `store.deleteFile`\n      - `new TsServerClient`, `runLspIndexStage`, `client.shutdown`\n      - `runAstGrepIndexStage` (changed files only)\n      - `runCoverageIndexStage`\n      - `runGitCoChangeStage`\n\n      After that, `ensureIndexed` sets or clears `lastIndexError` (calling `dbIsWritable` if there were errors) and resets `state.indexing = null` in `finally`.\n   5. `setStatus` in a `finally`: clears the status, or shows \"indexing failed\".\n   6. `ensureHashInit()` loads xxhash-wasm.\n2. `symbol_graph` only: `store.findNodes`. If exactly one node matches: `getClient`, then `resolveMissingCallers`, plus `resolveImplementations` for interfaces. This is shared through `state.resolving` and wrapped in `raceAbort`.\n3. The renderer: `symbolGraph`, `impact` or `trace`.\n4. `finalizeReadOnlyOutput`: `suppressFreshTrustHeader`, then `stripTrustHeader` (only if requested), then `indexingFailedNote()` is put in front, then `appendTokenMetaIfEnabled`.\n5. `toolResult` (which calls `extractAnchors`) builds the returned object.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "In `src/index.ts`, each tool's `execute` (`symbol_graph`, `impact`, `trace`) runs these in order:\n\n1. `prepare(ctx, signal)`, which calls:\n   1. `signal.throwIfAborted()`\n   2. `getOrCreateProject(ctx.cwd)`: on the first call it creates `.codegraph/` and opens `new SqliteGraphStore(\".codegraph/graph.db\")`, then saves the `ProjectState` and `sharedStore`.\n   3. `setStatus(ctx, \"codegraph: indexing…\")`\n   4. `raceAbort(ensureIndexed(projectRoot, state), signal)`: `ensureIndexed` stores a single shared run in `state.indexing`. That run calls `indexProjectImpl`, which is `indexProject` in `src/indexer/pipeline.ts`:\n      - `walkTsFiles`\n      - for each file: `readFileSync`, `sha256Hex`, `store.getFileHash` (unchanged files are skipped), then `store.deleteFile` if it was indexed before, `extractFile` (tree-sitter), `store.addNode`/`addEdge`, `store.setFileHash`\n      - removal of deleted files with `store.listFiles` and `store.deleteFile`\n      - `new TsServerClient`, `runLspIndexStage`, `client.shutdown`\n      - `runAstGrepIndexStage` (changed files only)\n      - `runCoverageIndexStage`\n      - `runGitCoChangeStage`\n\n      After that, `ensureIndexed` sets or clears `lastIndexError` (calling `dbIsWritable` if there were errors) and resets `state.indexing = null` in `finally`.\n   5. `setStatus` in a `finally`: clears the status, or shows \"indexing failed\".\n   6. `ensureHashInit()` loads xxhash-wasm.\n2. `symbol_graph` only: `store.findNodes`. If exactly one node matches: `getClient`, then `resolveMissingCallers`, plus `resolveImplementations` for interfaces. This is shared through `state.resolving` and wrapped in `raceAbort`.\n3. The renderer: `symbolGraph`, `impact` or `trace`.\n4. `finalizeReadOnlyOutput`: `suppressFreshTrustHeader`, then `stripTrustHeader` (only if requested), then `indexingFailedNote()` is put in front, then `appendTokenMetaIfEnabled`.\n5. `toolResult` (which calls `extractAnchors`) builds the returned object.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

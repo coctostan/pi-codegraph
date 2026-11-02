@@ -1,0 +1,62 @@
+{
+  "cell": "enclosing-sg-symbols-tests__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:51:06.591Z",
+  "wallMs": 27967,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 7084,
+      "lsp": 7204,
+      "ast-grep": 330,
+      "coverage": 1,
+      "git": 931
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1706,
+    "cacheRead": 51322,
+    "cacheWrite": 14250,
+    "total": 67294
+  },
+  "costUsd": 0.15844839999999996,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 6,
+    "read": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Four test files exercise `findEnclosingSgSymbols`. All of them import it from `../src/sg.js` and call it directly:\n\n- `tests/context-hygiene-sg.test.ts`: calls it directly at line 78. It also reaches it a second way, through the `ast_search` tool from `registerSgTool`, because it sets `PI_CONTEXT_HYGIENE_DEBUG`.\n- `tests/json-mapper-root-array-sg.test.ts` (line 71)\n- `tests/issue-234-sql-mapper.test.ts` (line 179)\n- `tests/issue-242-sql-boundary-consumers.test.ts` (line 103)\n\nThe symbol graph tool labels the function \"[untested]\", but that's wrong: a text search found these calls.\n\nThe only other caller is in `src/sg.ts` at line 415, inside `registerSgTool`. That call only runs when context-hygiene debug mode is on (`PI_CONTEXT_HYGIENE_DEBUG`) and the number of matched files is small enough. About 30 other sg tests call `registerSgTool`, but none of them turn debug mode on, so they never reach this function. The only other test that sets the flag, `tests/context-hygiene-debug-tool.test.ts`, doesn't use sg.\n\nTo rerun them:\n```\nnpx vitest run tests/context-hygiene-sg.test.ts tests/json-mapper-root-array-sg.test.ts tests/issue-234-sql-mapper.test.ts tests/issue-242-sql-boundary-consumers.test.ts\n```\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

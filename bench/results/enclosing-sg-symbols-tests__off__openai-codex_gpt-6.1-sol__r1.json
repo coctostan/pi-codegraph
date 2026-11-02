@@ -1,0 +1,46 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:35.626Z",
+  "wallMs": 19434,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 11756,
+    "output": 337,
+    "cacheRead": 5632,
+    "cacheWrite": 0,
+    "total": 17725
+  },
+  "costUsd": 0.027445199999999996,
+  "toolCalls": {
+    "grep": 2,
+    "read": 5
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\n- `tests/context-hygiene-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "- `tests/context-hygiene-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
