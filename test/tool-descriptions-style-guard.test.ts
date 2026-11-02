@@ -1,43 +1,29 @@
 import { test } from "bun:test";
 
-async function registeredWith(devMode: boolean) {
-  const prev = process.env.CODEGRAPH_DEVMODE;
-  if (devMode) process.env.CODEGRAPH_DEVMODE = "1";
-  else delete process.env.CODEGRAPH_DEVMODE;
-  try {
-    const tools: Array<{ name: string; description: string }> = [];
-    const mockPi = {
-      registerTool(tool: { name: string; description: string }) {
-        tools.push({ name: tool.name, description: tool.description });
-      },
-      on() {},
-    };
-    const mod = await import("../src/index.js");
-    if (typeof (mod as any).resetStoreForTesting === "function") (mod as any).resetStoreForTesting();
-    (mod as any).default(mockPi as any);
-    return tools;
-  } finally {
-    if (prev === undefined) delete process.env.CODEGRAPH_DEVMODE;
-    else process.env.CODEGRAPH_DEVMODE = prev;
-  }
+async function registered() {
+  const tools: Array<{ name: string; description: string }> = [];
+  const mockPi = {
+    registerTool(tool: { name: string; description: string }) {
+      tools.push({ name: tool.name, description: tool.description });
+    },
+    on() {},
+  };
+  const mod = await import("../src/index.js");
+  if (typeof (mod as any).resetStoreForTesting === "function") (mod as any).resetStoreForTesting();
+  (mod as any).default(mockPi as any);
+  return tools;
 }
 
-test("registration surface gated on CODEGRAPH_DEVMODE", async () => {
-  const def = (await registeredWith(false)).map((t) => t.name).sort();
-  const expectedDefault = ["impact", "symbol_graph", "trace"];
-  if (JSON.stringify(def) !== JSON.stringify(expectedDefault)) {
-    throw new Error(`default surface drifted: ${JSON.stringify(def)}`);
-  }
-
-  const dev = (await registeredWith(true)).map((t) => t.name).sort();
-  const expectedDev = ["impact", "symbol_graph", "trace"];
-  if (JSON.stringify(dev) !== JSON.stringify(expectedDev)) {
-    throw new Error(`dev surface drifted: ${JSON.stringify(dev)}`);
+test("registration surface is exactly the three public tools", async () => {
+  const names = (await registered()).map((t) => t.name).sort();
+  const expected = ["impact", "symbol_graph", "trace"];
+  if (JSON.stringify(names) !== JSON.stringify(expected)) {
+    throw new Error(`surface drifted: ${JSON.stringify(names)}`);
   }
 });
 
 test("audited tool top-level descriptions contain no inline examples or enumerations", async () => {
-  const tools = await registeredWith(true);
+  const tools = await registered();
   const audited = new Set(["impact"]);
   for (const t of tools) {
     if (!audited.has(t.name)) continue;

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { phase5ToolDecisions } from "./phase5-decision-matrix";
 
 const read = (path: string) => readFileSync(path, "utf8");
@@ -50,4 +51,30 @@ test("ROADMAP.md names a removed tool only as completed-milestone history or mar
 
 test("README.md names pi 1.4.0 as the tested host", () => {
   expect(read("README.md")).toContain("tested against pi 1.4.0");
+});
+
+// Built by concatenation so this file does not name them itself.
+const devModeNames = ["CODEGRAPH_" + "DEVMODE", "devMode" + "Enabled"];
+
+test("README.md names neither the dev-mode toggle nor the agent provenance label", () => {
+  const readme = read("README.md");
+  expect(readme).not.toContain(devModeNames[0]);
+  expect(readme).not.toContain("[source: agent]");
+});
+
+test("ROADMAP.md Principle 6 describes the read-only surface", () => {
+  const roadmap = read("ROADMAP.md");
+  expect(roadmap).toMatch(/^6\. \*\*Read-only surface\.\*\* /m);
+  expect(roadmap).not.toContain("The agent is a collaborator");
+});
+
+test("no file under src/ or test/ names the dev-mode toggle", () => {
+  expect(existsSync("src/config/dev-mode.ts")).toBe(false);
+  const files = ["src", "test"].flatMap((dir) =>
+    readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => join(entry.parentPath, entry.name)),
+  );
+  const named = files.filter((file) => devModeNames.some((name) => read(file).includes(name)));
+  expect(named).toEqual([]);
 });

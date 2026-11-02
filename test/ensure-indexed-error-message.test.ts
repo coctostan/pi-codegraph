@@ -42,14 +42,7 @@ describe("batch 072: indexingFailedNote surfaces the real error message", () => 
       },
       on() {},
     };
-    const previousDev = process.env.CODEGRAPH_DEVMODE;
-    process.env.CODEGRAPH_DEVMODE = "1";
-    try {
-      mod.default(mockPi as any);
-    } finally {
-      if (previousDev === undefined) delete process.env.CODEGRAPH_DEVMODE;
-      else process.env.CODEGRAPH_DEVMODE = previousDev;
-    }
+    mod.default(mockPi as any);
 
     // Force a non-readonly error inside the indexing pipeline. `listFiles()`
     // is called from `src/indexer/pipeline.ts:96` and `src/indexer/lsp.ts:46`

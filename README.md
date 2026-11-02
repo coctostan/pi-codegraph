@@ -8,7 +8,7 @@
 [![CI](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml/badge.svg)](https://github.com/coctostan/pi-codegraph/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 3 public tools by default, with 0 dev-mode-only tools and 1 internal helper for deeper graph work.
+A symbol-level code intelligence engine for coding agents. Builds a graph of every function, class, type, and interface in a TypeScript codebase and exposes it through 3 public tools, with 1 internal helper for deeper graph work.
 
 ## Why pi-codegraph?
 
@@ -27,7 +27,6 @@ The graph can point an agent to the right file and line, but pi-hashline-readmap
 ## Key Features
 
 - **3 public tools by default** — `symbol_graph`, `impact`, `trace`
-- **0 dev-mode tools** — Phase 5 removed the zero-usage dev-only tools; there are no additional tools to register behind `CODEGRAPH_DEVMODE=1` today
 - **1 internal helper** — `symbol_search` remains exported for internal callers but is not registered on the public extension surface
 - **Multi-layer indexing** — tree-sitter AST, LSP (tsserver), ast-grep framework rules, V8 test coverage, git co-change analysis
 - **Provenance on every edge** — each relationship carries its source, confidence, and evidence
@@ -167,7 +166,7 @@ Every tool result is structured for agent consumption:
 
 - **Hashline-compatible anchor locations** rendered as file context plus a bare editable `LINE:HASH` token on every symbol reference
 - **Conditional Trust headers** on non-fresh results to show graph freshness and confidence when it matters
-- **Provenance labels** on every edge (`[source: lsp]`, `[source: tree-sitter]`, `[source: agent]`)
+- **Provenance labels** on every edge (`[source: lsp]`, `[source: tree-sitter]`)
 - **Signal badges** (`[hub]`, `[tested]`, `[bottleneck]`) for quick assessment
 
 ## Project Structure

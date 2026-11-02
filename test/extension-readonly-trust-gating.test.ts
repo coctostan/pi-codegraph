@@ -8,24 +8,16 @@ import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 import { isRemoved } from "./phase5-decision-matrix.js";
 
 function registerTools() {
-  const previous = process.env.CODEGRAPH_DEVMODE;
-  process.env.CODEGRAPH_DEVMODE = "1";
-
-  try {
-    const tools: Array<{ name: string; execute: Function }> = [];
-    const mockPi = {
-      registerTool(tool: { name: string; execute: Function }) {
-        tools.push(tool);
-      },
-      on() {},
-    };
+  const tools: Array<{ name: string; execute: Function }> = [];
+  const mockPi = {
+    registerTool(tool: { name: string; execute: Function }) {
+      tools.push(tool);
+    },
+    on() {},
+  };
   resetStoreForTesting();
-    piCodegraph(mockPi as any);
-    return tools;
-  } finally {
-    if (previous === undefined) delete process.env.CODEGRAPH_DEVMODE;
-    else process.env.CODEGRAPH_DEVMODE = previous;
-  }
+  piCodegraph(mockPi as any);
+  return tools;
 }
 
 function createFreshProject(): string {

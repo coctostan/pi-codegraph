@@ -25,18 +25,11 @@ function check(desc: string, label: string) {
 }
 
 test("audited closed-value parameter descriptions contain no open-ended suffixes", async () => {
-  const prev = process.env.CODEGRAPH_DEVMODE;
-  process.env.CODEGRAPH_DEVMODE = "1";
-  try {
-    const tools = await registered();
+  const tools = await registered();
 
-    const impact = tools.find((t) => t.name === "impact");
-    if (!impact) {
-      throw new Error("impact tool not registered");
-    }
-    check(impact.parameters.properties.changeType.description, "impact.changeType");
-  } finally {
-    if (prev === undefined) delete process.env.CODEGRAPH_DEVMODE;
-    else process.env.CODEGRAPH_DEVMODE = prev;
+  const impact = tools.find((t) => t.name === "impact");
+  if (!impact) {
+    throw new Error("impact tool not registered");
   }
+  check(impact.parameters.properties.changeType.description, "impact.changeType");
 });
