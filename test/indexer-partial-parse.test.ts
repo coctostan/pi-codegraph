@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -49,6 +50,40 @@ test("indexProject lists a partially parsed file in partial, not errors, and a c
     expect(symbolGraphResult({ name: "caller", store, projectRoot: root }).text).not.toContain("partially parsed");
   } finally {
     store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a db indexed before file_hashes.partial re-extracts its unchanged files and rebuilds git co-change once", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-cg-partial-upgrade-"));
+  const files = ["src/bad.ts", "__tests__/bad.ts"];
+  const dbPath = join(root, "graph.db");
+  try {
+    // The old extractor left a broken file module-only, its hash current, so the pipeline skips it.
+    const old = new SqliteGraphStore(dbPath);
+    for (const file of files) {
+      mkdirSync(join(root, file, ".."), { recursive: true });
+      writeFileSync(join(root, file), BROKEN);
+      old.addNode(extractFile(file, BROKEN).module);
+      old.setFileHash(file, sha256Hex(BROKEN));
+    }
+    old.setFileHash("__git_cochange_head__", "abc");
+    old.close();
+    const raw = new Database(dbPath);
+    raw.run("ALTER TABLE file_hashes DROP COLUMN partial");
+    raw.close();
+
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      // Re-extracting a file drops its git edges, so the git stage must run again too.
+      expect(store.getFileHash("__git_cochange_head__")).toBe("");
+      const result = await indexProject(root, store, { lspClientFactory: () => noopClient });
+      expect(result.partial.sort()).toEqual(["__tests__/bad.ts", "src/bad.ts"]);
+      expect(store.findNodes("caller")).toHaveLength(2);
+    } finally {
+      store.close();
+    }
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });

@@ -119,6 +119,9 @@ export class SqliteGraphStore implements GraphStore {
     const fileHashColumns = this.db.prepare("PRAGMA table_info(file_hashes)").all() as Array<{ name: string }>;
     if (!fileHashColumns.some((column) => column.name === "partial")) {
       this.db.prepare("ALTER TABLE file_hashes ADD COLUMN partial INTEGER NOT NULL DEFAULT 0").run();
+      // The extractor before this column left a file that parsed with errors module-only: re-extract every file once,
+      // and rerun the git stage (its `__git_cochange_head__` row), whose edges the re-extraction drops.
+      this.db.prepare("UPDATE file_hashes SET hash = ''").run();
     }
   }
 
