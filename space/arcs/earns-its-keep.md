@@ -16,7 +16,7 @@ A measured verdict, keep, freeze or retire, on whether codegraph's three tools p
 - [ ] On a `keep` verdict, the latest `main` CI run shows `test/pi-host-load.test.ts` passing under `node`, `Test & Type-check` green on Node 22 and the current Node, and `test/output-hashline-compat.test.ts`'s sibling case run, not skipped, against a pi-hashline-readmap clone; on `freeze` or `retire`, that work sits in Out of scope citing decision 0002 — verified by `gh run view <id> --log` at close, or a read of this file
 
 ## Now
-slice 1 (Drive one graded cell headless) is active on branch `earns-its-keep/01-drive-one-cell`. Next action: build `bench/grade.ts` and `bench/run.ts` test-first, then run the pilot's 4 cells.
+slice 2 (Freeze the task set before any run) is next, no branch yet. Next action: run `slice` in a fresh session.
 
 ## Seams
 - Bench runner: `bench/run.ts` drives `pi -p --mode json --no-session` for one cell (task × arm × model × repeat) in a pinned worktree of the target repo, codegraph on by default and off by `-xt symbol_graph,impact,trace`; observed as `bench/results/<cell>.json`; tests in `test/bench-run.test.ts` against a recorded transcript fixture.
@@ -29,8 +29,10 @@ slice 1 (Drive one graded cell headless) is active on branch `earns-its-keep/01-
 
 ## Slices
 1. **Drive one graded cell headless** — delivers `bench/run.ts` running one pilot question in a pinned worktree of a target repo, codegraph on or off, the graph indexed before the timed run, writing tokens, turns, codegraph calls, offered tools and the final answer to `bench/results/pilot/`, graded by `bench/grade.ts` · proof the pilot on both arms on both models, the on-arm transcript offering the three tools and the off-arm none; `bun test test/bench-run.test.ts test/bench-grade.test.ts` red → green · blocked-by — · status done
-   `bench/run.ts` runs one cell in a fresh pinned worktree (deps installed, on arm indexed first) through `pi -p --mode json` with `-ne` and this checkout's codegraph, the off arm by `-xt`, and writes the cell graded by `bench/grade.ts`'s `<answer>` block against `key.all`/`key.none` · deviation: none; settles both Not-yet-specified items (usage per `message_end` for both providers; codegraph from this checkout, `--thinking high`) · evidence: 4 pilot cells all correct, on arms offered the three tools and off arms none; `bun test` 489 pass · commit
+   `bench/run.ts` runs one cell in a fresh pinned worktree (deps installed, on arm indexed first) through `pi -p --mode json` with `-ne` and this checkout's codegraph, the off arm by `-xt`, and writes the cell graded by `bench/grade.ts`'s `<answer>` block against `key.all`/`key.none` · deviation: none; settles both Not-yet-specified items (usage per `message_end` for both providers; codegraph from this checkout, `--thinking high`) · evidence: 4 pilot cells all correct, on arms offered the three tools and off arms none; `bun test` 489 pass · `00742af6`
 2. **Freeze the task set before any run** — delivers 6 questions (2 impact, 2 test-mapping, 2 trace) worded as a user would ask them with no tool named, their pinned commits, answer keys checked with grep, read and `lsp` rather than codegraph, `bench/thresholds.json`, and `bench/verdict.ts` with its audit · proof `bun test test/bench-verdict.test.ts` red → green on fixture results; the commit lands with no `bench/results/` file beyond the pilot's · blocked-by 1 · status next
+   From slice 1: pilot files under `bench/results/pilot/` land before `bench/tasks/`, so done-when 1's `git log` lists them first and `bench/verdict.ts` must skip `pilot/`.
+   From slice 1: a cell records `index.errors`, which nothing audits beyond `bench/run.ts`'s exit code; the verdict audit should reject an on-arm cell with index errors.
 3. **Run the 72 cells** — delivers `bench/results/` with every cell graded and the verdict printed · proof `bun bench/verdict.ts` exits 0 and prints the verdict; the token spend recorded in the reconcile line · blocked-by 2 · status next
 4. **Record the verdict** — delivers `space/decisions/0002-*.md` with the verdict and per-task numbers, `NOW.md` routing its consequence, and this arc reshaped to keep or drop slice 7 · proof a read of the decision against `bun bench/verdict.ts`'s output · blocked-by 3 · status next
 5. **Return the lookup status from the tool functions** — delivers `symbolGraph`, `impact` and `trace` reporting whether each requested name resolved to exactly one node, and `execute()` setting `isError` from that, the string-returning callers in `test/` kept working · proof `test/extension-not-found-is-error.test.ts` stays green, a new status test red → green, `bun run check && bun test` · blocked-by — · status next
@@ -39,8 +41,6 @@ slice 1 (Drive one graded cell headless) is active on branch `earns-its-keep/01-
    Runs only on a `keep` verdict; slice 4 (Record the verdict) moves it to Out of scope otherwise.
 
 ## Not yet specified
-- Whether `pi -p --mode json` reports token usage per turn for both providers, and how a cell's final answer is fenced for grading; slice 1 (Drive one graded cell headless) settles both.
-- Whether both arms load codegraph from this repo's checkout or the installed package; slice 1 (Drive one graded cell headless) pins one, the same for every cell.
 
 ## Out of scope
 - Python support: decided after decision 0002.
