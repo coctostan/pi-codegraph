@@ -546,8 +546,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
     visitCalls(tree.rootNode, null);
   } catch {
-    // If parser initialization fails, return only the module node.
-    return { module: moduleNode, nodes: [], edges: [], partial: false };
+    // If parser initialization fails, return only the module node; a walk that throws on a recovered tree stays partial.
+    return { module: moduleNode, nodes: [], edges: [], partial };
   }
 
   return { module: moduleNode, nodes, edges, partial };
