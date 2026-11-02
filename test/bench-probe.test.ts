@@ -8,7 +8,7 @@ import { checkProbe, runProbes, type Probe } from "../bench/probe.js";
 test("checkProbe passes output meeting every expectation", () => {
   const out = { text: "Trust: fresh\nprepare\n  getOrCreateProject\n  ensureIndexed\n", isError: false };
   expect(
-    checkProbe({ all: ["prepare"], none: ["untested"], ordered: ["getOrCreateProject", "ensureIndexed"], maxChars: 100, resolves: true }, out),
+    checkProbe({ all: ["prepare"], none: ["untested"], ordered: ["getOrCreateProject", "ensureIndexed"], maxChars: out.text.length, resolves: true }, out),
   ).toEqual([]);
 });
 
@@ -26,6 +26,10 @@ test("checkProbe names each unmet expectation", () => {
 
 test("checkProbe reads an ordered item that never appears as missing, not out of order", () => {
   expect(checkProbe({ ordered: ["a", "z", "b"] }, { text: "a b", isError: false })).toEqual(["missing: z"]);
+});
+
+test("checkProbe accepts an isError result unless the probe asks it to resolve", () => {
+  expect(checkProbe({ all: ["not found"] }, { text: "Symbol \"x\" not found", isError: true })).toEqual([]);
 });
 
 test("every probe in bench/probes.json runs on a bench task's repo at that task's pinned commit", () => {
@@ -63,12 +67,15 @@ test("runProbes calls the tool on an indexed worktree at the pinned commit and l
     const probes: Probe[] = [
       { id: "pinned", repo: "fixture", commit, tool: "symbol_graph", params: { name: "beta" }, expect: { all: ["## beta (function)"], resolves: true } },
       { id: "miss", repo: "fixture", commit, tool: "symbol_graph", params: { name: "gamma" }, expect: { resolves: true } },
+      // pi's schema check would refuse these params; here they make execute() throw.
+      { id: "throws", repo: "fixture", commit, tool: "impact", params: { symbols: 5 }, expect: {} },
     ];
     const results = await runProbes(probes, reposDir);
 
-    expect(results.map((r) => [r.id, r.failures])).toEqual([
+    expect(results.map((r) => [r.id, r.failures.map((f) => f.split(":")[0])])).toEqual([
       ["pinned", []],
       ["miss", ["did not resolve"]],
+      ["throws", ["threw"]],
     ]);
     expect(git("worktree", "list").split("\n")).toHaveLength(1);
     expect(existsSync(join(repo, ".codegraph"))).toBe(false);
