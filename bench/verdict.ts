@@ -68,15 +68,17 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
       problems.push(`${name}: malformed, not JSON`);
       continue;
     }
+    const count = (x: unknown) => Number.isInteger(x) && (x as number) >= 0;
     const typed =
-      typeof c?.turns === "number" &&
-      typeof c.tokens?.total === "number" &&
-      typeof c.codegraphCalls === "number" &&
+      count(c?.turns) &&
+      count(c.tokens?.total) &&
+      count(c.codegraphCalls) &&
       typeof c.grade?.correct === "boolean" &&
       typeof c.finalText === "string" &&
-      Array.isArray(c.offeredTools);
+      Array.isArray(c.offeredTools) &&
+      c.offeredTools.every((t: unknown) => typeof t === "string");
     if (!typed) {
-      problems.push(`${name}: malformed, lacks turns, tokens.total, codegraphCalls, grade.correct, finalText or offeredTools`);
+      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText or offeredTools missing or ill-typed`);
       continue;
     }
     const identity: Record<string, unknown> = {

@@ -82,6 +82,17 @@ test("auditCells rejects an unparseable cell and one missing a metric", () => {
   expect(problems).toContain("t2__off__p_b__r1.json: malformed");
 });
 
+test("auditCells rejects a negative or fractional metric and a non-string offered tool", () => {
+  const files = fullSet((c) => {
+    if (c.task !== "t1") return c;
+    if (c.arm === "on") return c.model === "p/a" ? { ...c, tokens: { total: -100 } } : { ...c, turns: 2.5 };
+    return c.model === "p/a" ? { ...c, offeredTools: ["read", null as unknown as string] } : c;
+  });
+  const problems = auditCells(tasks, thresholds, files);
+  expect(problems).toHaveLength(3);
+  for (const id of ["t1__on__p_a__r1", "t1__on__p_b__r1", "t1__off__p_a__r1"]) expect(problems.join("\n")).toContain(`${id}.json: malformed`);
+});
+
 test("auditCells rejects a cell whose identity disagrees with its file name or task", () => {
   const files = fullSet((c) => (c.task === "t2" && c.arm === "on" && c.model === "p/a" ? { ...c, commit: "other" } : c));
   expect(auditCells(tasks, thresholds, files)).toEqual(["t2__on__p_a__r1.json: commit is other, expected c-t2"]);
@@ -144,6 +155,13 @@ test("decide freezes when a win costs correctness overall, and a cut just under 
   expect(decide(tasks, thresholds, lossy).verdict).toBe("freeze");
   const near = parsed(fullSet((c) => (c.arm === "on" ? { ...c, tokens: { total: 751 } } : c)));
   expect(decide(tasks, thresholds, near).verdict).toBe("retire");
+});
+
+test("decide freezes when the on arm wins some tasks but fewer than keepWinFraction of them", () => {
+  const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" ? { ...c, tokens: { total: 500 } } : c)));
+  const d = decide(tasks, { ...thresholds, keepWinFraction: 1 }, cells);
+  expect(d.wins).toBe(1);
+  expect(d.verdict).toBe("freeze");
 });
 
 test("decide gives no win on a task where the on arm is cheaper but less often correct", () => {
