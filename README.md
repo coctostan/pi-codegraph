@@ -84,7 +84,7 @@ Then point your pi config at the local checkout:
 
 ### Troubleshooting native dependencies
 
-`tree-sitter` and `tree-sitter-typescript` ship as native modules and compile on install via `node-gyp`. If install fails, you likely need a working C/C++ toolchain:
+`tree-sitter` and `tree-sitter-typescript` are native modules that ship prebuilt binaries for macOS, Linux and Windows on arm64 and x64, so install needs no compiler there. On any other platform they compile on install via `node-gyp`; if that fails, you likely need a working C/C++ toolchain:
 
 - **macOS:** `xcode-select --install`
 - **Linux:** `sudo apt-get install build-essential python3` (or your distro's equivalent)
