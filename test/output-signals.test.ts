@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { createSignalComputer, formatImpactWhy, formatRoleTags } from "../src/output/signals.js";
+import { createSignalComputer, formatRoleTags } from "../src/output/signals.js";
 
 function addCall(
   store: SqliteGraphStore,
@@ -23,7 +23,7 @@ function addCall(
   });
 }
 
-test("createSignalComputer computes AC-aligned fan-in/out, role, coverage, framework, and co-change signals", () => {
+test("createSignalComputer computes AC-aligned fan-in/out, role, coverage and framework signals", () => {
   const store = new SqliteGraphStore();
   try {
     store.markCoverageIndexed();
@@ -35,16 +35,6 @@ test("createSignalComputer computes AC-aligned fan-in/out, role, coverage, frame
       start_line: 1,
       end_line: 20,
       content_hash: "h-lib",
-      is_exported: false,
-    };
-    const apiModule = {
-      id: "src/api.ts::src/api.ts:1",
-      kind: "module" as const,
-      name: "src/api.ts",
-      file: "src/api.ts",
-      start_line: 1,
-      end_line: 20,
-      content_hash: "h-api",
       is_exported: false,
     };
 
@@ -138,18 +128,8 @@ test("createSignalComputer computes AC-aligned fan-in/out, role, coverage, frame
       content_hash: "h-test",
       is_exported: false,
     };
-    const apiConsumer = {
-      id: "src/api.ts::apiConsumer:3",
-      kind: "function" as const,
-      name: "apiConsumer",
-      file: "src/api.ts",
-      start_line: 3,
-      end_line: 6,
-      content_hash: "h-api-consumer",
-      is_exported: true,
-    };
 
-    [libModule, apiModule, shared, entry, helper, util, extra, callerA, callerB, callerC, testNode, apiConsumer].forEach((node) => store.addNode(node));
+    [libModule, shared, entry, helper, util, extra, callerA, callerB, callerC, testNode].forEach((node) => store.addNode(node));
 
     addCall(store, callerA.id, shared.id, "tree-sitter");
     addCall(store, callerA.id, shared.id, "lsp"); // duplicate caller, must not increase distinct fan-in
@@ -169,50 +149,29 @@ test("createSignalComputer computes AC-aligned fan-in/out, role, coverage, frame
       created_at: Date.now(),
     });
 
-    store.addEdge({
-      source: libModule.id,
-      target: apiModule.id,
-      kind: "co_changes_with",
-      provenance: {
-        source: "git",
-        confidence: 0.6,
-        evidence: "co_changes: 7, recency_score: 4.2, window: 365d",
-        content_hash: "h-lib",
-      },
-      created_at: Date.now(),
-    });
-
     const computer = createSignalComputer(store);
 
-    const sharedSignals = computer.compute(shared.id, [shared.id]);
+    const sharedSignals = computer.compute(shared.id);
     expect(sharedSignals.fanIn).toBe(3);
     expect(sharedSignals.fanOut).toBe(3);
     expect(sharedSignals.roles).toEqual(["hub", "framework-mediated"]);
     expect(sharedSignals.tested).toBe(true);
     expect(sharedSignals.frameworkMediated).toBe(true);
 
-    const entrySignals = computer.compute(entry.id, [shared.id]);
+    const entrySignals = computer.compute(entry.id);
     expect(entrySignals.roles).toEqual(["entry-point"]);
 
-    const helperSignals = computer.compute(helper.id, [shared.id]);
+    const helperSignals = computer.compute(helper.id);
     expect(helperSignals.roles).toEqual(["leaf"]);
     expect(helperSignals.tested).toBe(false);
 
     // modules are excluded from entry-point tagging even if exported
     store.addNode({ ...libModule, id: "src/lib.ts::src/lib.ts:99", start_line: 99, is_exported: true });
-    const exportedModuleSignals = computer.compute("src/lib.ts::src/lib.ts:99", [shared.id]);
+    const exportedModuleSignals = computer.compute("src/lib.ts::src/lib.ts:99");
     expect(exportedModuleSignals.roles).not.toContain("entry-point");
 
-    const apiSignals = computer.compute(apiConsumer.id, [shared.id]);
-    expect(apiSignals.coChangeScore).toBe(7);
-
     expect(formatRoleTags(sharedSignals)).toBe("[hub, framework-mediated, tested]");
-
-    const why = formatImpactWhy(helperSignals, 0.75);
-    expect(why).toContain("roles:leaf");
-    expect(why).toContain("coverage:untested");
-    expect(why).toContain("chain-confidence:0.75");
-    expect(why.startsWith("[fan-in:")).toBe(true);
+    expect(formatRoleTags(helperSignals)).toBe("[leaf, untested]");
   } finally {
     store.close();
   }

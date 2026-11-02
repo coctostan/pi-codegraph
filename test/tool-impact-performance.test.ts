@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { impactResult } from "../src/tools/impact.js";
 
-test("impact renders 120 annotated dependents under one second", () => {
+test("impact renders 120 dependents under one second", () => {
   const projectRoot = join(tmpdir(), `pi-cg-impact-perf-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
 
@@ -54,7 +54,7 @@ test("impact renders 120 annotated dependents under one second", () => {
 
     expect(output).toContain("Trust: stale");
     const linesOut = output.trim().split("\n");
-    const resultLines = linesOut.filter((line) => line.includes("[fan-in:"));
+    const resultLines = linesOut.filter((line) => line.includes("  breaking  depth:1"));
     expect(resultLines).toHaveLength(120);
     expect(elapsedMs).toBeLessThan(1000);
   } finally {

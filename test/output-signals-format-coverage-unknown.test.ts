@@ -8,7 +8,6 @@ const base: NodeSignals = {
   tested: false,
   frameworkMediated: false,
   isExported: false,
-  coChangeScore: 0,
   coverageKnown: false,
 };
 

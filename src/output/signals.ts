@@ -1,5 +1,4 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
-import type { GraphNode } from "../graph/types.js";
 
 export type NodeRole = "entry-point" | "hub" | "leaf" | "framework-mediated";
 
@@ -10,17 +9,14 @@ export interface NodeSignals {
   tested: boolean;
   frameworkMediated: boolean;
   isExported: boolean;
-  coChangeScore: number;
   coverageKnown: boolean;
 }
 
 export interface SignalComputer {
-  compute(nodeId: string, changedNodeIds?: string[]): NodeSignals;
+  compute(nodeId: string): NodeSignals;
 }
 
 const ROLE_ORDER: NodeRole[] = ["entry-point", "hub", "leaf", "framework-mediated"];
-const IMPACT_ROLE_ORDER: NodeRole[] = ["leaf", "entry-point", "hub", "framework-mediated"];
-// Memoization keys for changed symbol sets are normalized via sorted IDs.
 
 function uniqueNeighborCount(neighbors: NeighborResult[]): number {
   return new Set(neighbors.map((neighbor) => neighbor.node.id)).size;
@@ -34,93 +30,11 @@ function sortRoles(roles: NodeRole[], order: NodeRole[]): NodeRole[] {
   return [...roles].sort((a, b) => order.indexOf(a) - order.indexOf(b));
 }
 
-function parseGitCoChanges(evidence: string): number | null {
-  const countMatch = evidence.match(/co_changes:\s*([0-9]+(?:\.[0-9]+)?)/i);
-  if (!countMatch?.[1]) return null;
-  const count = Number(countMatch[1]);
-  return Number.isNaN(count) ? null : Math.max(0, count);
-}
-
-function changedSetKey(changedNodeIds: string[]): string {
-  if (changedNodeIds.length === 0) return "";
-  return [...new Set(changedNodeIds)].sort().join("|");
-}
-
 export function createSignalComputer(store: GraphStore): SignalComputer {
-  const moduleByFileCache = new Map<string, GraphNode | null>();
-  const baseSignalsCache = new Map<string, Omit<NodeSignals, "coChangeScore">>();
-  const changedModuleIdsCache = new Map<string, Set<string>>();
-  const coChangeScoreCache = new Map<string, number>();
+  const baseSignalsCache = new Map<string, NodeSignals>();
   const coverageKnown = store.hasCoverageData();
-
-  function findModuleNode(node: GraphNode): GraphNode | null {
-    const cached = moduleByFileCache.get(node.file);
-    if (cached !== undefined) return cached;
-    const byFile = store.getNodesByFile(node.file);
-    const exact = byFile.find((candidate) => candidate.kind === "module" && candidate.name === node.file);
-    const moduleNode = exact ?? byFile.find((candidate) => candidate.kind === "module") ?? null;
-    moduleByFileCache.set(node.file, moduleNode);
-    return moduleNode;
-  }
-
-  function computeChangedModuleIds(changedNodeIds: string[]): Set<string> {
-    const key = changedSetKey(changedNodeIds);
-    const cached = changedModuleIdsCache.get(key);
-    if (cached) return cached;
-
-    const ids = new Set<string>();
-    for (const changedNodeId of changedNodeIds) {
-      const changedNode = store.getNode(changedNodeId);
-      if (!changedNode) continue;
-      const moduleNode = findModuleNode(changedNode);
-      if (moduleNode) ids.add(moduleNode.id);
-    }
-
-    changedModuleIdsCache.set(key, ids);
-    return ids;
-  }
-
-  function computeCoChangeScore(node: GraphNode, changedNodeIds: string[]): number {
-    if (changedNodeIds.length === 0) return 0;
-
-    const setKey = changedSetKey(changedNodeIds);
-    const cacheKey = `${node.id}::${setKey}`;
-    const cached = coChangeScoreCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-
-    const nodeModule = findModuleNode(node);
-    if (!nodeModule) {
-      coChangeScoreCache.set(cacheKey, 0);
-      return 0;
-    }
-
-    const changedModuleIds = computeChangedModuleIds(changedNodeIds);
-    if (changedModuleIds.size === 0) {
-      coChangeScoreCache.set(cacheKey, 0);
-      return 0;
-    }
-
-    // Same-module candidates do not get an implicit boost; rely only on explicit co-change edges.
-
-    const edges = [
-      ...store.getNeighbors(nodeModule.id, { direction: "out", kind: "co_changes_with" }),
-      ...store.getNeighbors(nodeModule.id, { direction: "in", kind: "co_changes_with" }),
-    ];
-
-    let maxScore = 0;
-    for (const edge of edges) {
-      if (!changedModuleIds.has(edge.node.id)) continue;
-      const coChanges = parseGitCoChanges(edge.edge.provenance.evidence);
-      if (coChanges === null) continue;
-      maxScore = Math.max(maxScore, coChanges);
-    }
-
-    coChangeScoreCache.set(cacheKey, maxScore);
-    return maxScore;
-  }
-
   return {
-    compute(nodeId: string, changedNodeIds: string[] = []): NodeSignals {
+    compute(nodeId: string): NodeSignals {
       const node = store.getNode(nodeId);
       if (!node) {
         return {
@@ -130,7 +44,6 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
           tested: false,
           frameworkMediated: false,
           isExported: false,
-          coChangeScore: 0,
           coverageKnown: false,
         };
       }
@@ -162,11 +75,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
         return built;
       })();
 
-      return {
-        ...base,
-        roles: [...base.roles],
-        coChangeScore: computeCoChangeScore(node, changedNodeIds),
-      };
+      return { ...base, roles: [...base.roles] };
     },
   };
 }
@@ -183,15 +92,4 @@ export function formatRoleTags(signals: NodeSignals): string {
   const coverage = coverageTag(signals);
   const tags = [...sortRoles(signals.roles, ROLE_ORDER), ...(coverage ? [coverage] : [])];
   return tags.length > 0 ? `[${tags.join(", ")}]` : "";
-}
-
-export function formatImpactWhy(signals: NodeSignals, chainConfidence?: number): string {
-  const roles = sortRoles(signals.roles, IMPACT_ROLE_ORDER);
-  const rolesText = roles.length > 0 ? roles.join(",") : "none";
-  const chainPart = typeof chainConfidence === "number"
-    ? `, chain-confidence:${chainConfidence.toFixed(2)}`
-    : "";
-  const coverage = coverageTag(signals);
-  const coveragePart = coverage ? `, coverage:${coverage}` : "";
-  return `[fan-in:${signals.fanIn}, fan-out:${signals.fanOut}, roles:${rolesText}${coveragePart}, co-change:${signals.coChangeScore.toFixed(2)}${chainPart}]`;
 }
