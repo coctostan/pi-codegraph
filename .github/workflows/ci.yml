@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["22", current]
+        node: ["22", "*"] # "*" is the newest stable; "current" takes Node's index head, a v27 alpha on 2026-11-02
 
     steps:
       - uses: actions/checkout@v4
