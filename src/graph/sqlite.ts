@@ -38,6 +38,7 @@ interface NeighborRow {
 
 export class SqliteGraphStore implements GraphStore {
   private db: any;
+  private callEndColumns = "call_end_line, call_end_col";
 
   constructor(dbPath: string = ":memory:") {
     this.db = openDb(dbPath);
@@ -47,6 +48,9 @@ export class SqliteGraphStore implements GraphStore {
       // A read-only DB can't migrate (`IF NOT EXISTS` on a missing table is a write) and can't be indexed either, so serve it as is.
       // SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`.
       if (((error?.errno ?? error?.errcode) & 0xff) !== 8) throw error;
+      const edgeColumns = this.db.prepare("PRAGMA table_info(edges)").all() as Array<{ name: string }>;
+      // Nor can it gain `edges.call_end_*`: its edges read back without a call site.
+      if (!edgeColumns.some((column) => column.name === "call_end_line")) this.callEndColumns = "NULL AS call_end_line, NULL AS call_end_col";
     }
   }
 
@@ -207,7 +211,7 @@ export class SqliteGraphStore implements GraphStore {
       SELECT n.id, n.kind, n.name, n.file, n.start_line, n.end_line, n.content_hash, n.is_exported, n.signature,
              e.source, e.target, e.kind as edge_kind,
              e.provenance_source, e.confidence, e.evidence,
-             e.content_hash as edge_hash, e.created_at, e.call_end_line, e.call_end_col
+             e.content_hash as edge_hash, e.created_at, ${this.callEndColumns}
       FROM edges e
       JOIN nodes n ON n.id = ${joinOn}
       WHERE ${whereField} = ?`;
@@ -254,12 +258,12 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getUnresolvedEdges(): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
   getEdgesBySource(sourceId: string): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
