@@ -37,7 +37,8 @@ export interface GraphStore {
   deleteFile(file: string): void;
   listFiles(): string[];
   getFileHash(file: string): string | null;
-  setFileHash(file: string, hash: string): void;
+  /** `partial` records that tree-sitter parsed the file with errors. */
+  setFileHash(file: string, hash: string, partial?: boolean): void;
   getUnresolvedEdges(): GraphEdge[];
   getEdgesBySource(sourceId: string): GraphEdge[];
   deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;

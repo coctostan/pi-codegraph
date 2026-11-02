@@ -15,6 +15,8 @@ export interface IndexResult {
   skipped: number;
   removed: number;
   errors: number;
+  /** Files this run indexed from tree-sitter's recovered tree, having parsed them with errors. */
+  partial: string[];
   timings: Record<string, number>;
 }
 
@@ -64,6 +66,7 @@ export async function indexProject(
   let skipped = 0;
   let removed = 0;
   let errors = 0;
+  const partial: string[] = [];
   const changedFiles: string[] = [];
 
   const currentRel = new Set(files.map((absPath) => toPosixPath(relative(projectRoot, absPath))));
@@ -85,7 +88,8 @@ export async function indexProject(
       store.addNode(extracted.module);
       for (const node of extracted.nodes) store.addNode(node);
       for (const edge of extracted.edges) store.addEdge(edge);
-      store.setFileHash(rel, hash);
+      store.setFileHash(rel, hash, extracted.partial);
+      if (extracted.partial) partial.push(rel);
       changedFiles.push(rel);
       indexed++;
     } catch {
@@ -122,7 +126,7 @@ export async function indexProject(
   errors += await runGitCoChangeStage(store, projectRoot);
   timings["git"] = Math.round(performance.now() - gitStart);
 
-  return { indexed, skipped, removed, errors, timings };
+  return { indexed, skipped, removed, errors, partial, timings };
 }
 
 // Back-compat with the existing placeholder export test

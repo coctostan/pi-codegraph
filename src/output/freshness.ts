@@ -20,6 +20,8 @@ export interface FreshnessReport {
   staleEdgeCount: number;
   /** True when the result names a node and no coverage report was indexed, so no line carries a coverage tag. */
   coverageUnknown: boolean;
+  /** Files of the result's nodes that tree-sitter parsed with errors, the targets' files first. */
+  partialFiles: string[];
   message: string;
   recommendation?: string;
 }
@@ -64,6 +66,20 @@ function sortedFiles(files: Map<string, FreshnessFileDetail>): FreshnessFileDeta
 
 function sortedStrings(values: Set<string>): string[] {
   return [...values].sort((a, b) => a.localeCompare(b));
+}
+
+function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNode[]): string[] {
+  let partial: Set<string>;
+  try {
+    partial = new Set(store.queryRows<{ file: string }>("SELECT file FROM file_hashes WHERE partial = 1").map((row) => row.file));
+  } catch {
+    // A db opened read-only before the `partial` column existed can't be migrated, so it has none.
+    return [];
+  }
+  const pick = (nodes: GraphNode[], skip: string[] = []) =>
+    sortedStrings(new Set(nodes.map((node) => node.file).filter((file) => partial.has(file) && !skip.includes(file))));
+  const targetFiles = pick(targets);
+  return [...targetFiles, ...pick(touched, targetFiles)];
 }
 
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {
@@ -157,6 +173,7 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     affectedSymbols,
     staleEdgeCount: report.staleEdgeCount,
     coverageUnknown: nodesById.size > 0 && !params.store.hasCoverageData(),
+    partialFiles: partialFiles(params.store, params.targetNodes ?? [], [...nodesById.values()]),
     message,
     recommendation: params.recommendation,
   };
@@ -171,8 +188,11 @@ function formatFiles(label: string, files: FreshnessFileDetail[]): string | null
 }
 
 export function formatFreshnessHeader(report: FreshnessReport): string {
-  const coverage = report.coverageUnknown ? "- coverage: unknown, no coverage report indexed" : null;
-  if (report.status === "fresh") return coverage ? `Trust: fresh\n${coverage}` : "Trust: fresh";
+  const notes = [
+    report.partialFiles.length > 0 ? `- partially parsed: ${report.partialFiles.join(", ")}` : null,
+    report.coverageUnknown ? "- coverage: unknown, no coverage report indexed" : null,
+  ].filter((note): note is string => note !== null);
+  if (report.status === "fresh") return ["Trust: fresh", ...notes].join("\n");
   const lines = [`Trust: ${report.status}`];
   const changed = formatFiles("changed files", report.changedFiles);
   const deleted = formatFiles("deleted files", report.deletedFiles);
@@ -180,7 +200,7 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
   if (deleted) lines.push(deleted);
   if (report.affectedSymbols.length > 0) lines.push(`- affected symbols: ${report.affectedSymbols.join(", ")}`);
   if (report.staleEdgeCount > 0) lines.push(`- stale edges: ${report.staleEdgeCount}`);
-  if (coverage) lines.push(coverage);
+  lines.push(...notes);
   lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
   return lines.join("\n");
 }

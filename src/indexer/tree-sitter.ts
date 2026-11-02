@@ -10,6 +10,8 @@ export interface ExtractionResult {
   module: GraphNode;
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** True when tree-sitter parsed the file with errors: nodes and edges are what it recovered. */
+  partial: boolean;
 }
 
 export function sha256Hex(content: string): string {
@@ -237,18 +239,17 @@ export function extractFile(file: string, content: string): ExtractionResult {
   const namespaceImports = new Set<string>();
   // A test callback's start index → the node its calls belong to: its test node, or the module for a non-literal title.
   const callbackOwners = new Map<number, string>();
+  let partial = false;
 
   try {
     const parser = new Parser();
     parser.setLanguage(typescriptLanguage(file) as never);
     const tree = parser.parse(content);
-    const hasParseError =
+    // A file that parses with errors keeps what tree-sitter recovered; `partial` lets the output say so.
+    partial =
       typeof (tree.rootNode as unknown as { hasError: unknown }).hasError === "function"
         ? (tree.rootNode as unknown as { hasError: () => boolean }).hasError()
         : Boolean((tree.rootNode as unknown as { hasError: unknown }).hasError);
-    if (hasParseError) {
-      return { module: moduleNode, nodes: [], edges: [] };
-    }
 
     walk(tree.rootNode, (n) => {
       if (n.type === "function_declaration") {
@@ -546,10 +547,10 @@ export function extractFile(file: string, content: string): ExtractionResult {
     visitCalls(tree.rootNode, null);
   } catch {
     // If parser initialization fails, return only the module node.
-    return { module: moduleNode, nodes: [], edges: [] };
+    return { module: moduleNode, nodes: [], edges: [], partial: false };
   }
 
-  return { module: moduleNode, nodes, edges };
+  return { module: moduleNode, nodes, edges, partial };
 }
 
 // Back-compat with the existing placeholder export test

@@ -224,18 +224,18 @@ test("extractFile extracts calls edges for bare calls + constructors, ignoring m
   expect(calls.some((e) => e.target.includes("::method:"))).toBe(false);
 });
 
-test("extractFile returns empty nodes/edges (but no throw) when the parse has errors", () => {
+test("extractFile marks a file missing its closing brace partial, without throwing", () => {
   const file = "src/bad.ts";
 
-  // Missing closing brace => tree.rootNode.hasError() should be true.
+  // Missing closing brace => tree-sitter inserts a MISSING node and rootNode.hasError() is true.
   const content = ["function foo() {", "  return 1;"].join("\n");
 
   const result = extractFile(file, content);
 
-  // Module node still exists, but symbol extraction is suppressed.
   expect(result.module.kind).toBe("module");
+  expect(result.partial).toBe(true);
+  // tree-sitter recovers an unclosed declaration at the end of a file as a function expression, which isn't a declaration.
   expect(result.nodes).toEqual([]);
-  expect(result.edges).toEqual([]);
 });
 
 // ---------- Task 2 additions ----------
