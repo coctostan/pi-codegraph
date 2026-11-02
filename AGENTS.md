@@ -39,8 +39,8 @@ Incremental: content hashes per file, only re-index what changed.
 | Tool | Purpose |
 |------|---------|
 | `symbol_graph` | Given a symbol, return its compact card (signature, tests, key relationships, signals); `include` adds the full neighborhood, contract or anchored source |
-| `trace` | Given an entry point (function, endpoint, test), return ordered execution path |
-| `impact` | Given changed symbols, return classified dependents (breaking/behavioral/safe) |
+| `trace` | Given an entry point (function, endpoint, test), return its call tree in call-site order, or a covering test's recorded path |
+| `impact` | Given changed symbols, return classified dependents (breaking/behavioral) and the tests reached |
 
 A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and any candidate matches. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).
 
