@@ -1,0 +1,61 @@
+{
+  "cell": "compute-anchor-callers__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "compute-anchor-callers",
+  "repo": "pi-codegraph",
+  "commit": "4bb35a7063fa381fe71a34037a3d2ec6a2e90022",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "80f13e7a6ac73138032b8c8cca00fd50acf8baa0",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:06:07.626Z",
+  "wallMs": 8190,
+  "exitCode": 0,
+  "index": {
+    "indexed": 221,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1463,
+      "lsp": 3345,
+      "ast-grep": 62,
+      "coverage": 1,
+      "git": 212
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 474,
+    "cacheRead": 3313,
+    "cacheWrite": 4827,
+    "total": 8620
+  },
+  "costUsd": 0.048782599999999995,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Six files under `src/` call `computeAnchor` directly. I found them by searching the code for the name, and the symbol graph lists matching callers. The function itself is defined in `src/output/anchoring.ts`, which doesn't call it.\n\n- `src/tools/trace.ts` (3 calls)\n- `src/tools/symbol-contract.ts` (2 calls)\n- `src/tools/symbol-graph.ts` (3 calls)\n- `src/tools/symbol-resolution.ts` (1 call)\n- `src/tools/symbol-card.ts` (7 calls)\n- `src/tools/impact.ts` (1 call)\n\n<answer>\nsrc/tools/trace.ts\nsrc/tools/symbol-contract.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/symbol-card.ts\nsrc/tools/impact.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "src/tools/trace.ts\nsrc/tools/symbol-contract.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/symbol-card.ts\nsrc/tools/impact.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,45 @@
+{
+  "cell": "compute-anchor-callers__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "compute-anchor-callers",
+  "repo": "pi-codegraph",
+  "commit": "4bb35a7063fa381fe71a34037a3d2ec6a2e90022",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "80f13e7a6ac73138032b8c8cca00fd50acf8baa0",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:06:17.485Z",
+  "wallMs": 4924,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 367,
+    "cacheRead": 2385,
+    "cacheWrite": 3386,
+    "total": 6144
+  },
+  "costUsd": 0.034929,
+  "toolCalls": {
+    "grep": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Six files under `src/` call `computeAnchor` directly. Each one imports it from `src/output/anchoring.ts`, where it is defined. That file doesn't call it anywhere, so it isn't on the list.\n\n- `src/tools/symbol-contract.ts`\n- `src/tools/symbol-resolution.ts`\n- `src/tools/impact.ts`\n- `src/tools/trace.ts`\n- `src/tools/symbol-graph.ts`\n- `src/tools/symbol-card.ts`\n\n<answer>\nsrc/tools/symbol-contract.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/impact.ts\nsrc/tools/trace.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-card.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "src/tools/symbol-contract.ts\nsrc/tools/symbol-resolution.ts\nsrc/tools/impact.ts\nsrc/tools/trace.ts\nsrc/tools/symbol-graph.ts\nsrc/tools/symbol-card.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
