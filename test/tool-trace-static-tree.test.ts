@@ -9,8 +9,12 @@ import { traceResult } from "../src/tools/trace.js";
 
 const FILE = "src/t.ts";
 
-/** Trace `entry` over one file whose symbols sit one per line, as `name` of kind `kinds[name]` or `function`, and calls given as [caller, callee, call_end]. */
-function traceOf(names: string[], calls: Array<[string, string, GraphEdge["call_end"]?, string?]>, kinds: Record<string, GraphNode["kind"]> = {}): string[] {
+/** Trace `entry` over one file whose symbols sit one per line, as `name` of kind `kinds[name]` or `function`, and calls given as [caller, callee, call_end, evidence, provenance source]. */
+function traceOf(
+  names: string[],
+  calls: Array<[string, string, GraphEdge["call_end"]?, string?, GraphEdge["provenance"]["source"]?]>,
+  kinds: Record<string, GraphNode["kind"]> = {},
+): string[] {
   const projectRoot = join(tmpdir(), `pi-cg-trace-tree-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   const content = names.map((n) => `export function ${n}() {}`).join("\n") + "\n";
@@ -22,12 +26,12 @@ function traceOf(names: string[], calls: Array<[string, string, GraphEdge["call_
     names.forEach((name, i) =>
       store.addNode({ id: id(name), kind: kinds[name] ?? "function", name, file: FILE, start_line: i + 1, end_line: i + 1, content_hash: hash }),
     );
-    calls.forEach(([from, to, call_end, evidence], i) =>
+    calls.forEach(([from, to, call_end, evidence, source], i) =>
       store.addEdge({
         source: id(from),
         target: id(to),
         kind: "calls",
-        provenance: { source: "tree-sitter", confidence: 0.5, evidence: evidence ?? to, content_hash: hash },
+        provenance: { source: source ?? "tree-sitter", confidence: 0.5, evidence: evidence ?? to, content_hash: hash },
         created_at: i,
         ...(call_end ? { call_end } : {}),
       }),
@@ -60,6 +64,16 @@ test("static trace indents each callee under its caller, siblings in call-end or
   ]);
 });
 
+test("static trace places a callee called through two edges at the call that ends first", () => {
+  expect(
+    traceOf(["run", "a", "b"], [
+      ["run", "a", { line: 1, col: 30 }],
+      ["run", "b", { line: 1, col: 20 }],
+      ["run", "a", { line: 1, col: 5 }, "a", "lsp"],
+    ]),
+  ).toEqual(["@ run", "  @ a [leaf]", "  @ b [leaf]"]);
+});
+
 test("static trace expands a callee once, a repeat or a cycle shown as a reference", () => {
   expect(
     traceOf(["run", "a", "b", "shared"], [
@@ -87,10 +101,14 @@ test("static trace stops 3 calls below the entry and counts what it cut on one l
       ["d1", "d2", { line: 2, col: 5 }],
       ["d2", "d3", { line: 3, col: 5 }],
       ["d3", "d4", { line: 4, col: 5 }],
+      // Past the cap, a printed node and a node reached twice count nothing extra.
+      ["d3", "d1", { line: 4, col: 9 }],
       ["d4", "d5", { line: 5, col: 5 }],
       ["d4", "?ext", { line: 5, col: 9 }, "ext:5:7"],
       ["d5", "d6", { line: 6, col: 5 }],
       ["d5", "side", { line: 6, col: 9 }],
+      ["d6", "side", { line: 7, col: 5 }],
+      ["d6", "d5", { line: 7, col: 9 }],
     ]),
   ).toEqual([
     "@ d0",
