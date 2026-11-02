@@ -1,0 +1,18 @@
+{
+  "id": "compute-anchor-callers",
+  "repo": "pi-codegraph",
+  "commit": "4bb35a7063fa381fe71a34037a3d2ec6a2e90022",
+  "question": "Which files under src/ call `computeAnchor` directly? List each file path.",
+  "key": {
+    "all": [
+      "tools/impact.ts",
+      "tools/symbol-card.ts",
+      "tools/symbol-contract.ts",
+      "tools/symbol-graph.ts",
+      "tools/symbol-resolution.ts",
+      "tools/trace.ts"
+    ],
+    "none": ["output/anchoring.ts", "index.ts"]
+  },
+  "keyCheckedBy": "git grep -c 'computeAnchor(' 4bb35a70 -- src: every file but src/output/anchoring.ts, which defines it"
+}
