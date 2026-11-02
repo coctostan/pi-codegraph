@@ -46,6 +46,7 @@ export interface GraphStore {
   getStatistics(projectRoot?: string): GraphStatistics;
   queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
   hasCoverageData(): boolean;
-  markCoverageIndexed(): void;
+  /** Set or, with `false`, clear the sentinel `hasCoverageData` reads. */
+  markCoverageIndexed(indexed?: boolean): void;
   close(): void;
 }

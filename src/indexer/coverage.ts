@@ -195,8 +195,8 @@ export function runCoverageIndexStage(store: GraphStore, projectRoot: string, co
     }
   }
   try {
-    store.markCoverageIndexed();
+    store.markCoverageIndexed(mapped.length > 0);
   } catch {
-    // readonly DB or other write failure: leave sentinel unset
+    // readonly DB or other write failure: leave the sentinel as it was
   }
 }
