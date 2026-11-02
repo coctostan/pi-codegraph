@@ -15,6 +15,7 @@ const base: NodeSignals = {
 test("formatImpactWhy carries no coverage part when coverage is not indexed", () => {
   const why = formatImpactWhy({ ...base, tested: false, coverageKnown: false }, 0.75);
   expect(why).not.toContain("coverage:");
+  expect(formatImpactWhy({ ...base, tested: true, coverageKnown: false })).not.toContain("coverage:");
   expect(why).toContain("roles:leaf, co-change:0.00, chain-confidence:0.75");
 });
 
@@ -24,7 +25,7 @@ test("formatImpactWhy renders coverage:untested when coverage is indexed but sym
   expect(why).not.toContain("coverage:unknown");
 });
 
-test("formatImpactWhy renders coverage:tested when symbol has a tested_by edge", () => {
-  const why = formatImpactWhy({ ...base, tested: true, coverageKnown: false });
+test("formatImpactWhy renders coverage:tested when coverage is indexed and symbol has a tested_by edge", () => {
+  const why = formatImpactWhy({ ...base, tested: true, coverageKnown: true });
   expect(why).toContain("coverage:tested");
 });

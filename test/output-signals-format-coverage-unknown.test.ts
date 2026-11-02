@@ -15,6 +15,8 @@ const base: NodeSignals = {
 test("formatRoleTags carries no coverage tag when coverage is not indexed", () => {
   expect(formatRoleTags({ ...base, tested: false, coverageKnown: false })).toBe("[leaf]");
   expect(formatRoleTags({ ...base, roles: [], tested: false, coverageKnown: false })).toBe("");
+  // tested_by edges an earlier report left behind once its reports are gone
+  expect(formatRoleTags({ ...base, tested: true, coverageKnown: false })).toBe("[leaf]");
 });
 
 test("formatRoleTags emits untested when coverage is indexed but symbol has no tested_by edge", () => {
@@ -23,10 +25,7 @@ test("formatRoleTags emits untested when coverage is indexed but symbol has no t
   );
 });
 
-test("formatRoleTags emits tested when symbol has a tested_by edge regardless of coverageKnown", () => {
-  expect(formatRoleTags({ ...base, tested: true, coverageKnown: false })).toBe(
-    "[leaf, tested]",
-  );
+test("formatRoleTags emits tested when coverage is indexed and symbol has a tested_by edge", () => {
   expect(formatRoleTags({ ...base, tested: true, coverageKnown: true })).toBe(
     "[leaf, tested]",
   );

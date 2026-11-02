@@ -171,10 +171,11 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
   };
 }
 
-// Null when no coverage report was indexed: the Trust block says so once instead of every line.
+// Null when no coverage report was indexed, even over tested_by edges an earlier report left:
+// the Trust block says so once instead of every line.
 function coverageTag(signals: NodeSignals): string | null {
-  if (signals.tested) return "tested";
-  return signals.coverageKnown ? "untested" : null;
+  if (!signals.coverageKnown) return null;
+  return signals.tested ? "tested" : "untested";
 }
 
 /** `[roles, coverage]`, or "" when the node has neither. */
