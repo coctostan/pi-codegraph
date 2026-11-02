@@ -7,9 +7,9 @@ import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient } from "./indexer/tsserver-client.js";
-import { symbolGraph } from "./tools/symbol-graph.js";
-import { impact } from "./tools/impact.js";
-import { trace } from "./tools/trace.js";
+import { symbolGraphResult } from "./tools/symbol-graph.js";
+import { impactResult } from "./tools/impact.js";
+import { traceResult } from "./tools/trace.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
 import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-ceremony.js";
@@ -441,7 +441,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         }
       }
 
-      const text = symbolGraph({
+      const { text, resolved } = symbolGraphResult({
         name: params.name,
         file: params.file,
         include: params.include as Array<"neighborhood" | "contract" | "source"> | undefined,
@@ -456,7 +456,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output, nodes.length !== 1);
+      return toolResult(output, !resolved);
     },
   });
 
@@ -472,7 +472,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     parameters: ImpactParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const { projectRoot, store } = await prepare(ctx, signal);
-      const text = impact({
+      const { text, resolved } = impactResult({
         symbols: params.symbols,
         changeType: params.changeType,
         store,
@@ -487,8 +487,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      const failed = params.symbols.length === 0 || params.symbols.some((symbol) => store.findNodes(symbol).length !== 1);
-      return toolResult(output, failed);
+      return toolResult(output, !resolved);
     },
   });
 
@@ -501,7 +500,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     parameters: TraceParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const { projectRoot, store } = await prepare(ctx, signal);
-      const text = trace({ entry: params.entry, file: params.file, store, projectRoot });
+      const { text, resolved } = traceResult({ entry: params.entry, file: params.file, store, projectRoot });
       const output = finalizeReadOnlyOutput(
         "trace",
         { entry: params.entry, file: params.file },
@@ -510,7 +509,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         projectRoot,
         params.suppressTrustHeader === true,
       );
-      return toolResult(output, store.findNodes(params.entry, params.file).length !== 1);
+      return toolResult(output, !resolved);
     },
   });
 }

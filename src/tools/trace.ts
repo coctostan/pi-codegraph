@@ -3,7 +3,7 @@ import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
-import { resolveUniqueSymbol } from "./symbol-resolution.js";
+import { resolveUniqueSymbol, type SymbolResolution } from "./symbol-resolution.js";
 
 export interface TraceParams {
   entry: string;
@@ -157,7 +157,8 @@ function collectStaticTraceEdges(store: GraphStore, nodeIds: string[]): GraphEdg
   return edges;
 }
 
-export function trace(params: TraceParams): string {
+/** The rendered trace plus whether `entry` (scoped by `file`) resolved to exactly one node. */
+export function traceResult(params: TraceParams): { text: string; resolved: boolean } {
   const resolved = resolveUniqueSymbol({
     name: params.entry,
     file: params.file,
@@ -165,7 +166,14 @@ export function trace(params: TraceParams): string {
     projectRoot: params.projectRoot,
     notFoundLabel: "Symbol",
   });
+  return { text: renderTrace(params, resolved), resolved: resolved.kind === "unique" };
+}
 
+export function trace(params: TraceParams): string {
+  return traceResult(params).text;
+}
+
+function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
   const emptyFreshness = evaluateFreshness({
     store: params.store,
     projectRoot: params.projectRoot,

@@ -262,7 +262,8 @@ function collectSymbolGraphScope(params: SymbolGraphParams): {
 
   return { targetNodes, resultNodes: [...resultNodes.values()], resultEdges };
 }
-export function symbolGraph(params: SymbolGraphParams): string {
+/** The rendered card plus whether `name` (scoped by `file`) resolved to exactly one node. */
+export function symbolGraphResult(params: SymbolGraphParams): { text: string; resolved: boolean } {
   const { include } = params;
   const resolvedNodes = params.store.findNodes(params.name, params.file);
   const useNeighborhoodBase = (include ?? []).includes("neighborhood");
@@ -300,5 +301,9 @@ export function symbolGraph(params: SymbolGraphParams): string {
     projectRoot: params.projectRoot,
     ...collectSymbolGraphScope(params),
   });
-  return prependFreshnessHeader(body, freshness);
+  return { text: prependFreshnessHeader(body, freshness), resolved: resolvedNodes.length === 1 };
+}
+
+export function symbolGraph(params: SymbolGraphParams): string {
+  return symbolGraphResult(params).text;
 }
