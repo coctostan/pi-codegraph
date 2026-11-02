@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Current with pi 1.4.0
 
@@ -7,15 +7,14 @@ status: active
 pi-codegraph is green on an exact pi 1.4.0 dev pin with reproducible CI and a weekly latest-host canary, its three tools follow the 1.4 extension conventions that apply to a read-only tool extension, and its docs describe the three-tool surface.
 
 ## Done when
-- [ ] `bun install --frozen-lockfile && bun run check && bun test` passes on a clean checkout of `main` — verified by that command
-- [ ] The latest `main` push runs both CI jobs, `Test & Type-check` and `Compatibility (latest pi host)`, green — verified by `gh run list --branch main --limit 1 --json conclusion,jobs` and `gh run view <id>`
-- [ ] `package.json` pins `@earendil-works/pi-coding-agent` to exactly `1.4.0` in `devDependencies`, and the `AGENTS.md` Prove command run against it prints a `Trust:` line and a `path  LINE:HASH` anchor for `symbol_graph {"name":"indexProject"}` — verified by that command
-- [ ] Every registered tool declares namespace `codegraph`, an `outputSchema` and read-only annotations, and none carries `ptc` metadata — verified by `bun test test/extension-host-contract.test.ts`
-- [ ] A missing symbol through `symbol_graph`, `impact` or `trace`, and an ambiguous name through `symbol_graph`, return `isError: true` with `structuredContent.text` holding the message and any suggestions — verified by `bun test test/extension-not-found-is-error.test.ts`
-- [ ] `AGENTS.md`'s Tools table lists exactly `symbol_graph`, `impact` and `trace`, and none of `AGENTS.md`, `ROADMAP.md`, `PRD.md`, `README.md` presents a removed tool as current — verified by `bun test test/docs-tool-surface.test.ts` and a read of `ROADMAP.md` and `PRD.md` at close, dated
+- [x] `bun install --frozen-lockfile && bun run check && bun test` passes on a clean checkout of `main` — verified by that command · close 2026-11-02, fresh worktree of `9a466738`, Node 26.13.0, Bun 1.4.4: install exit 0, check exit 0, 476 pass 1 skip 0 fail
+- [x] The latest `main` push runs both CI jobs, `Test & Type-check` and `Compatibility (latest pi host)`, green — verified by `gh run list --branch main --limit 1 --json conclusion,jobs` and `gh run view <id>` · close 2026-11-02: run `41451410712` at `9a466738`, both jobs `success`, 476 pass 0 fail on host 1.4.0, 11 pass 0 fail on latest host
+- [x] `package.json` pins `@earendil-works/pi-coding-agent` to exactly `1.4.0` in `devDependencies`, and the `AGENTS.md` Prove command run against it prints a `Trust:` line and a `path  LINE:HASH` anchor for `symbol_graph {"name":"indexProject"}` — verified by that command · close 2026-11-02: `"1.4.0"` in `devDependencies`, installed 1.4.0, prints `Trust: fresh` and `src/indexer/pipeline.ts  53:ed2`, line 53 being `export async function indexProject(`
+- [x] Every registered tool declares namespace `codegraph`, an `outputSchema` and read-only annotations, and none carries `ptc` metadata — verified by `bun test test/extension-host-contract.test.ts` · close 2026-11-02: 10 pass 0 fail
+- [x] A missing symbol through `symbol_graph`, `impact` or `trace`, and an ambiguous name through `symbol_graph`, return `isError: true` with `structuredContent.text` holding the message and any suggestions — verified by `bun test test/extension-not-found-is-error.test.ts` · close 2026-11-02: 7 pass 0 fail
+- [x] `AGENTS.md`'s Tools table lists exactly `symbol_graph`, `impact` and `trace`, and none of `AGENTS.md`, `ROADMAP.md`, `PRD.md`, `README.md` presents a removed tool as current — verified by `bun test test/docs-tool-surface.test.ts` and a read of `ROADMAP.md` and `PRD.md` at close, dated · close 2026-11-02: 6 pass 0 fail; read of both: `ROADMAP.md` names removed tools only in completed-milestone sections or marked `removed in M10`, `PRD.md` names none and lists the three
 
 ## Now
-All seven slices are done. slice 7 (Load tree-sitter from its prebuild) merged as #73; `main` run `41451243370` at `06cf02a5` passed `Test & Type-check` and `Compatibility (latest pi host)`. Next action: run `close` in a fresh session.
 
 ## Seams
 - Extension surface: `piCodegraph(pi)` in `src/index.ts`; tests drive it through a fake `ExtensionAPI` in `test/extension-*.test.ts` and through pi's real loader in `test/pi-host-load.test.ts`.
@@ -41,7 +40,7 @@ All seven slices are done. slice 7 (Load tree-sitter from its prebuild) merged a
    `dependencies.tree-sitter` `^0.25.1`, `bun.lock` resolving 0.25.1 (the one package changed), CI's `Compile tree-sitter native addon` step dropped from both jobs, README's troubleshooting text says the native modules ship six prebuilds and compile only elsewhere; this also settles the Node 26 install failure from slice 3 (Install CI from the lockfile) · deviation: the `package.json` floor and the README sentence join the shape's reach, since npm consumers and the `pi-latest` job resolve from the range and the README's compile-on-install claim no longer held · evidence: `main` in a fresh worktree on Node 22.23.4 compiles a `build/`, has no `prebuilds/`, and `bun test` gives 186 pass 135 fail; the branch in fresh worktrees gives `bun install --frozen-lockfile` exit 0 with `prebuilds/` and no `build/`, `bun run check` exit 0, `bun test` 476 pass 1 skip (the sibling-repo hashline check) 0 fail on both Node 26.13.0 and Node 22.23.4; `require("tree-sitter")` parses TypeScript to `program` under Node 26.13.0, Node 22.23.4 and Bun; the Prove command prints `Trust: fresh` and `src/indexer/pipeline.ts  53:ed2`, the `indexProject` line; PR run `41451054002`: `Test & Type-check` 476 pass 1 skip 0 fail, `Compatibility (latest pi host)` on pi 1.5.0 11 pass 0 fail, no node-gyp output · `06cf02a5`
 
 ## Not yet specified
-- Whether `pi-hashline-readmap` changed its anchor format since pi 1.1; `test/output-hashline-compat.test.ts` covers it only with the sibling repo checked out.
+- Whether `pi-hashline-readmap` changed its anchor format since pi 1.1; `test/output-hashline-compat.test.ts` covers it only with the sibling repo checked out. Answered at close 2026-11-02: against a clone at `a1cdecf` the sibling case passes, 4 pass 0 fail.
 
 ## Out of scope
 - Custom TUI renderers (`renderCall`/`renderResult`): a next arc if needed.
