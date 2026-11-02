@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
@@ -52,6 +53,28 @@ function walkTsFiles(root: string): string[] {
   return out;
 }
 
+/** The `.ts`/`.tsx` files git lists under `root`, tracked or untracked but not ignored; the walk outside a repo. */
+function listTsFiles(root: string): string[] {
+  let listed: string[];
+  try {
+    listed = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).split("\0").filter(Boolean);
+  } catch {
+    return walkTsFiles(root);
+  }
+  // Git lists nothing when the root is a directory its repo ignores; index it as a plain tree.
+  if (listed.length === 0) return walkTsFiles(root);
+  // A Set drops the repeat an unmerged path gets per conflict stage; existsSync drops a tracked file deleted from disk.
+  return [...new Set(listed)]
+    .filter((rel) => rel.endsWith(".ts") || rel.endsWith(".tsx"))
+    .map((rel) => join(root, rel))
+    .filter((abs) => existsSync(abs));
+}
+
 export async function indexProject(
   projectRoot: string,
   store: GraphStore,
@@ -60,7 +83,7 @@ export async function indexProject(
   const timings: Record<string, number> = {};
 
   const tsStart = performance.now();
-  const files = walkTsFiles(projectRoot);
+  const files = listTsFiles(projectRoot);
 
   let indexed = 0;
   let skipped = 0;
