@@ -19,7 +19,7 @@ test("SqliteGraphStore constructor accepts default dbPath", () => {
   expect(() => new SqliteGraphStore()).not.toThrow();
 });
 
-test("SqliteGraphStore initializes schema_version=1", () => {
+test("SqliteGraphStore initializes schema_version=2", () => {
   const dir = join(tmpdir(), "pi-codegraph-tests");
   mkdirSync(dir, { recursive: true });
   const dbPath = join(dir, `schema-${Date.now()}.sqlite`);
@@ -28,7 +28,7 @@ test("SqliteGraphStore initializes schema_version=1", () => {
     const db = new Database(dbPath);
     const rows = db.query("SELECT version FROM schema_version").all() as Array<{ version: number }>;
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.version).toBe(1);
+    expect(rows[0]?.version).toBe(2);
     db.close();
   } finally {
     rmSync(dbPath, { force: true });

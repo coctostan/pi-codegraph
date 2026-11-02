@@ -114,7 +114,7 @@ export class SqliteGraphStore implements GraphStore {
 
     const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
     if (!existing) {
-      this.db.prepare("INSERT INTO schema_version(version) VALUES (1)").run();
+      this.db.prepare("INSERT INTO schema_version(version) VALUES (2)").run();
     }
 
     const nodeColumns = this.db.prepare("PRAGMA table_info(nodes)").all() as Array<{ name: string }>;
@@ -124,9 +124,21 @@ export class SqliteGraphStore implements GraphStore {
     if (!nodeColumns.some((column) => column.name === "signature")) {
       this.db.prepare("ALTER TABLE nodes ADD COLUMN signature TEXT").run();
     }
-    // Each column below holds what an older extractor never wrote: re-extract every file once, and rerun the git
-    // stage (its `__git_cochange_head__` row), whose edges the re-extraction drops. `partial`: a file that parsed
-    // with errors was left module-only; `call_end_*`: no `calls` edge carried its call site.
+    // Each migration below marks what an older extractor wrote differently: re-extract every file once, and rerun the
+    // git stage (its `__git_cochange_head__` row), whose edges the re-extraction drops. In one transaction: a migration
+    // applied without the invalidation would skip it on every later open.
+    const reextractAfter = (migrate: () => void) => {
+      this.db.exec("BEGIN");
+      try {
+        migrate();
+        this.db.prepare("UPDATE file_hashes SET hash = ''").run();
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    };
+    // `partial`: a file that parsed with errors was left module-only; `call_end_*`: no `calls` edge carried its call site.
     const reextractColumns: Array<[table: string, columns: Array<[name: string, type: string]>]> = [
       ["file_hashes", [["partial", "INTEGER NOT NULL DEFAULT 0"]]],
       ["edges", [["call_end_line", "INTEGER"], ["call_end_col", "INTEGER"]]],
@@ -134,16 +146,13 @@ export class SqliteGraphStore implements GraphStore {
     for (const [table, columns] of reextractColumns) {
       const existingColumns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
       if (existingColumns.some((column) => column.name === columns[0]![0])) continue;
-      // One transaction: a column added without the invalidation would skip it on every later open.
-      this.db.exec("BEGIN");
-      try {
+      reextractAfter(() => {
         for (const [name, type] of columns) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
-        this.db.prepare("UPDATE file_hashes SET hash = ''").run();
-        this.db.exec("COMMIT");
-      } catch (error) {
-        this.db.exec("ROLLBACK");
-        throw error;
-      }
+      });
+    }
+    // Version 2: `calls` edges to package imports and JS globals are gone, a change no column marks.
+    if (existing && existing.version < 2) {
+      reextractAfter(() => this.db.prepare("UPDATE schema_version SET version = 2").run());
     }
   }
 
