@@ -1,0 +1,46 @@
+{
+  "cell": "compact-diff-impact__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:44:19.781Z",
+  "wallMs": 17744,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 12,
+    "output": 992,
+    "cacheRead": 19668,
+    "cacheWrite": 8081,
+    "total": 28753
+  },
+  "costUsd": 0.0884696,
+  "toolCalls": {
+    "grep": 4,
+    "read": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Two direct callers use `generateCompactOrFullDiff`, and each leads back to where a tool is registered:\n\n- **Edit tool:** `buildEditResult` in `src/edit.ts` calls it at line 1129. `buildEditResult` is called at line 1321, inside the execute callback in `registerEditTool`.\n- **Write tool:** `generateWriteDiff` in `src/write.ts` calls it at line 127. `executeWrite` calls `generateWriteDiff` at line 324, and `registerWriteTool` calls `executeWrite` at line 410.\n\nNo other code in `src/` calls any of these functions. Three test files also call `generateCompactOrFullDiff` directly and would need updating: `tests/edit-compact-diff.test.ts`, `tests/diff-data-compact.test.ts` and `tests/diff-data-inline.test.ts`.\n\n<answer>\nbuildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

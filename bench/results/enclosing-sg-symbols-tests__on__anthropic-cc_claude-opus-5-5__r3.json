@@ -1,0 +1,62 @@
+{
+  "cell": "enclosing-sg-symbols-tests__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:56:55.180Z",
+  "wallMs": 19696,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 8068,
+      "lsp": 8039,
+      "ast-grep": 224,
+      "coverage": 1,
+      "git": 1105
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 12,
+    "output": 1431,
+    "cacheRead": 24296,
+    "cacheWrite": 9553,
+    "total": 35292
+  },
+  "costUsd": 0.10995120000000001,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 3,
+    "bash": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "The symbol graph tags `findEnclosingSgSymbols` as `[untested]`, but that's wrong. A text search finds four test files that import and call it directly:\n\n- `tests/context-hygiene-sg.test.ts`: calls it directly in \"findEnclosingSgSymbols derives real symbols from readmap metadata\". It also reaches it through `registerSgTool` in \"ast_search tool derives enclosing symbols before display range merging\", which sets `PI_CONTEXT_HYGIENE_DEBUG=1`.\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nIts only caller in the source is `registerSgTool` (`src/sg.ts:415`). That call only happens when `PI_CONTEXT_HYGIENE_DEBUG=1` and the number of matched files is within the cap. So the many other tests that use `registerSgTool` (`sg.*.test.ts`, `sg-output-consumers.test.ts`, etc.) never set that variable and never reach the function. Three other test files mention the variable (`documentation-context-hygiene`, `documentation-content`, `context-hygiene-debug-tool`). From the import list, none of them imports `src/sg.js`, so they shouldn't reach it either.\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

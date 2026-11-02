@@ -1,0 +1,47 @@
+{
+  "cell": "cc-payload-trace__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "cc-payload-trace",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:42:56.306Z",
+  "wallMs": 70103,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 35336,
+    "output": 1681,
+    "cacheRead": 97408,
+    "cacheWrite": 0,
+    "total": 134425
+  },
+  "costUsd": 0.0972228,
+  "toolCalls": {
+    "ls": 2,
+    "grep": 4,
+    "read": 14
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThe live path is **`streamAnthropicCc → streamSimpleAnthropic → streamAnthropic`**. Once stock `buildParams()` has built the body, the rewrites run in this order:\n\n1. **`applyAnthropicCcBodyOverrides()`** — called by the provider’s wrapped `onPayload` in `src/anthropic-cc/stream.ts:55`. Internally it:\n   - Calls **`applyAnthropicCcIdentityOverrides()`**, preserving existing metadata and supplying a synthetic `metadata.user_id` if absent.\n   - Replaces stock `system` with **`buildAnthropicCcSystemPrelude()`**: billing-header text, Claude Agent SDK identity, then the user system prompt. It reuses stock’s cache policy, but puts system `cache_control` only on the final block.\n   - For **OAuth only**, that prelude builder calls **`sanitizeAnthropicCcSystemPrompt()`**, stripping conflicting Pi-identity text and rewriting documentation references to neutral aliases. API-key prompts skip that sanitization.\n   - Adds baseline `context_management` and `thinking` only when those fields are absent.\n   - Calls **`applyAnthropicCcToolPolicy()`**: removes deferred-placeholder tools, strips tool `cache_control` and `defer_loading`, and forces `eager_input_streaming: true`. This covers both top-level tools and inline tool definitions.\n   - Sets adaptive thinking’s `display` to `\"omitted\"` when there is no `block_binding`. Preserves existing `output_config`; otherwise supplies an applicable baseline/model default.\n\n   These functions are in `src/anthropic-cc/overrides.ts:217–348`.\n\n2. **The original caller’s `onPayload` callback** — `src/anthropic-cc/stream.ts:72`.  \n   It sees the already-overridden body and may mutate it or return a replacement. An `undefined` return keeps the current body. Before calling it, the provider saves the established user ID.\n\n3. **`applyAnthropicCcToolPolicy()` again** — immediately after the caller hook.  \n   This re-enforces the eager/non-deferred tool rules, including on tools the hook added or replaced.\n\n4. **`sanitizeAnthropicCcRequestParams()`** — `src/anthropic-cc/request.ts:148`.  \n   Applied to the post-hook body, it:\n   - Removes unsupported sampling fields according to model ID/compatibility.\n   - Converts legacy enabled thinking to adaptive thinking where required, removing `budget_tokens`.\n   - Removes a trailing assistant prefill on models that reject it, accounting for managed-effort control messages.\n   - Removes `context_management` unless thinking is enabled or adaptive.\n\n   Sampling/thinking/prefill corrections emit warnings.\n\n5. **Restore protected metadata identity** — the wrapper returns the sanitized body with the previously saved `metadata.user_id` reinstated. Other metadata survives, but the caller hook cannot replace that identity.\n\n6. **Force streaming and hand off to HTTP** — `src/anthropic-cc/vendor/anthropicStock.ts:398–403`.  \n   Stock accepts the wrapper’s returned body, then calls:\n   ```ts\n   client.messages.create({ ...params, stream: true }, requestOptions)\n   ```\n   Thus `stream` is forced back to `true`. The SDK handles serialization. The final **`withMessagesBetaQuery()`** fetch wrapper adds `?beta=true` and removes the Stainless helper header; **it does not rewrite the body**.\n\nThe request-building helpers in `request.ts` are not the live streaming entry point. Also, the separate `patchAnthropicOAuthPayload()` extension hook normally does nothing here: its detector expects stock’s CLI-identity block first, which the CC prelude has already replaced.\n\nOn a preferred-strict-tool fallback, stock rebuilds the parameters and runs this whole payload-rewrite sequence again before retrying.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "The live path is **`streamAnthropicCc → streamSimpleAnthropic → streamAnthropic`**. Once stock `buildParams()` has built the body, the rewrites run in this order:\n\n1. **`applyAnthropicCcBodyOverrides()`** — called by the provider’s wrapped `onPayload` in `src/anthropic-cc/stream.ts:55`. Internally it:\n   - Calls **`applyAnthropicCcIdentityOverrides()`**, preserving existing metadata and supplying a synthetic `metadata.user_id` if absent.\n   - Replaces stock `system` with **`buildAnthropicCcSystemPrelude()`**: billing-header text, Claude Agent SDK identity, then the user system prompt. It reuses stock’s cache policy, but puts system `cache_control` only on the final block.\n   - For **OAuth only**, that prelude builder calls **`sanitizeAnthropicCcSystemPrompt()`**, stripping conflicting Pi-identity text and rewriting documentation references to neutral aliases. API-key prompts skip that sanitization.\n   - Adds baseline `context_management` and `thinking` only when those fields are absent.\n   - Calls **`applyAnthropicCcToolPolicy()`**: removes deferred-placeholder tools, strips tool `cache_control` and `defer_loading`, and forces `eager_input_streaming: true`. This covers both top-level tools and inline tool definitions.\n   - Sets adaptive thinking’s `display` to `\"omitted\"` when there is no `block_binding`. Preserves existing `output_config`; otherwise supplies an applicable baseline/model default.\n\n   These functions are in `src/anthropic-cc/overrides.ts:217–348`.\n\n2. **The original caller’s `onPayload` callback** — `src/anthropic-cc/stream.ts:72`.  \n   It sees the already-overridden body and may mutate it or return a replacement. An `undefined` return keeps the current body. Before calling it, the provider saves the established user ID.\n\n3. **`applyAnthropicCcToolPolicy()` again** — immediately after the caller hook.  \n   This re-enforces the eager/non-deferred tool rules, including on tools the hook added or replaced.\n\n4. **`sanitizeAnthropicCcRequestParams()`** — `src/anthropic-cc/request.ts:148`.  \n   Applied to the post-hook body, it:\n   - Removes unsupported sampling fields according to model ID/compatibility.\n   - Converts legacy enabled thinking to adaptive thinking where required, removing `budget_tokens`.\n   - Removes a trailing assistant prefill on models that reject it, accounting for managed-effort control messages.\n   - Removes `context_management` unless thinking is enabled or adaptive.\n\n   Sampling/thinking/prefill corrections emit warnings.\n\n5. **Restore protected metadata identity** — the wrapper returns the sanitized body with the previously saved `metadata.user_id` reinstated. Other metadata survives, but the caller hook cannot replace that identity.\n\n6. **Force streaming and hand off to HTTP** — `src/anthropic-cc/vendor/anthropicStock.ts:398–403`.  \n   Stock accepts the wrapper’s returned body, then calls:\n   ```ts\n   client.messages.create({ ...params, stream: true }, requestOptions)\n   ```\n   Thus `stream` is forced back to `true`. The SDK handles serialization. The final **`withMessagesBetaQuery()`** fetch wrapper adds `?beta=true` and removes the Stainless helper header; **it does not rewrite the body**.\n\nThe request-building helpers in `request.ts` are not the live streaming entry point. Also, the separate `patchAnthropicOAuthPayload()` extension hook normally does nothing here: its detector expects stock’s CLI-identity block first, which the CC prelude has already replaced.\n\nOn a preferred-strict-tool fallback, stock rebuilds the parameters and runs this whole payload-rewrite sequence again before retrying.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

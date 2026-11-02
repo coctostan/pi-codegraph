@@ -1,0 +1,46 @@
+{
+  "cell": "cc-headers-tests__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:41:37.921Z",
+  "wallMs": 64998,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 20,
+    "output": 6517,
+    "cacheRead": 166069,
+    "cacheWrite": 31990,
+    "total": 204596
+  },
+  "costUsd": 0.41955380000000003,
+  "toolCalls": {
+    "grep": 1,
+    "bash": 7
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I found 76 test files that run `buildAnthropicCcHeaders`. Five call it directly; the rest reach it because it builds the headers in `src/anthropic-cc/request.ts` (`buildAnthropicCcRequest`, `buildAnthropicCcRequestFromContext`) and `src/anthropic-cc/stream.ts` (`streamAnthropicCc`, which the `captureCc` helper in `tests/helpers/pi099.ts` also calls).\n\n**Direct callers (start with these):**\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nThe other 71 are in the answer block below.\n\n**Left out on purpose:**\n- `tests/anthropicCcProviderConfig.test.ts`, `tests/anthropicCcApiKeyConfig.test.ts` and `tests/anthropicCcRegistration.test.ts` only check that the stream function is registered; they never call it.\n- `tests/anthropicCcPi083StrictToolsUnsupported.test.ts` expects the request to be rejected, and it fails before the headers are built.\n- The `tests/index*` tests use the built-in `anthropic` provider, which builds its headers a different way.\n- Four files import `tests/helpers/pi099.ts` but never call `captureCc`: `anthropicCcInlineStrictPolicy`, `anthropicCcHaiku55Reasoning`, `anthropicCcStrictPolicy` and `anthropicCcPi099OAuthReload`.\n\n<answer>\nDirect callers:\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n\nIndirect (via request.ts / stream.ts / tests/helpers/pi099.ts captureCc):\ntests/anthropicCcAdaptiveReasoning.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5StreamSanitizer.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcClaude5WireAuth.test.ts\ntests/anthropicCcClaude5WireIdentity.test.ts\ntests/anthropicCcClaude5WireTools.test.ts\ntests/anthropicCcClientIdentityPrecedence.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcCrossModelThinking.test.ts\ntests/anthropicCcErrorResultImages.test.ts\ntests/anthropicCcFableAdaptiveReasoning.test.ts\ntests/anthropicCcFinalizedArguments.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcLegacyThinking.test.ts\ntests/anthropicCcManagedBetaIsolation.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOAuthAuthMode.test.ts\ntests/anthropicCcOptionalFields.test.ts\ntests/anthropicCcOpus47Migration.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcParity.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083Fetch.test.ts\ntests/anthropicCcPi083FreshRetry.test.ts\ntests/anthropicCcPi083MissingStop.test.ts\ntests/anthropicCcPi083MissingUsage.test.ts\ntests/anthropicCcPi083RawStop.test.ts\ntests/anthropicCcPi083RetryAbort.test.ts\ntests/anthropicCcPi083RetryDelay.test.ts\ntests/anthropicCcPi083RetryPolicy.test.ts\ntests/anthropicCcPi083SensitiveStop.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi099DynamicTools.test.ts\ntests/anthropicCcPi099HookAbort.test.ts\ntests/anthropicCcPi099PreservationEvidence.test.ts\ntests/anthropicCcPi099ReadAbort.test.ts\ntests/anthropicCcPi099RetryAfter.test.ts\ntests/anthropicCcPi099RetryAfterMs.test.ts\ntests/anthropicCcPi099ScopedEnv.test.ts\ntests/anthropicCcPi099StreamHook.test.ts\ntests/anthropicCcPi099StrictPrefer.test.ts\ntests/anthropicCcPi099StrictRequired.test.ts\ntests/anthropicCcPi110ContextBounds.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcPreferredSelection.test.ts\ntests/anthropicCcRequestHeaders.test.ts\ntests/anthropicCcRequestIdentity.test.ts\ntests/anthropicCcRequestOptions.test.ts\ntests/anthropicCcRequestPropagation.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcStream.test.ts\ntests/anthropicCcStreamParity.test.ts\ntests/anthropicCcStreamSystemPrompt.test.ts\ntests/anthropicCcStrictFallback.test.ts\ntests/anthropicCcSystemPrompt.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTools.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "Direct callers:\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n\nIndirect (via request.ts / stream.ts / tests/helpers/pi099.ts captureCc):\ntests/anthropicCcAdaptiveReasoning.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5StreamSanitizer.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcClaude5WireAuth.test.ts\ntests/anthropicCcClaude5WireIdentity.test.ts\ntests/anthropicCcClaude5WireTools.test.ts\ntests/anthropicCcClientIdentityPrecedence.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcCrossModelThinking.test.ts\ntests/anthropicCcErrorResultImages.test.ts\ntests/anthropicCcFableAdaptiveReasoning.test.ts\ntests/anthropicCcFinalizedArguments.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcLegacyThinking.test.ts\ntests/anthropicCcManagedBetaIsolation.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOAuthAuthMode.test.ts\ntests/anthropicCcOptionalFields.test.ts\ntests/anthropicCcOpus47Migration.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcParity.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083Fetch.test.ts\ntests/anthropicCcPi083FreshRetry.test.ts\ntests/anthropicCcPi083MissingStop.test.ts\ntests/anthropicCcPi083MissingUsage.test.ts\ntests/anthropicCcPi083RawStop.test.ts\ntests/anthropicCcPi083RetryAbort.test.ts\ntests/anthropicCcPi083RetryDelay.test.ts\ntests/anthropicCcPi083RetryPolicy.test.ts\ntests/anthropicCcPi083SensitiveStop.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi099DynamicTools.test.ts\ntests/anthropicCcPi099HookAbort.test.ts\ntests/anthropicCcPi099PreservationEvidence.test.ts\ntests/anthropicCcPi099ReadAbort.test.ts\ntests/anthropicCcPi099RetryAfter.test.ts\ntests/anthropicCcPi099RetryAfterMs.test.ts\ntests/anthropicCcPi099ScopedEnv.test.ts\ntests/anthropicCcPi099StreamHook.test.ts\ntests/anthropicCcPi099StrictPrefer.test.ts\ntests/anthropicCcPi099StrictRequired.test.ts\ntests/anthropicCcPi110ContextBounds.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcPreferredSelection.test.ts\ntests/anthropicCcRequestHeaders.test.ts\ntests/anthropicCcRequestIdentity.test.ts\ntests/anthropicCcRequestOptions.test.ts\ntests/anthropicCcRequestPropagation.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcStream.test.ts\ntests/anthropicCcStreamParity.test.ts\ntests/anthropicCcStreamSystemPrompt.test.ts\ntests/anthropicCcStrictFallback.test.ts\ntests/anthropicCcSystemPrompt.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTools.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

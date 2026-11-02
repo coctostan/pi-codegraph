@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:41:44.157Z",
+  "wallMs": 27464,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1796,
+      "lsp": 3273,
+      "ast-grep": 78,
+      "coverage": 1,
+      "git": 1039
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 10,
+    "output": 1922,
+    "cacheRead": 31430,
+    "cacheWrite": 16179,
+    "total": 49541
+  },
+  "costUsd": 0.17419800000000002,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "grep": 1,
+    "bash": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Five test files call `buildAnthropicCcHeaders` directly. `symbol_graph` labels the function \"untested\", but that's wrong: these tests import it from `src/anthropic-cc/overrides.ts` and call it.\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nMany more tests reach it indirectly. Its callers are `streamAnthropicCc` (`src/anthropic-cc/stream.ts`) and `buildAnthropicCcRequest` / `buildAnthropicCcRequestFromContext` (`src/anthropic-cc/request.ts`). Over 60 test files call those, either directly or through the `tests/helpers/pi099.ts` helper, which calls `streamAnthropicCc`. Examples:\n- `anthropicCcRequestHeaders`\n- `anthropicCcClaude5WireAuth`\n- `anthropicCcClaude5WireIdentity`\n- `anthropicCcOAuthAuthMode`\n- `anthropicCcManagedBetaRequest`\n- `anthropicCcManagedBetaIsolation`\n- `anthropicCcInlineToolsBetaWire`\n- `anthropicCcClientIdentityPrecedence`\n- `anthropicCcPi099OAuthReload`\n- `anthropicCcStream`\n- `anthropicCcParity`\n- most other `anthropicCcPi083*` and `anthropicCcPi099*` tests\n\nSince header changes affect so many request and stream tests, the safest choice is to rerun all of them with `bun test tests/anthropicCc`. That path filter matches every `anthropicCc*` test file. One more file mentions these functions outside `tests/`: `.megapowers/plans/026-place-the-conversation-cache-breakpoint-/repro-matrix.test.ts`.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,47 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__anthropic-cc_claude-opus-5-5__r3",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:56:51.380Z",
+  "wallMs": 23942,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1343,
+    "cacheRead": 26551,
+    "cacheWrite": 6419,
+    "total": 34329
+  },
+  "costUsd": 0.08358620000000001,
+  "toolCalls": {
+    "grep": 5,
+    "read": 2,
+    "bash": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four test files call `findEnclosingSgSymbols` directly. Each one imports it from `../src/sg.js`:\n\n- `tests/context-hygiene-sg.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nThe function is also called inside the sg tool itself (`src/sg.ts:415`), but only when `PI_CONTEXT_HYGIENE_DEBUG=1` is set and the number of matched files is under a set limit. The only test that sets that variable and also runs the sg tool is `context-hygiene-sg.test.ts`, which is already in the list. `context-hygiene-debug-tool.test.ts` sets the same variable but never calls sg.\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

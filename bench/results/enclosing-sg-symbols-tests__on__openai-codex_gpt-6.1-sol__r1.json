@@ -1,0 +1,62 @@
+{
+  "cell": "enclosing-sg-symbols-tests__on__openai-codex_gpt-6.1-sol__r1",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:49.991Z",
+  "wallMs": 34385,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 5788,
+      "lsp": 6500,
+      "ast-grep": 188,
+      "coverage": 1,
+      "git": 990
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16278,
+    "output": 308,
+    "cacheRead": 18688,
+    "cacheWrite": 0,
+    "total": 35274
+  },
+  "costUsd": 0.0375048,
+  "toolCalls": {
+    "symbol_graph": 2,
+    "read": 1,
+    "grep": 3
+  },
+  "codegraphCalls": 2,
+  "stopReason": "stop",
+  "finalText": "<answer>\n- `tests/context-hygiene-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "- `tests/context-hygiene-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

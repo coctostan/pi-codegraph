@@ -1,0 +1,47 @@
+{
+  "cell": "source-snippet-impact__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:51:43.276Z",
+  "wallMs": 24046,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 8,
+  "tokens": {
+    "input": 18,
+    "output": 1565,
+    "cacheRead": 50518,
+    "cacheWrite": 12184,
+    "total": 64285
+  },
+  "costUsd": 0.13894760000000003,
+  "toolCalls": {
+    "grep": 2,
+    "read": 3,
+    "bash": 3
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Only one function in `src/` calls `readSourceSnippet` directly. The rest reach it through that one function. I traced this by grepping for each caller in turn.\n\n**Direct caller**\n- `renderSymbolSourceSection` (`src/tools/symbol-card.ts`) calls `readSourceSnippet(node, projectRoot, maxSourceLines)`.\n\n**Indirect callers**\n- `symbolCard` (`src/tools/symbol-card.ts`) calls `renderSymbolSourceSection`. No tool in `src/` calls it; only tests under `test/` use it.\n- `symbolGraph` (`src/tools/symbol-graph.ts`) calls `renderSymbolSourceSection` when `include` contains `\"source\"`.\n\n**Tool entry point**\n- The `execute` handler of the `symbol_graph` tool, registered inside `piCodegraph` in `src/index.ts`, calls `symbolGraph`.\n\nThese functions are not affected: `renderSymbolCardBody`, `renderLegacyNeighborhoodBody` and `renderSymbolContractBody` never reach `readSourceSnippet`.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

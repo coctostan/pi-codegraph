@@ -1,0 +1,61 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:56.181Z",
+  "wallMs": 17308,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1382,
+      "lsp": 3248,
+      "ast-grep": 60,
+      "coverage": 1,
+      "git": 412
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 10,
+    "output": 753,
+    "cacheRead": 12947,
+    "cacheWrite": 5275,
+    "total": 18985
+  },
+  "costUsd": 0.059889399999999995,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "I checked the impact analysis against grep, and the call chain in src/ is:\n\n- **Direct caller (will break):** `renderSymbolSourceSection` in `src/tools/symbol-card.ts:41`.\n- **Through `renderSymbolSourceSection`:**\n  - `symbolCard` (`src/tools/symbol-card.ts:156`). Nothing else in src/ calls it, so this is where that branch ends.\n  - `symbolGraph` (`src/tools/symbol-graph.ts:289`).\n- **Through `symbolGraph`:** `piCodegraph` in `src/index.ts:444`. This is the extension entry point that registers the `symbol_graph` tool.\n\nTest files that register the extension are also reached through `piCodegraph`, but they're outside src/, so I left them out.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

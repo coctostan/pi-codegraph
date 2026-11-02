@@ -1,0 +1,47 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:50:57.937Z",
+  "wallMs": 20378,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1337,
+    "cacheRead": 26366,
+    "cacheWrite": 6464,
+    "total": 34183
+  },
+  "costUsd": 0.08378920000000001,
+  "toolCalls": {
+    "grep": 5,
+    "read": 1,
+    "bash": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four test files exercise `findEnclosingSgSymbols`. Each one imports it from `../src/sg.js` and calls it directly:\n\n- `tests/context-hygiene-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nThe function is also called indirectly by the `sg` tool (`src/sg.ts:415`), but only when `PI_CONTEXT_HYGIENE_DEBUG=1`. The only test that sets that variable and also runs the `sg` tool is `tests/context-hygiene-sg.test.ts`, which is already in the list. `tests/context-hygiene-debug-tool.test.ts` sets the variable too, but it never runs `sg`.\n\nTo rerun them:\n`npx vitest run tests/context-hygiene-sg.test.ts tests/issue-234-sql-mapper.test.ts tests/json-mapper-root-array-sg.test.ts tests/issue-242-sql-boundary-consumers.test.ts`\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

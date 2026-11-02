@@ -1,0 +1,46 @@
+{
+  "cell": "source-snippet-impact__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:45:57.094Z",
+  "wallMs": 24901,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 8,
+  "tokens": {
+    "input": 18,
+    "output": 1382,
+    "cacheRead": 51988,
+    "cacheWrite": 11553,
+    "total": 64941
+  },
+  "costUsd": 0.1305336,
+  "toolCalls": {
+    "grep": 4,
+    "read": 4
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I traced every caller of `readSourceSnippet` in `src/` by searching the code.\n\n**Direct caller:**\n- `renderSymbolSourceSection` (`src/tools/symbol-card.ts:41`) is the only place that calls `readSourceSnippet`.\n\n**Functions that reach it through other functions:**\n- `symbolCard` (`src/tools/symbol-card.ts:156`) calls `renderSymbolSourceSection`. It's exported, but nothing in `src/` calls it, so it doesn't lead to any tool.\n- `symbolGraph` (`src/tools/symbol-graph.ts:289`) calls `renderSymbolSourceSection` when `include` contains `\"source\"`.\n- The `execute` handler of the `symbol_graph` tool (`src/index.ts:444`) calls `symbolGraph`. This is the only tool entry point affected.\n\n`renderSymbolCardBody` sits in the same file but doesn't call `readSourceSnippet`, so the change doesn't affect it.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

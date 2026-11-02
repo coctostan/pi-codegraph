@@ -1,0 +1,61 @@
+{
+  "cell": "compact-diff-impact__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:55:49.399Z",
+  "wallMs": 16279,
+  "exitCode": 0,
+  "index": {
+    "indexed": 784,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 6520,
+      "lsp": 7086,
+      "ast-grep": 185,
+      "coverage": 1,
+      "git": 781
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 988,
+    "cacheRead": 9813,
+    "cacheWrite": 7088,
+    "total": 17897
+  },
+  "costUsd": 0.0784586,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "The direct callers are `buildEditResult` (src/edit.ts:1129) and `generateWriteDiff` (src/write.ts:127). From there, the chains go up to where each tool is registered:\n\n- **Edit path:** `generateCompactOrFullDiff` → `buildEditResult` (src/edit.ts:1110) → `registerEditTool` (src/edit.ts:1197). The call at line 1321 is inside the edit tool's `execute`.\n- **Write path:** `generateCompactOrFullDiff` → `generateWriteDiff` (src/write.ts:126) → `executeWrite` (src/write.ts:195, called at line 324) → `registerWriteTool` (src/write.ts:357). The call at line 410 is inside the write tool's `execute`.\n\nBoth register functions are called by the extension entry point `piHashlineReadmapExtension` in index.ts. That's one level above where the tools are registered, so I left it out of the list. Many test helpers in `tests/` also reach the change through these tools, so the edit and write output tests may need updating too.\n\n<answer>\nbuildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

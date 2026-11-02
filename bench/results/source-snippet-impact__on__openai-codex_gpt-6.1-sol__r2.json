@@ -1,0 +1,61 @@
+{
+  "cell": "source-snippet-impact__on__openai-codex_gpt-6.1-sol__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "eefef8dc1dc062e04a12f9a39b33538b6ce79ade",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T14:52:13.799Z",
+  "wallMs": 23716,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "timings": {
+      "tree-sitter": 1456,
+      "lsp": 3045,
+      "ast-grep": 53,
+      "coverage": 1,
+      "git": 208
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 3341,
+    "output": 176,
+    "cacheRead": 6528,
+    "cacheWrite": 0,
+    "total": 10045
+  },
+  "costUsd": 0.0090948,
+  "toolCalls": {
+    "impact": 1,
+    "symbol_graph": 2
+  },
+  "codegraphCalls": 3,
+  "stopReason": "stop",
+  "finalText": "<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
