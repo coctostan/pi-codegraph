@@ -1,0 +1,58 @@
+---
+status: active
+---
+# Close the holes the bench exposed
+
+## Destination
+Codegraph's graph stops hiding holes and its output stops carrying noise, on the evidence of earns-its-keep (Whether codegraph earns its keep)'s 72 transcripts, its descriptions claim only what the output does, and a 36-cell on-arm re-run measures the change against the stored off arm in decision 0003.
+
+## Done when
+- [ ] Every graph probe in `bench/probes.json`, each a fixed tool call on a bench repo at its task's pinned commit, passes: `symbol_graph` on `buildAnthropicCcHeaders` lists the 5 cc-headers-tests key files and on `findEnclosingSgSymbols` the 4 enclosing-sg-symbols-tests key files; `symbol_graph` resolves `runAstGrepIndexStage` (pi-codegraph) and `collectMatchCandidates` (pi-hashline-readmap's `src/grep.ts`), naming its file as partially parsed; no probe's output contains `untested` — verified by `bun bench/probe.ts graph-`
+- [ ] The trace probes pass: `trace prepare` (pi-codegraph) lists `getOrCreateProject`, `ensureIndexed`, `indexProjectImpl` marked unresolved, and `ensureHashInit`, first occurrences in that order; `trace streamAnthropicCc` (pi-claude-header) lists the cc-payload-trace key in key order within 5,400 characters, half its bench output — verified by `bun bench/probe.ts trace-`
+- [ ] The impact probes pass: compact-diff-impact's and source-snippet-impact's `key.all` present and `key.none` absent, no row carrying `fan-in` or `chain-confidence`, test files and test cases in their own list — verified by `bun bench/probe.ts impact-`
+- [ ] Indexing reads git's file list outside ignored paths, falling back to the directory walk outside a repo; a file tree-sitter parses with errors keeps its recovered declarations and counts in the index result's `partial`, not `errors`; coverage counts as indexed only when a report was parsed — verified by `bun test test/indexer-git-files.test.ts test/indexer-partial-parse.test.ts test/indexer-coverage-sentinel.test.ts`
+- [ ] Each tool's `description`, `promptSnippet` and `promptGuidelines` claim only what its output does: `trace`'s name call-site order and the depth cap, `impact`'s name callers reached directly or indirectly up to the entry points and the default `maxDepth`, `symbol_graph`'s name test cases as callers — verified by `bun test test/extension-tool-descriptions.test.ts`, extended with these cases, and a read at close
+- [ ] NOW.md's cuts are gone: each tool exports one function from `src/tools/`, its `*Result` form; `git grep -n "removedDevTools\|phase5" -- src test` finds nothing; `.gitattributes` marks `bench/results/**/*.transcript.jsonl` `-diff` — verified by those commands and `bun run check && bun test`
+- [ ] `bench/results/rerun-1/` holds 36 on-arm cells (6 tasks × 2 models × 3 repeats), `bun bench/verdict.ts --on-results bench/results/rerun-1` exits 0 against the stored off arm, a `piVersion` mismatch being an audit problem that sends the off arm to a re-run beside them, and `space/decisions/0003-*.md` records its output against three targets: every cell correct; a ≥25% median token or turn cut on at least 2 of tool-call-path, cc-payload-trace, enclosing-sg-symbols-tests and cc-headers-tests; `keep` — verified by that command and a read of the decision at close
+
+## Now
+Next: slice 1 (Subtract the listed cuts), no branch yet; run `slice` in a fresh session.
+
+## Seams
+- Extractor: `extractFile` in `src/indexer/tree-sitter.ts`, returning the module, nodes and edges; tests in `test/indexer-*.test.ts` on inline sources.
+- Pipeline: `indexProject` in `src/indexer/pipeline.ts`, returning `IndexResult`; tests in `test/indexer-index-project.test.ts`, `test/indexer-index-result-shape.test.ts` and new `test/indexer-*.test.ts` on temp dirs and temp git repos.
+- LSP stage: `runLspIndexStage` in `src/indexer/lsp.ts`, the edges it writes; tests in `test/indexer-lsp.test.ts` with a fake client.
+- Coverage stage: `runCoverageIndexStage` in `src/indexer/coverage.ts` and `hasCoverageData` on the store; tests in `test/indexer-coverage-*.test.ts`.
+- Tool functions: `symbolGraphResult`, `impactResult`, `traceResult` in `src/tools/`, signals in `src/output/signals.ts`; tests in `test/tool-*.test.ts` and `test/output-signals*.test.ts`.
+- Extension surface: each tool's registration and `execute()` in `src/index.ts`, through a fake `ExtensionAPI` in `test/extension-*.test.ts` and pi's real loader in `test/pi-host-load.test.ts`.
+- Probe: `bench/probe.ts` running `bench/probes.json` in a pinned worktree per repo; tests in `test/bench-probe.test.ts` on a fixture repo.
+- Verdict: `bench/verdict.ts`; tests in `test/bench-verdict.test.ts` on fixture results.
+- Real artifact: `bench/probe.ts` on the three sibling repos at the bench's pinned commits, and `bench/run.ts` cells driving `pi`.
+
+## Slices
+1. **Subtract the listed cuts** — delivers `symbolGraph`, `impact` and `trace` folded into their `*Result` forms, one export per tool with the string-returning test callers moved over; each `execute()` resolving its node once and handing it to the renderer instead of the renderers' repeated `findNodes`; `removedDevTools` and the phase5 surface tests the exact-surface test covers dropped; `.gitattributes` marking `bench/results/**/*.transcript.jsonl` `-diff` · proof `bun run check && bun test` green before and after, `git grep` empty, `git check-attr diff` on a transcript prints `unset` · blocked-by — · status next
+2. **Probe the graph against the bench keys** — delivers `bench/probe.ts` and `bench/probes.json`: per probe a repo, its task's pinned commit, one tool call and its expectations (`all`, `none`, `ordered`, `maxChars`, `resolves`), run on a worktree indexed as `bench/run.ts` indexes one, printing PASS or FAIL per probe and exiting 0 only when all pass; an id-prefix argument selects probes · proof `bun test test/bench-probe.test.ts` red → green on a fixture repo; the real run prints today's baseline, every probe the later slices own failing, recorded in the reconcile line · blocked-by 1 · status next
+3. **Mark coverage indexed only from a parsed report** — delivers `runCoverageIndexStage` setting the sentinel only when a report mapped, and node lines carrying no coverage tag when coverage is unknown, the output stating it once · proof `bun test test/indexer-coverage-sentinel.test.ts` red → green, the existing `coverage-unknown` tests updated; no `untested` in any `bun bench/probe.ts` output · blocked-by 2 · status next
+4. **Attribute test-callback calls to test nodes** — delivers a `test` node per `test(`/`it(` call whose title is a string literal, named `<file> > <title>`, spanning the callback, a call inside it attributed to that node, a non-literal title falling back to the module; the LSP stage keeping those callers; `symbol_graph` listing test cases among callers · proof an extractor test red → green; `bun bench/probe.ts graph-cc-headers` green · blocked-by 3 · status next
+5. **Keep the declarations of a file that fails to parse** — delivers `extractFile` walking tree-sitter's recovered tree instead of returning the module alone, `IndexResult.partial` listing those files apart from `errors`, and the Trust note naming a partial file a result touches · proof `bun test test/indexer-partial-parse.test.ts` red → green; `bun bench/probe.ts graph-` green · blocked-by 4 · status next
+6. **Index the files git lists** — delivers `indexProject` taking `git ls-files --cached --others --exclude-standard` in a repo, the directory walk outside one · proof `bun test test/indexer-git-files.test.ts` red → green on a temp repo with an ignored `.ts` tree · blocked-by 1 · status next
+7. **Keep each call's site on its edge** — delivers every `calls` edge, the LSP stage's upgrade included, carrying the call expression's end position, and the unresolved edges keeping theirs · proof `bun test test/indexer-lsp.test.ts` with a new case red → green · blocked-by 1 · status next
+8. **Render static trace as an ordered call tree** — delivers `trace` in static mode as an indented tree, children in call-end order, a repeat shown once as a reference, depth 4 by default with an `N more omitted` line, each unresolved callee as its own `? <name> (unresolved, <file>:<line>)` line · proof `test/tool-*trace*.test.ts` cases red → green; `bun bench/probe.ts trace-` green · blocked-by 3, 7 · status next
+9. **Trim impact rows** — delivers `impact` rows carrying class and depth only, sorted by depth then file, and the test files and test cases reached moved into one list of their own · proof `test/tool-impact*.test.ts` cases red → green; `bun bench/probe.ts impact-` green · blocked-by 4 · status next
+10. **Make the tool descriptions match the output** — delivers each tool's `description`, `promptSnippet`, `promptGuidelines` and parameter descriptions true to slices 4, 8 and 9, `maxDepth`'s default named, and README's tool section to match · proof new cases in `test/extension-tool-descriptions.test.ts` red → green · blocked-by 8, 9 · status next
+11. **Re-run the on arm** — delivers `bench/verdict.ts --on-results <dir>` taking the on arm from that directory and the off arm from `--results`, auditing a `piVersion` mismatch between them, and `bench/results/rerun-1/` holding the 36 on-arm cells run by `bench/run.ts --out bench/results/rerun-1`, the off arm re-run there too on a mismatch · proof `bun test test/bench-verdict.test.ts` red → green; `bun bench/verdict.ts --on-results bench/results/rerun-1` exits 0; spend in the reconcile line · blocked-by 5, 6, 10 · status next
+12. **Record the re-run in decision 0003** — delivers `space/decisions/0003-*.md` with the per-task rows against the three targets and the pick-rate and spend lines, and `NOW.md` routing what it finds · proof a read of the decision against `bun bench/verdict.ts --on-results bench/results/rerun-1`'s output · blocked-by 11 · status next
+
+## Not yet specified
+- Whether a `test` node counts as a test for the signals once static attribution gives one, or coverage alone sets `tested`: settle in slice 4's plan.
+
+## Out of scope
+- Tuning the descriptions to raise pick rate, and `trace` taking a `file:line` start for an unnamed handler: the follow-up arc NOW.md routes.
+- Python support.
+- Edit-task benchmarks.
+- Custom TUI renderers (`renderCall`/`renderResult`).
+- Re-running the off arm while `piVersion` matches.
+
+## Decisions
+- [0001 The public surface is three read-only tools](../decisions/0001-three-tool-public-surface.md)
+- [0002 Codegraph is kept](../decisions/0002-keep-codegraph.md)
