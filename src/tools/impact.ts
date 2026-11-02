@@ -160,29 +160,37 @@ function buildEmptyImpactDiagnostic(
   return `${lines.join("\n")}\n`;
 }
 
-export function impact(params: {
+export interface ImpactParams {
   symbols: string[];
   changeType: ChangeType;
   store: GraphStore;
   projectRoot: string;
   maxDepth?: number;
-}): string {
-  const targetNodes = (params.symbols ?? []).flatMap((symbol) => params.store.findNodes(symbol));
+}
+
+/** The rendered impact plus whether every requested symbol resolved to exactly one node. */
+export function impactResult(params: ImpactParams): { text: string; resolved: boolean } {
+  const matches = (params.symbols ?? []).map((symbol) => params.store.findNodes(symbol));
+  const resolved = matches.length > 0 && matches.every((nodes) => nodes.length === 1);
+  const targetNodes = matches.flat();
   const withFreshness = (
     body: string,
     resultNodes = targetNodes,
     resultEdges: NeighborResult["edge"][] = [],
-  ) => prependFreshnessHeader(
-    body,
-    evaluateFreshness({
-      store: params.store,
-      projectRoot: params.projectRoot,
-      targetNodes,
-      resultNodes,
-      resultEdges,
-      recommendation: "impact may be incomplete; refresh index before relying on this result",
-    }),
-  );
+  ) => ({
+    text: prependFreshnessHeader(
+      body,
+      evaluateFreshness({
+        store: params.store,
+        projectRoot: params.projectRoot,
+        targetNodes,
+        resultNodes,
+        resultEdges,
+        recommendation: "impact may be incomplete; refresh index before relying on this result",
+      }),
+    ),
+    resolved,
+  });
 
   // Defensive: validate symbols parameter (#065)
   if (!params.symbols || params.symbols.length === 0) {
@@ -246,4 +254,8 @@ export function impact(params: {
   });
   const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
   return withFreshness(body, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
+}
+
+export function impact(params: ImpactParams): string {
+  return impactResult(params).text;
 }
