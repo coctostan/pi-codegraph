@@ -36,27 +36,95 @@ function resolveCoverageTraceId(store: GraphStore, nodeId: string): string | nul
   return pickCoverageTraceForNode(store, node.id);
 }
 
-function buildStaticTrace(store: GraphStore, startNodeId: string): string[] {
-  const ordered: string[] = [];
-  const seen = new Set<string>();
-  const stack: string[] = [startNodeId];
+/** A static trace prints callees down to this many calls below its entry. */
+const STATIC_TRACE_DEPTH = 4;
+const UNRESOLVED = "__unresolved__::";
 
-  while (stack.length > 0) {
-    const currentId = stack.pop()!;
-    if (seen.has(currentId)) continue;
-    seen.add(currentId);
-    ordered.push(currentId);
-    const nextNeighbors = store.getNeighbors(currentId, { direction: "out", kind: "calls" });
-    const sorted = nextNeighbors.sort((a, b) =>
-      a.node.file.localeCompare(b.node.file) || a.node.start_line - b.node.start_line || a.node.id.localeCompare(b.node.id)
-    );
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (!seen.has(sorted[i].node.id)) {
-        stack.push(sorted[i].node.id);
-      }
+type CallEnd = GraphEdge["call_end"];
+
+/** A caller's callee: a resolved node, or an unresolved call's rendered `? <name> (unresolved, <file>:<line>)` line. */
+interface Callee {
+  node?: GraphNode;
+  unresolved?: string;
+  end: CallEnd;
+  file: string;
+  line: number;
+}
+
+function endsBefore(a: CallEnd, b: CallEnd): boolean {
+  return !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
+}
+
+/** `caller`'s callees in the order their calls end, the first call to end placing a callee; one without a call end last. */
+function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
+  const byId = new Map<string, Callee>();
+  for (const { node, edge } of store.getNeighbors(caller.id, { direction: "out", kind: "calls" })) {
+    const kept = byId.get(node.id);
+    if (!kept || endsBefore(edge.call_end, kept.end)) byId.set(node.id, { node, end: edge.call_end, file: node.file, line: node.start_line });
+  }
+  const unresolved = store
+    .getEdgesBySource(caller.id)
+    .filter((edge) => edge.kind === "calls" && edge.target.startsWith(UNRESOLVED))
+    .map((edge): Callee => {
+      const name = edge.target.slice(UNRESOLVED.length, edge.target.lastIndexOf(":"));
+      // Tree-sitter's evidence is `<callee>:<line>:<col>`, the callee's start.
+      const evidenceLine = Number(edge.provenance.evidence.split(":").at(-2));
+      const line = Number.isInteger(evidenceLine) ? evidenceLine : (edge.call_end?.line ?? 0);
+      return { unresolved: `? ${name} (unresolved, ${caller.file}:${line})`, end: edge.call_end, file: caller.file, line };
+    });
+  return [...byId.values(), ...unresolved].sort(
+    (a, b) =>
+      (endsBefore(a.end, b.end) ? -1 : endsBefore(b.end, a.end) ? 1 : 0) ||
+      a.file.localeCompare(b.file) ||
+      a.line - b.line ||
+      (a.node?.id ?? a.unresolved!).localeCompare(b.node?.id ?? b.unresolved!),
+  );
+}
+
+interface StaticTrace {
+  lines: Array<{ line: string; stale: boolean }>;
+  /** Each node printed in full, in print order. */
+  nodeIds: string[];
+}
+
+/** The call tree below `entry`: each node printed once, a repeat as a reference, and a count of the callees cut at the depth cap. */
+function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: string, signalComputer: SignalComputer): StaticTrace {
+  const printed = new Set<string>();
+  const lines: StaticTrace["lines"] = [];
+  const cut: GraphNode[] = [];
+  const visit = (node: GraphNode, depth: number): void => {
+    const indent = "  ".repeat(depth);
+    if (printed.has(node.id)) {
+      lines.push({ line: `${indent}${node.name} (see above)`, stale: false });
+      return;
+    }
+    printed.add(node.id);
+    const step = formatNodeLine(node, projectRoot, signalComputer);
+    lines.push({ line: `${indent}${step.line}`, stale: step.stale });
+    if (depth === STATIC_TRACE_DEPTH) {
+      cut.push(node);
+      return;
+    }
+    for (const callee of orderedCallees(store, node)) {
+      if (callee.node) visit(callee.node, depth + 1);
+      else lines.push({ line: `${indent}  ${callee.unresolved}`, stale: false });
+    }
+  };
+  visit(entry, 0);
+
+  // Every callee reachable past the cap that the tree never printed: a node once, an unresolved call once per caller.
+  const omitted = new Set<string>();
+  while (cut.length > 0) {
+    const node = cut.pop()!;
+    for (const callee of orderedCallees(store, node)) {
+      const key = callee.node?.id ?? `${node.id}\0${callee.unresolved}`;
+      if (printed.has(key) || omitted.has(key)) continue;
+      omitted.add(key);
+      if (callee.node) cut.push(callee.node);
     }
   }
-  return ordered;
+  if (omitted.size > 0) lines.push({ line: `${omitted.size} more omitted beyond depth ${STATIC_TRACE_DEPTH}`, stale: false });
+  return { lines, nodeIds: [...printed] };
 }
 
 function formatStoredTraceLine(
@@ -234,12 +302,10 @@ function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
     return prependFreshnessHeader(body, freshness);
   }
 
-  const staticNodeIds = buildStaticTrace(params.store, node.id);
-  const staticSteps = staticNodeIds
-    .map((step) => formatLiveTraceLine(params.store, step, params.projectRoot, signalComputer));
-  const staticEdges = collectStaticTraceEdges(params.store, staticNodeIds);
-  const freshness = traceFreshness(params, node, staticNodeIds, [], staticEdges);
-  const staticStale = staticSteps.some((step) => step.stale) || freshness.status !== "fresh";
-  const body = `${[formatModeHeader("static", staticStale), ...staticSteps.map((step) => step.line)].join("\n")}\n`;
+  const staticTrace = buildStaticTrace(params.store, node, params.projectRoot, signalComputer);
+  const staticEdges = collectStaticTraceEdges(params.store, staticTrace.nodeIds);
+  const freshness = traceFreshness(params, node, staticTrace.nodeIds, [], staticEdges);
+  const staticStale = staticTrace.lines.some((step) => step.stale) || freshness.status !== "fresh";
+  const body = `${[formatModeHeader("static", staticStale), ...staticTrace.lines.map((step) => step.line)].join("\n")}\n`;
   return prependFreshnessHeader(body, freshness);
 }
