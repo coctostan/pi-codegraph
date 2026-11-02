@@ -469,7 +469,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
       return `${node.text}:${node.startPosition.row + 1}:${node.startPosition.column + 1}`;
     }
     const visitCalls = (n: SyntaxNode, currentFunctionId: string | null): void => {
-      let nextFunctionId = (CALLBACK_TYPES.has(n.type) && callbackOwners.get(n.startIndex)) || currentFunctionId;
+      let nextFunctionId = callbackOwners.get(n.startIndex) ?? currentFunctionId;
 
       if (n.type === "function_declaration") {
         const nameNode = n.childForFieldName("name");
