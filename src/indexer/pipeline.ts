@@ -55,6 +55,15 @@ function walkTsFiles(root: string): string[] {
   return out;
 }
 
+/** `git check-ignore` exits 0 when the path is ignored, 1 when not. */
+function isIgnoredByGit(root: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "-q", "."], { cwd: root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 /** The `.ts`/`.tsx` files git lists under `root`, tracked or untracked but not ignored; the walk outside a repo. */
 function listTsFiles(root: string): string[] {
   let listed: string[];
@@ -68,8 +77,8 @@ function listTsFiles(root: string): string[] {
   } catch {
     return walkTsFiles(root);
   }
-  // Git lists nothing when the root is a directory its repo ignores; index it as a plain tree.
-  if (listed.length === 0) return walkTsFiles(root);
+  // A root its repo ignores (a dotfiles repo's `/*`) lists nothing; index it as a plain tree, as outside a repo.
+  if (listed.length === 0 && isIgnoredByGit(root)) return walkTsFiles(root);
   // A Set drops the repeat an unmerged path gets per conflict stage; existsSync drops a tracked file deleted from disk.
   return [...new Set(listed)]
     .filter((rel) => (rel.endsWith(".ts") || rel.endsWith(".tsx")) && !rel.split("/").some((part) => SKIPPED_DIRS.has(part)))

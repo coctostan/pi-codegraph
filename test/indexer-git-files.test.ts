@@ -126,6 +126,21 @@ test("indexProject rooted in a directory its repo ignores falls back to the walk
   }
 });
 
+test("indexProject rooted in a subdirectory whose only files are ignored indexes none of them", async () => {
+  const repo = tempRepo();
+  write(repo, ".gitignore", "pkg/generated/\n");
+  write(repo, "pkg/generated/out.ts");
+  const store = new SqliteGraphStore();
+  try {
+    const result = await indexProject(join(repo, "pkg"), store, { lspClientFactory: () => noopClient });
+    expect(store.listFiles().filter((f) => !f.startsWith("__"))).toEqual([]);
+    expect(result.indexed).toBe(0);
+  } finally {
+    store.close();
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("indexProject outside a repo walks the directory, skipping node_modules", async () => {
   const root = mkdtempSync(join(tmpdir(), "pi-cg-no-git-"));
   write(root, "src/a.ts");
