@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace prepends the shared trust header for static heuristic paths without changing mode semantics", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-trust-heuristic-${Date.now()}`);
@@ -41,7 +41,7 @@ test("trace prepends the shared trust header for static heuristic paths without 
     });
     store.setFileHash("src/app.ts", fileHash);
 
-    const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
+    const output = traceResult({ entry: "entry", file: "src/app.ts", store, projectRoot }).text;
     const lines = output.trimEnd().split("\n");
 
     expect(lines[0]).toBe("Trust: fresh");

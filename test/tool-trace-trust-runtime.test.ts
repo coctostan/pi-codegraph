@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace prepends a runtime-backed trust header and degrades to mixed when a stored coverage step goes stale", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-trust-runtime-${Date.now()}`);
@@ -56,7 +56,7 @@ test("trace prepends a runtime-backed trust header and degrades to mixed when a 
     store.setFileHash("src/app.ts", appHash);
     store.setFileHash("test/app.test.ts", testHash);
 
-    const freshOutput = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
+    const freshOutput = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
     const freshLines = freshOutput.trimEnd().split("\n");
 
     expect(freshLines[0]).toBe("Trust: fresh");
@@ -65,7 +65,7 @@ test("trace prepends a runtime-backed trust header and degrades to mixed when a 
 
     writeFileSync(join(projectRoot, "src", "app.ts"), appV2);
 
-    const mixedOutput = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
+    const mixedOutput = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
     const mixedLines = mixedOutput.trimEnd().split("\n");
 
     expect(mixedLines[0]).toBe("Trust: partial");

@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { collectImpact, impact } from "../src/tools/impact.js";
+import { collectImpact, impactResult } from "../src/tools/impact.js";
 
 function setup() {
   const projectRoot = join(tmpdir(), `pi-cg-impact-083-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -43,13 +43,13 @@ function setup() {
 test("BUG #073: impact on an entry-point symbol returns the entry-point diagnostic", () => {
   const { projectRoot, store } = setup();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: ["entryPoint"],
       changeType: "signature_change",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toContain("No dependents found — 'entryPoint' is an entry point with no callers.");
   } finally {
@@ -61,13 +61,13 @@ test("BUG #073: impact on an entry-point symbol returns the entry-point diagnost
 test("BUG #073 + #074: impact on an interface with implementors returns the implementor chain (not the interface diagnostic)", () => {
   const { projectRoot, store } = setup();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: ["Store"],
       changeType: "removal",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     expect(out).toContain("Trust: stale");
     // With #074 fixed, Store → MyStore (implements) → useStore (calls) chain is found;
     // therefore the interface *diagnostic* must NOT fire.
@@ -86,7 +86,7 @@ test("BUG #074: impact on an interface traverses implements edges via collectImp
   const { projectRoot, store } = setup();
   try {
     const hits = collectImpact({
-      symbols: ["Store"],
+      seeds: store.findNodes("Store"),
       changeType: "signature_change",
       store,
       maxDepth: 5,

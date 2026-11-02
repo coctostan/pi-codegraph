@@ -33,7 +33,7 @@ test("collectImpact classifies direct and transitive dependents by change type",
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
 
     const signature = collectImpact({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "signature_change",
       store,
       maxDepth: 5,
@@ -44,7 +44,7 @@ test("collectImpact classifies direct and transitive dependents by change type",
     ]);
 
     const removal = collectImpact({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "removal",
       store,
       maxDepth: 5,
@@ -52,7 +52,7 @@ test("collectImpact classifies direct and transitive dependents by change type",
     expect(removal.map((item) => item.classification)).toEqual(["breaking", "behavioral"]);
 
     const behavioral = collectImpact({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "behavior_change",
       store,
       maxDepth: 5,
@@ -73,13 +73,13 @@ test("collectImpact respects maxDepth", () => {
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
 
     expect(
-      collectImpact({ symbols: ["shared"], changeType: "signature_change", store, maxDepth: 1 }),
+      collectImpact({ seeds: store.findNodes("shared"), changeType: "signature_change", store, maxDepth: 1 }),
     ).toEqual([
       { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
     ]);
 
     expect(
-      collectImpact({ symbols: ["shared"], changeType: "addition", store, maxDepth: 5 }),
+      collectImpact({ seeds: store.findNodes("shared"), changeType: "addition", store, maxDepth: 5 }),
     ).toEqual([]);
   } finally {
     store.close();
@@ -94,7 +94,7 @@ test("collectImpact returns no dependents for addition", () => {
     addCall(store, "src/a.ts::a:1", "src/lib.ts::shared:1");
 
     expect(
-      collectImpact({ symbols: ["shared"], changeType: "addition", store, maxDepth: 5 }),
+      collectImpact({ seeds: store.findNodes("shared"), changeType: "addition", store, maxDepth: 5 }),
     ).toEqual([]);
   } finally {
     store.close();
@@ -113,7 +113,7 @@ test("collectImpact terminates on cycles without duplicates", () => {
     addCall(store, "src/a.ts::a:1", "src/b.ts::b:1");
 
     const result = collectImpact({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "behavior_change",
       store,
       maxDepth: 5,
@@ -141,7 +141,7 @@ test("collectImpact terminates on a 3-node cycle without duplicates", () => {
     addCall(store, "src/c.ts::c:1", "src/b.ts::b:1");
     addCall(store, "src/a.ts::a:1", "src/c.ts::c:1");
 
-    const result = collectImpact({ symbols: ["shared"], changeType: "behavior_change", store, maxDepth: 10 });
+    const result = collectImpact({ seeds: store.findNodes("shared"), changeType: "behavior_change", store, maxDepth: 10 });
     expect(result.map((r) => r.nodeId).sort()).toEqual([
       "src/a.ts::a:1",
       "src/b.ts::b:1",
@@ -167,7 +167,7 @@ test("collectImpact classification matrix (AC 34) across all change types", () =
     ] as const;
 
     for (const c of cases) {
-      const out = collectImpact({ symbols: ["shared"], changeType: c.changeType, store, maxDepth: 5 });
+      const out = collectImpact({ seeds: store.findNodes("shared"), changeType: c.changeType, store, maxDepth: 5 });
       expect(out.map((r) => r.classification)).toEqual(c.expected as any);
     }
   } finally {

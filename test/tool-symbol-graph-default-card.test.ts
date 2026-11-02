@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbolGraph defaults to a compact card and include:[] matches omitted include", () => {
   const projectRoot = join(tmpdir(), `pi-cg-sg-card-${Date.now()}`);
@@ -40,8 +40,8 @@ test("symbolGraph defaults to a compact card and include:[] matches omitted incl
       provenance: { source: "coverage", confidence: 0.9, evidence: "covered", content_hash: hashA },
       created_at: Date.now(),
     });
-    const withoutInclude = symbolGraph({ name: "foo", store, projectRoot });
-    const withEmptyInclude = symbolGraph({ name: "foo", include: [] as any, store, projectRoot });
+    const withoutInclude = symbolGraphResult({ name: "foo", store, projectRoot }).text;
+    const withEmptyInclude = symbolGraphResult({ name: "foo", include: [] as any, store, projectRoot }).text;
 
     expect(withoutInclude).toBe(withEmptyInclude);
     expect(withoutInclude).toContain("## foo (function)");
@@ -74,8 +74,8 @@ test("symbolGraph keeps not-found and ambiguous handling explicit in the default
     store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: hashA });
     store.addNode({ id: "src/b.ts::foo:1", kind: "class", name: "foo", file: "src/b.ts", start_line: 1, end_line: 1, content_hash: hashB });
 
-    expect(symbolGraph({ name: "doesNotExist", store, projectRoot })).toContain('Symbol "doesNotExist" not found');
-    const ambiguous = symbolGraph({ name: "foo", store, projectRoot });
+    expect(symbolGraphResult({ name: "doesNotExist", store, projectRoot }).text).toContain('Symbol "doesNotExist" not found');
+    const ambiguous = symbolGraphResult({ name: "foo", store, projectRoot }).text;
     expect(ambiguous).toContain('Multiple matches for "foo"');
     expect(ambiguous).toContain("src/a.ts");
     expect(ambiguous).toContain("src/b.ts");

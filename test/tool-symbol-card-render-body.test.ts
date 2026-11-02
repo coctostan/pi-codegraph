@@ -41,7 +41,7 @@ test("renderSymbolCardBody returns the compact card base view without Source or 
       created_at: Date.now(),
     });
 
-    const rendered = renderSymbolCardBody({ name: "foo", store, projectRoot });
+    const rendered = renderSymbolCardBody({ node: store.findNodes("foo")[0]!, store, projectRoot });
     expect(rendered.body).toContain("## foo (function)");
     expect(rendered.body).toContain("### Signature");
     expect(rendered.body).toContain("### Covering Tests");

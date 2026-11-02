@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 function setupFixture(): { projectRoot: string; cleanup: () => void } {
   const projectRoot = join(tmpdir(), `pi-cg-sg-${Date.now()}`);
@@ -49,7 +49,7 @@ test("symbolGraph returns full neighborhood for a unique symbol match", () => {
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Header
     expect(output).toContain("foo (function)");
@@ -80,7 +80,7 @@ test("symbolGraph returns not found message for unknown symbol", () => {
   try {
     const store = new SqliteGraphStore();
 
-    const output = symbolGraph({ name: "doesNotExist", store, projectRoot });
+    const output = symbolGraphResult({ name: "doesNotExist", store, projectRoot }).text;
 
     expect(output).toContain("not found");
     expect(output).toContain("doesNotExist");
@@ -108,7 +108,7 @@ test("symbolGraph returns disambiguation list when multiple nodes match", () => 
     store.addNode({ id: "src/a.ts::foo:3", kind: "function", name: "foo", file: "src/a.ts", start_line: 3, end_line: 5, content_hash: hashA });
     store.addNode({ id: "src/b.ts::foo:1", kind: "class", name: "foo", file: "src/b.ts", start_line: 1, end_line: 3, content_hash: hashB });
 
-    const output = symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Should be a disambiguation list, not a neighborhood
     expect(output).toContain("Multiple matches");
@@ -144,7 +144,7 @@ test("symbolGraph resolves ambiguity when file filter narrows to one match", () 
     store.addNode({ id: "src/b.ts::foo:1", kind: "function", name: "foo", file: "src/b.ts", start_line: 1, end_line: 3, content_hash: hashB });
 
     // With file filter, should return full neighborhood (not disambiguation)
-    const output = symbolGraph({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", file: "src/a.ts", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Should be a neighborhood, not disambiguation
     expect(output).toContain("foo (function)");
@@ -185,7 +185,7 @@ test("symbolGraph truncates each neighbor category independently to limit", () =
     }
 
     // Limit to 2 — should see 2 callees and "(1 more omitted)"
-    const output = symbolGraph({ name: "foo", limit: 2, include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", limit: 2, include: ["neighborhood"] as any, store, projectRoot }).text;
 
     expect(output).toContain("Callees");
     expect(output).toContain("callee0"); // highest confidence
@@ -225,7 +225,7 @@ test("symbolGraph excludes incoming imports edges from the Imports section", () 
     });
 
     // Querying bar — the imports edge above is incoming to bar, so it should NOT appear in Imports
-    const output = symbolGraph({ name: "bar", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "bar", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     expect(output).not.toContain("Imports");
 
@@ -261,7 +261,7 @@ test("symbolGraph shows outgoing imports edges in the Imports section", () => {
     });
 
     // Querying foo — this import is outgoing from foo, so it SHOULD appear in Imports
-    const output = symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     expect(output).toContain("Imports");
     expect(output).toContain("bar");

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { computeAnchor } from "../src/output/anchoring.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 test("computeAnchor returns bare editable anchor, separate file context, and stale flag", () => {
   const root = join(tmpdir(), `pi-cg-anchor-${Date.now()}`);
@@ -45,12 +45,12 @@ test("impact() emits anchored structured lines and empty string for no-impact", 
       provenance: { source: "tree-sitter", confidence: 0.8, evidence: "shared:2:35", content_hash: "h" },
       created_at: 1,
     });
-    const out = impact({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 });
+    const out = impactResult({ symbols: ["shared"], changeType: "signature_change", store, projectRoot, maxDepth: 3 }).text;
     expect(out).toContain("Trust: stale");
     expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:/);
     expect(out).toMatch(/src\/caller\.ts  2:[0-9a-f]{3}  caller  breaking  depth:1( \[stale\])?  \[fan-in:.*\]\n/);
     expect(out).not.toMatch(/src\/caller\.ts:2:[0-9a-f]{4}/);
-    const noImpact = impact({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 });
+    const noImpact = impactResult({ symbols: ["shared"], changeType: "addition", store, projectRoot, maxDepth: 3 }).text;
     expect(noImpact).toContain("Trust: stale");
     expect(noImpact).not.toContain("caller");
   } finally {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace marks static fallback paths as heuristic without changing step lines", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-static-mode-header-${Date.now()}`);
@@ -61,7 +61,7 @@ test("trace marks static fallback paths as heuristic without changing step lines
     });
     store.setFileHash("src/app.ts", fileHash);
 
-    const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
+    const output = traceResult({ entry: "entry", file: "src/app.ts", store, projectRoot }).text;
     const lines = output.trim().split("\n");
 
     expect(lines[0]).toBe("Trust: fresh");

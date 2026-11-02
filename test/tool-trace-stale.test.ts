@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace marks stale and unresolved stored steps without failing the whole trace", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-stale-${Date.now()}`);
@@ -27,7 +27,7 @@ test("trace marks stale and unresolved stored steps without failing the whole tr
       ],
     });
 
-    const output = trace({ entry: "prodTest", file: "src/app.test.ts", store, projectRoot });
+    const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store, projectRoot }).text;
     expect(output).toContain("mode: coverage [stale]");
     expect(output).toMatch(/src\/app\.test\.ts  1:[0-9a-f]{3}/);
     expect(output).not.toMatch(/src\/app\.test\.ts:1:[0-9a-f]{4}/);

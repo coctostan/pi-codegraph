@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 
 test("symbolGraph marks stale agent edges with [stale]", () => {
@@ -58,7 +58,7 @@ test("symbolGraph marks stale agent edges with [stale]", () => {
     });
 
     // Query foo — the agent edge to bar should NOT be stale
-    const freshOutput = symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot });
+    const freshOutput = symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text;
     expect(freshOutput).toContain("bar");
     expect(freshOutput).toContain("Callees");
     // The callee line for bar should not have [stale]
@@ -70,7 +70,7 @@ test("symbolGraph marks stale agent edges with [stale]", () => {
     store.setFileHash("src/a.ts", "new_different_hash");
 
     // Query foo again — the agent edge should now be marked [stale]
-    const staleOutput = symbolGraph({ name: "foo", include: ["neighborhood"] as any, store, projectRoot });
+    const staleOutput = symbolGraphResult({ name: "foo", include: ["neighborhood"] as any, store, projectRoot }).text;
     expect(staleOutput).toContain("bar");
     // The callee line for bar should have [stale] since agent edge content_hash != current file hash
     const staleLines = staleOutput.split("\n").filter(l => l.includes("bar") && l.includes("calls"));

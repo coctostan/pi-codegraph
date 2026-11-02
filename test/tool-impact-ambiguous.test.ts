@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 function sha256Hex(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -64,13 +64,13 @@ test("impact returns a disambiguation list instead of aggregating all ambiguous 
       created_at: 1,
     });
 
-    const output = impact({
+    const output = impactResult({
       symbols: ["sha256Hex"],
       changeType: "signature_change",
       store,
       projectRoot,
       maxDepth: 3,
-    });
+    }).text;
 
     expect(output).toContain('Multiple matches for "sha256Hex"');
     expect(output).toMatch(/src\/hash\.ts  1:[0-9a-f]{3}/);

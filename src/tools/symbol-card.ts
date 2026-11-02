@@ -1,8 +1,10 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
+import type { GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer, formatRoleTags } from "../output/signals.js";
 import { readSourceSnippet } from "../output/source.js";
 import { prependTrustHeader } from "../output/trust.js";
+import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export interface SymbolCardParams {
   name: string;
@@ -10,6 +12,14 @@ export interface SymbolCardParams {
   maxSourceLines?: number;
   store: GraphStore;
   projectRoot: string;
+}
+
+/** A section renderer's input: the node the caller already resolved. */
+export interface ResolvedNodeParams {
+  node: GraphNode;
+  store: GraphStore;
+  projectRoot: string;
+  maxSourceLines?: number;
 }
 
 export interface RenderedSymbolCard {
@@ -22,23 +32,8 @@ export interface RenderedSymbolSection {
   hasLocalExceptions: boolean;
 }
 
-export function renderSymbolSourceSection(params: SymbolCardParams): RenderedSymbolSection {
-  const { name, file, store, projectRoot, maxSourceLines } = params;
-  const nodes = store.findNodes(name, file);
-  if (nodes.length === 0) {
-    return { body: `Symbol "${name}" not found`, hasLocalExceptions: false };
-  }
-  if (nodes.length > 1) {
-    const lines: string[] = [`Multiple matches for "${name}":\n`];
-    for (const node of nodes) {
-      const anchor = computeAnchor(node, projectRoot);
-      const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
-    }
-    return { body: `${lines.join("\n")}\n`, hasLocalExceptions: lines.some((line) => line.includes("[stale]")) };
-  }
-  const node = nodes[0]!;
-  const snippet = readSourceSnippet(node, projectRoot, maxSourceLines);
+export function renderSymbolSourceSection(params: ResolvedNodeParams): RenderedSymbolSection {
+  const snippet = readSourceSnippet(params.node, params.projectRoot, params.maxSourceLines);
   const heading = snippet?.stale ? "### Source [stale]" : "### Source";
   return {
     body: `${heading}\n${snippet ? snippet.text : "source unavailable"}\n`,
@@ -46,25 +41,8 @@ export function renderSymbolSourceSection(params: SymbolCardParams): RenderedSym
   };
 }
 
-export function renderSymbolCardBody(params: SymbolCardParams): RenderedSymbolCard {
-  const { name, file, store, projectRoot } = params;
-  const nodes = store.findNodes(name, file);
-
-  if (nodes.length === 0) {
-    return { body: `Symbol "${name}" not found`, hasLocalExceptions: false };
-  }
-  if (nodes.length > 1) {
-    const lines: string[] = [`Multiple matches for "${name}":\n`];
-    for (const node of nodes) {
-      const anchor = computeAnchor(node, projectRoot);
-      const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
-    }
-    const body = `${lines.join("\n")}\n`;
-    return { body, hasLocalExceptions: lines.some((line) => line.includes("[stale]")) };
-  }
-
-  const node = nodes[0]!;
+export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbolCard {
+  const { node, store, projectRoot } = params;
   const anchor = computeAnchor(node, projectRoot);
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
@@ -118,27 +96,15 @@ export function renderSymbolCardBody(params: SymbolCardParams): RenderedSymbolCa
 }
 
 export function symbolCard(params: SymbolCardParams): string {
-  const { name, file, store, projectRoot, maxSourceLines } = params;
+  const { store, projectRoot, maxSourceLines } = params;
   const stats = store.getStatistics(projectRoot);
-  const nodes = store.findNodes(name, file);
-
-  if (nodes.length === 0) {
-    return prependTrustHeader(`Symbol "${name}" not found`, { stats });
+  const resolved = resolveUniqueSymbol({ ...params, notFoundLabel: "Symbol" });
+  if (resolved.kind === "not_found") return prependTrustHeader(resolved.text, { stats });
+  if (resolved.kind === "ambiguous") {
+    return prependTrustHeader(resolved.text, { stats, hasLocalExceptions: resolved.text.includes("[stale]") });
   }
 
-  if (nodes.length > 1) {
-    const lines: string[] = [`Multiple matches for "${name}":\n`];
-    for (const node of nodes) {
-      const anchor = computeAnchor(node, projectRoot);
-      const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
-    }
-    const body = `${lines.join("\n")}\n`;
-    const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
-    return prependTrustHeader(body, { stats, hasLocalExceptions });
-  }
-
-  const node = nodes[0]!;
+  const node = resolved.node;
   const anchor = computeAnchor(node, projectRoot);
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
@@ -153,13 +119,7 @@ export function symbolCard(params: SymbolCardParams): string {
   lines.push(formatAnchorLocation(anchor));
 
   // Source
-  const renderedSource = renderSymbolSourceSection({
-    name,
-    file,
-    store,
-    projectRoot,
-    maxSourceLines,
-  });
+  const renderedSource = renderSymbolSourceSection({ node, store, projectRoot, maxSourceLines });
   lines.push("");
   lines.push(renderedSource.body.trimEnd());
 

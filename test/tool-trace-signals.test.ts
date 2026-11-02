@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace appends inline role tags to coverage and static step lines without changing mode header", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-signals-${Date.now()}`);
@@ -48,7 +48,7 @@ test("trace appends inline role tags to coverage and static step lines without c
       ],
     });
 
-    const output = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
+    const output = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
     const lines = output.trim().split("\n");
 
     expect(lines[0]).toBe("Trust: partial");

@@ -445,6 +445,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
         name: params.name,
         file: params.file,
         include: params.include as Array<"neighborhood" | "contract" | "source"> | undefined,
+        nodes,
         store,
         projectRoot,
       });

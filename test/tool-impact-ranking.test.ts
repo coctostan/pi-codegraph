@@ -39,7 +39,7 @@ test("collectImpactDetails ranks dependents and carries weakest-link chain confi
     addCall(store, "src/a3.ts::a3:1", "src/api.ts::api:1", 0.4);
 
     const details = collectImpactDetails({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "signature_change",
       store,
       maxDepth: 5,
@@ -86,7 +86,7 @@ test("collectImpactDetails prioritizes untested before tested ahead of depth", (
     });
 
     const details = collectImpactDetails({
-      symbols: ["shared"],
+      seeds: store.findNodes("shared"),
       changeType: "behavior_change",
       store,
       maxDepth: 5,

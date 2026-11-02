@@ -1,11 +1,8 @@
 import { test } from "bun:test";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
-import { isRemoved } from "./phase5-decision-matrix.js";
 
 function registerTools() {
   const tools: Array<{ name: string; execute: Function }> = [];
@@ -28,21 +25,6 @@ function createFreshProject(): string {
     "export function bar() { return 1; }\nexport function foo() { return bar(); }\n",
   );
   return projectRoot;
-}
-
-function populateStore(projectRoot: string, content: string): string {
-  const dbDir = join(projectRoot, ".codegraph");
-  mkdirSync(dbDir, { recursive: true });
-  const dbPath = join(dbDir, "graph.db");
-  const store = new SqliteGraphStore(dbPath);
-  store.markCoverageIndexed();
-  const extracted = extractFile("src/app.ts", content);
-  store.addNode(extracted.module);
-  for (const node of extracted.nodes) store.addNode(node);
-  for (const edge of extracted.edges) store.addEdge(edge);
-  store.setFileHash("src/app.ts", sha256Hex(content));
-  store.close();
-  return dbPath;
 }
 
 test("fresh symbol_graph tool calls omit the Trust header but keep provenance and signal lines", async () => {
@@ -103,82 +85,3 @@ test("non-fresh trace tool calls still render the Trust header", async () => {
     rmSync(projectRoot, { recursive: true, force: true });
   }
 });
-
-if (!isRemoved("graph_query")) {
-test("readonly reindex output still renders the indexing-failed note", async () => {
-  const projectRoot = join(tmpdir(), `pi-cg-trust-readonly-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  mkdirSync(join(projectRoot, "src"), { recursive: true });
-
-  const original = "export function foo() { return 1; }\n";
-  writeFileSync(join(projectRoot, "src", "app.ts"), original);
-  const dbPath = populateStore(projectRoot, original);
-  writeFileSync(join(projectRoot, "src", "app.ts"), "export function foo() { return 2; }\n");
-  chmodSync(dbPath, 0o444);
-
-  const tools = registerTools();
-  const graphQueryTool = tools.find((tool) => tool.name === "graph_query");
-  if (!graphQueryTool) throw new Error("graph_query tool was not registered");
-
-  try {
-    const result = await graphQueryTool.execute(
-      "call-3",
-      { query: 'MATCH (n {name: "foo"}) RETURN n' },
-      undefined as any,
-      () => {},
-      { cwd: projectRoot } as any,
-    );
-    const text = (result.content[0] as any).text as string;
-
-    if (!text.includes("indexing-failed: graph may be stale (readonly database)")) {
-      throw new Error("readonly reindex output lost the indexing-failed note");
-    }
-    if (!text.includes("foo")) {
-      throw new Error("readonly reindex output lost graph_query results");
-    }
-  } finally {
-    chmodSync(dbPath, 0o644);
-    resetStoreForTesting();
-    rmSync(projectRoot, { recursive: true, force: true });
-  }
-});
-
-test("readonly reindex output still renders the indexing-failed note when the db directory blocks journal writes", async () => {
-  const projectRoot = join(tmpdir(), `pi-cg-trust-readonly-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  mkdirSync(join(projectRoot, "src"), { recursive: true });
-
-  const original = "export function foo() { return 1; }\n";
-  writeFileSync(join(projectRoot, "src", "app.ts"), original);
-  const dbDir = join(projectRoot, ".codegraph");
-  const dbPath = populateStore(projectRoot, original);
-  writeFileSync(join(projectRoot, "src", "app.ts"), "export function foo() { return 2; }\n");
-  chmodSync(dbPath, 0o666);
-  chmodSync(dbDir, 0o555);
-
-  const tools = registerTools();
-  const graphQueryTool = tools.find((tool) => tool.name === "graph_query");
-  if (!graphQueryTool) throw new Error("graph_query tool was not registered");
-
-  try {
-    const result = await graphQueryTool.execute(
-      "call-4",
-      { query: 'MATCH (n {name: "foo"}) RETURN n' },
-      undefined as any,
-      () => {},
-      { cwd: projectRoot } as any,
-    );
-    const text = (result.content[0] as any).text as string;
-
-    if (!text.includes("indexing-failed: graph may be stale (readonly database)")) {
-      throw new Error("readonly-directory reindex output lost the indexing-failed note");
-    }
-    if (!text.includes("foo")) {
-      throw new Error("readonly-directory reindex output lost graph_query results");
-    }
-  } finally {
-    chmodSync(dbDir, 0o755);
-    chmodSync(dbPath, 0o644);
-    resetStoreForTesting();
-    rmSync(projectRoot, { recursive: true, force: true });
-  }
-});
-}

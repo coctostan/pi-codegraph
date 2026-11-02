@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { phase5ToolDecisions } from "./phase5-decision-matrix";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const publicTools = ["symbol_graph", "impact", "trace"];
-const removedTools = [...Object.keys(phase5ToolDecisions), "symbol_card", "symbol_contract"];
+const removedTools = ["resolve_edge", "delete_edge", "graph_query", "graph_overview", "dead_code", "symbol_card", "symbol_contract"];
 
 // Body of a "## " section, up to the next "## " heading.
 function section(doc: string, heading: string): string {

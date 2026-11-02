@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 test("impact renders 120 annotated dependents under one second", () => {
   const projectRoot = join(tmpdir(), `pi-cg-impact-perf-${Date.now()}`);
@@ -43,13 +43,13 @@ test("impact renders 120 annotated dependents under one second", () => {
     }
 
     const startedAt = Date.now();
-    const output = impact({
+    const output = impactResult({
       symbols: ["shared"],
       changeType: "signature_change",
       store,
       projectRoot,
       maxDepth: 3,
-    });
+    }).text;
     const elapsedMs = Date.now() - startedAt;
 
     expect(output).toContain("Trust: stale");

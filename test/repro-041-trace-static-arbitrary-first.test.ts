@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace static mode includes all callees, not just the alphabetically-first one", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-branches-${Date.now()}`);
@@ -58,7 +58,7 @@ test("trace static mode includes all callees, not just the alphabetically-first 
       created_at: 3,
     });
 
-    const output = trace({ entry: "indexProject", file: "src/pipeline.ts", store, projectRoot });
+    const output = traceResult({ entry: "indexProject", file: "src/pipeline.ts", store, projectRoot }).text;
 
     // The trace SHOULD include all 3 callees
     expect(output).toContain("indexProject");

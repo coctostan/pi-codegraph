@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace reports stale static call-edge freshness warning", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-static-edge-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -27,7 +27,7 @@ test("trace reports stale static call-edge freshness warning", () => {
     });
     store.setFileHash("src/app.ts", appHash);
 
-    const output = trace({ entry: "entry", store, projectRoot });
+    const output = traceResult({ entry: "entry", store, projectRoot }).text;
     expect(output).toContain("Trust: partial");
     expect(output).toContain("stale edges: 1");
     expect(output).toContain("trace path may be unreliable; refresh index before relying on this result");

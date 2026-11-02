@@ -8,7 +8,7 @@ import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { computeAnchor } from "../src/output/anchoring.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 test("symbol_graph accepts include values for neighborhood, contract, and source and keeps default output byte-identical", () => {
   const tools: ToolDefinition<any>[] = [];
@@ -59,12 +59,12 @@ test("symbol_graph accepts include values for neighborhood, contract, and source
       is_exported: true,
     });
 
-    const withoutInclude = symbolGraph({ name: "foo", store, projectRoot });
+    const withoutInclude = symbolGraphResult({ name: "foo", store, projectRoot }).text;
     expect(withoutInclude).toContain("## foo (function)");
     expect(withoutInclude).toContain("### Signature");
     expect(withoutInclude).toContain("### Signals");
 
-    const withEmptyInclude = symbolGraph({ name: "foo", include: [] as any, store, projectRoot });
+    const withEmptyInclude = symbolGraphResult({ name: "foo", include: [] as any, store, projectRoot }).text;
     expect(withEmptyInclude).toBe(withoutInclude);
   } finally {
     store.close();

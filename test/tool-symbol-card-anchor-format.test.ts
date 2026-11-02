@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import { symbolCard } from "../src/tools/symbol-card.js";
 import { symbolContract } from "../src/tools/symbol-contract.js";
 
@@ -22,7 +22,7 @@ test("symbolGraph default card renders file-separated editable anchors", () => {
   try {
     store.addNode({ id: "src/foo.ts::foo:1", kind: "function", name: "foo", file: "src/foo.ts", start_line: 1, end_line: 1, content_hash: sha256Hex(content), signature: "() => void" });
 
-    const output = symbolGraph({ name: "foo", store, projectRoot });
+    const output = symbolGraphResult({ name: "foo", store, projectRoot }).text;
 
     expect(output).toContain("## foo (function)");
     expect(output).toContain("src/foo.ts  1:cef");

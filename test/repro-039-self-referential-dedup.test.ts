@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 function setupFixture(): { projectRoot: string; cleanup: () => void } {
   const projectRoot = join(tmpdir(), `pi-cg-selfref-${Date.now()}`);
@@ -53,7 +53,7 @@ test("self-referential edge should not produce duplicate caller entries", () => 
       created_at: Date.now(),
     });
 
-    const output = symbolGraph({ name: "Foo", include: ["neighborhood"] as any, store, projectRoot });
+    const output = symbolGraphResult({ name: "Foo", include: ["neighborhood"] as any, store, projectRoot }).text;
 
     // Count how many times the self-referential entry appears in the output.
     // The node line format includes file:line:hash and the node name.

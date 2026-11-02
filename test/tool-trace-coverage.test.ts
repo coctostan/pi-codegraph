@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace returns stored coverage traces for tests and deterministically selects one covering test for a production symbol", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-coverage-${Date.now()}`);
@@ -42,8 +42,8 @@ test("trace returns stored coverage traces for tests and deterministically selec
       ],
     });
 
-    const direct = trace({ entry: "alphaTest", file: "src/app.test.ts", store, projectRoot });
-    const byProd = trace({ entry: "prod", file: "src/app.ts", store, projectRoot });
+    const direct = traceResult({ entry: "alphaTest", file: "src/app.test.ts", store, projectRoot }).text;
+    const byProd = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
 
     expect(direct).toContain("mode: coverage");
     expect(direct).toMatch(/src\/app\.test\.ts  1:[0-9a-f]{3}/);

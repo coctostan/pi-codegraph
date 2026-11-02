@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace falls back to a deterministic static call path when no coverage trace exists", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-static-${Date.now()}`);
@@ -26,7 +26,7 @@ test("trace falls back to a deterministic static call path when no coverage trac
     store.addEdge({ source: entry.id, target: first.id, kind: "calls", provenance: { source: "tree-sitter", confidence: 0.5, evidence: "first", content_hash: "h-app" }, created_at: 1 });
     store.addEdge({ source: first.id, target: second.id, kind: "calls", provenance: { source: "tree-sitter", confidence: 0.5, evidence: "second", content_hash: "h-app" }, created_at: 2 });
 
-    const output = trace({ entry: "entry", file: "src/app.ts", store, projectRoot });
+    const output = traceResult({ entry: "entry", file: "src/app.ts", store, projectRoot }).text;
     expect(output).toContain("mode: static");
     expect(output).toMatch(/src\/app\.ts  1:[0-9a-f]{3}  entry  function/);
     expect(output).toMatch(/src\/app\.ts  2:[0-9a-f]{3}  first  function/);
@@ -56,7 +56,7 @@ test("trace file-scoped miss candidates render file-separated editable anchors",
       content_hash: createHash("sha256").update(content).digest("hex"),
     });
 
-    const output = trace({ entry: "foo", file: "src/missing.ts", store, projectRoot });
+    const output = traceResult({ entry: "foo", file: "src/missing.ts", store, projectRoot }).text;
 
     expect(output).toContain('Symbol "foo" was not found in src/missing.ts');
     expect(output).toContain("src/a.ts  1:cef  foo (function)");

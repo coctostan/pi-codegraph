@@ -169,10 +169,6 @@ export function traceResult(params: TraceParams): { text: string; resolved: bool
   return { text: renderTrace(params, resolved), resolved: resolved.kind === "unique" };
 }
 
-export function trace(params: TraceParams): string {
-  return traceResult(params).text;
-}
-
 function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
   const emptyFreshness = evaluateFreshness({
     store: params.store,

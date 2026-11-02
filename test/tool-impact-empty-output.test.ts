@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { impact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 function setupProjectWithGraph() {
   const projectRoot = join(tmpdir(), `pi-cg-impact-empty-${Date.now()}`);
@@ -27,13 +27,13 @@ function setupProjectWithGraph() {
 test("impact() returns diagnostic message for non-existent symbol (#042)", () => {
   const { projectRoot, store } = setupProjectWithGraph();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: ["nonExistentSymbol_ZZZ"],
       changeType: "behavior_change",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     // Should contain the trust header
     expect(out).toContain("Trust: fresh");
     // Must contain a diagnostic about the symbol not being found
@@ -48,13 +48,13 @@ test("impact() returns diagnostic message for non-existent symbol (#042)", () =>
 test("impact() returns diagnostic message for addition change type (#043)", () => {
   const { projectRoot, store } = setupProjectWithGraph();
   try {
-    const out = impact({
+    const out = impactResult({
       symbols: ["shared"],
       changeType: "addition",
       store,
       projectRoot,
       maxDepth: 5,
-    });
+    }).text;
     // Should contain the trust header
     expect(out).toContain("Trust: stale");
     // Must contain a message explaining that addition analysis isn't supported

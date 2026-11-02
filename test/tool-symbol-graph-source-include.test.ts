@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { stripTrustHeader } from "../src/output/read-only-ceremony.js";
-import { renderLegacyNeighborhoodBody, symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import { renderSymbolSourceSection, symbolCard } from "../src/tools/symbol-card.js";
 
 function setupSourceFixture(): { projectRoot: string; store: SqliteGraphStore; cleanup: () => void } {
@@ -30,9 +30,9 @@ function setupSourceFixture(): { projectRoot: string; store: SqliteGraphStore; c
 test("include:['source'] appends the shared source section to the compact card base", () => {
   const { projectRoot, store, cleanup } = setupSourceFixture();
   try {
-    const base = symbolGraph({ name: "foo", store, projectRoot });
-    const source = renderSymbolSourceSection({ name: "foo", store, projectRoot });
-    const withSource = symbolGraph({ name: "foo", include: ["source"] as any, store, projectRoot });
+    const base = symbolGraphResult({ name: "foo", store, projectRoot }).text;
+    const source = renderSymbolSourceSection({ node: store.findNodes("foo")[0]!, store, projectRoot });
+    const withSource = symbolGraphResult({ name: "foo", include: ["source"] as any, store, projectRoot }).text;
 
     expect(withSource.startsWith(base)).toBe(true);
     expect(withSource.slice(base.length)).toBe(`\n${source.body}`);
@@ -45,9 +45,9 @@ test("include:['source'] appends the shared source section to the compact card b
 test("include:['neighborhood','source'] keeps neighborhood as the active base and appends source after it", () => {
   const { projectRoot, store, cleanup } = setupSourceFixture();
   try {
-    const neighborhoodBody = renderLegacyNeighborhoodBody({ name: "foo", store, projectRoot }).body;
-    const source = renderSymbolSourceSection({ name: "foo", store, projectRoot });
-    const withSource = stripTrustHeader(symbolGraph({ name: "foo", include: ["neighborhood", "source"] as any, store, projectRoot }));
+    const neighborhoodBody = stripTrustHeader(symbolGraphResult({ name: "foo", include: ["neighborhood"], store, projectRoot }).text);
+    const source = renderSymbolSourceSection({ node: store.findNodes("foo")[0]!, store, projectRoot });
+    const withSource = stripTrustHeader(symbolGraphResult({ name: "foo", include: ["neighborhood", "source"] as any, store, projectRoot }).text);
 
     expect(withSource.startsWith(neighborhoodBody)).toBe(true);
     expect(withSource.slice(neighborhoodBody.length)).toBe(`\n${source.body}`);
@@ -59,7 +59,7 @@ test("include:['neighborhood','source'] keeps neighborhood as the active base an
 test("include:['contract','source'] appends contract then source after the active base", () => {
   const { projectRoot, store, cleanup } = setupSourceFixture();
   try {
-    const withBoth = symbolGraph({ name: "foo", include: ["contract", "source"] as any, store, projectRoot });
+    const withBoth = symbolGraphResult({ name: "foo", include: ["contract", "source"] as any, store, projectRoot }).text;
     const contractIdx = withBoth.indexOf("## Contract: foo");
     const sourceIdx = withBoth.indexOf("### Source");
 
@@ -73,8 +73,8 @@ test("include:['contract','source'] appends contract then source after the activ
 test("include:['source'] returns a single explicit not-found output", () => {
   const { projectRoot, store, cleanup } = setupSourceFixture();
   try {
-    const base = symbolGraph({ name: "doesNotExist", store, projectRoot });
-    const missing = symbolGraph({ name: "doesNotExist", include: ["source"] as any, store, projectRoot });
+    const base = symbolGraphResult({ name: "doesNotExist", store, projectRoot }).text;
+    const missing = symbolGraphResult({ name: "doesNotExist", include: ["source"] as any, store, projectRoot }).text;
     expect(missing).toBe(base);
     expect(missing).toContain('Symbol "doesNotExist" not found');
     expect((missing.match(/Symbol "doesNotExist" not found/g) ?? []).length).toBe(1);
@@ -98,7 +98,7 @@ test("include:['source'] returns a single explicit ambiguity output", () => {
       end_line: 1,
       content_hash: dupHash,
     });
-    const ambiguous = symbolGraph({ name: "foo", include: ["source"] as any, store, projectRoot });
+    const ambiguous = symbolGraphResult({ name: "foo", include: ["source"] as any, store, projectRoot }).text;
     expect((ambiguous.match(/Multiple matches for "foo":/g) ?? []).length).toBe(1);
     expect(ambiguous).toContain("src/foo.ts");
     expect(ambiguous).toContain("src/dup.ts");
@@ -111,7 +111,7 @@ test("symbolCard routes its Source section through renderSymbolSourceSection for
   const { projectRoot, store, cleanup } = setupSourceFixture();
   try {
     const standalone = symbolCard({ name: "foo", store, projectRoot });
-    const source = renderSymbolSourceSection({ name: "foo", store, projectRoot });
+    const source = renderSymbolSourceSection({ node: store.findNodes("foo")[0]!, store, projectRoot });
 
     // The shared helper body (e.g. `### Source\n<snippet>\n`) must appear inside the
     // standalone card output, proving symbolCard() now reuses the shared renderer.

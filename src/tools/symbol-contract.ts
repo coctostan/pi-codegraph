@@ -4,6 +4,8 @@ import type { GraphStore } from "../graph/store.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { prependTrustHeader } from "../output/trust.js";
 import { extractThrows, extractGuards, extractTestAssertions } from "../indexer/contract-extractor.js";
+import type { ResolvedNodeParams } from "./symbol-card.js";
+import { resolveUniqueSymbol } from "./symbol-resolution.js";
 
 export interface SymbolContractParams {
   name: string;
@@ -144,24 +146,8 @@ export interface RenderedSymbolContract {
   body: string;
   hasLocalExceptions: boolean;
 }
-export function renderSymbolContractBody(params: SymbolContractParams): RenderedSymbolContract {
-  const { name, file, store, projectRoot } = params;
-  const nodes = store.findNodes(name, file);
-  if (nodes.length === 0) {
-    return { body: `Symbol "${name}" not found`, hasLocalExceptions: false };
-  }
-  if (nodes.length > 1) {
-    const lines: string[] = [`Multiple matches for "${name}":\n`];
-    for (const node of nodes) {
-      const anchor = computeAnchor(node, projectRoot);
-      const staleMarker = anchor.stale ? " [stale]" : "";
-      lines.push(`  ${formatAnchorLocation(anchor)}  ${node.name} (${node.kind})${staleMarker}`);
-    }
-    const body = `${lines.join("\n")}\n`;
-    const hasLocalExceptions = lines.some((line) => line.includes("[stale]"));
-    return { body, hasLocalExceptions };
-  }
-  const node = nodes[0]!;
+export function renderSymbolContractBody(params: ResolvedNodeParams): RenderedSymbolContract {
+  const { node, store, projectRoot } = params;
   const anchor = computeAnchor(node, projectRoot);
   const lines: string[] = [];
   lines.push(`## Contract: ${node.name}`);
@@ -261,6 +247,10 @@ export function renderSymbolContractBody(params: SymbolContractParams): Rendered
 }
 export function symbolContract(params: SymbolContractParams): string {
   const stats = params.store.getStatistics(params.projectRoot);
-  const rendered = renderSymbolContractBody(params);
+  const resolved = resolveUniqueSymbol({ ...params, notFoundLabel: "Symbol" });
+  if (resolved.kind !== "unique") {
+    return prependTrustHeader(resolved.text, { stats, hasLocalExceptions: resolved.text.includes("[stale]") });
+  }
+  const rendered = renderSymbolContractBody({ node: resolved.node, store: params.store, projectRoot: params.projectRoot });
   return prependTrustHeader(rendered.body, { stats, hasLocalExceptions: rendered.hasLocalExceptions });
 }

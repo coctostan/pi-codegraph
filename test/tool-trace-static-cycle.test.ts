@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { trace } from "../src/tools/trace.js";
+import { traceResult } from "../src/tools/trace.js";
 
 test("trace static DFS terminates on recursive call cycles and includes all reachable nodes once", () => {
   const projectRoot = join(tmpdir(), `pi-cg-trace-cycle-${Date.now()}`);
@@ -49,7 +49,7 @@ test("trace static DFS terminates on recursive call cycles and includes all reac
       created_at: 3,
     });
 
-    const output = trace({ entry: "alpha", file: "src/rec.ts", store, projectRoot });
+    const output = traceResult({ entry: "alpha", file: "src/rec.ts", store, projectRoot }).text;
 
     // Must terminate (not hang) and include all 3 nodes exactly once
     expect(output).toContain("alpha");

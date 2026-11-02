@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 import { resetSession, appendTokenMeta } from "../src/tools/token-tracker.js";
-import { symbolGraph } from "../src/tools/symbol-graph.js";
+import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 
 beforeEach(() => { resetSession(); });
 
@@ -19,7 +19,7 @@ test("appendTokenMeta appends _meta line with token stats to tool output", () =>
     const hashA = sha256Hex(fileA);
     store.setFileHash("src/a.ts", hashA);
     store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: hashA, is_exported: true });
-    const text = symbolGraph({ name: "foo", store, projectRoot });
+    const text = symbolGraphResult({ name: "foo", store, projectRoot }).text;
     const output = appendTokenMeta("symbol_graph", { name: "foo" }, text, store, projectRoot);
     expect(output).toContain("_meta:");
     expect(output).toContain("tokens_saved:");

@@ -1,14 +1,16 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
+import type { GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer, formatImpactWhy, type NodeSignals, type SignalComputer } from "../output/signals.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
-import { resolveUniqueSymbol } from "./symbol-resolution.js";
+import { formatAmbiguousMatches } from "./symbol-resolution.js";
 
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
 export type ImpactClassification = "breaking" | "behavioral";
 
 export interface CollectImpactParams {
-  symbols: string[];
+  /** The changed nodes, already resolved from the requested names. */
+  seeds: GraphNode[];
   changeType: ChangeType;
   store: GraphStore;
   maxDepth?: number;
@@ -65,7 +67,7 @@ function compareDetails(a: ImpactDetail, b: ImpactDetail): number {
 }
 
 export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[] {
-  const { symbols, changeType, store, maxDepth = 5, signalComputer: providedSignalComputer } = params;
+  const { seeds, changeType, store, maxDepth = 5, signalComputer: providedSignalComputer } = params;
   if (changeType === "addition") return [];
 
   const queue: QueueItem[] = [];
@@ -73,12 +75,10 @@ export function collectImpactDetails(params: CollectImpactParams): ImpactDetail[
   const detailsByNode = new Map<string, ImpactDetail>();
 
   const changedNodeIds: string[] = [];
-  for (const symbol of symbols) {
-    for (const node of store.findNodes(symbol)) {
-      queue.push({ id: node.id, depth: 0, chainConfidence: 1 });
-      seen.set(node.id, { depth: 0, chainConfidence: 1 });
-      changedNodeIds.push(node.id);
-    }
+  for (const node of seeds) {
+    queue.push({ id: node.id, depth: 0, chainConfidence: 1 });
+    seen.set(node.id, { depth: 0, chainConfidence: 1 });
+    changedNodeIds.push(node.id);
   }
 
   const signalComputer = providedSignalComputer ?? createSignalComputer(store);
@@ -132,31 +132,16 @@ export function collectImpact(params: CollectImpactParams): ImpactItem[] {
   }));
 }
 
-function buildEmptyImpactDiagnostic(
-  symbols: string[],
-  store: GraphStore,
-  signalComputer: SignalComputer,
-  maxDepth: number,
-): string {
-  const lines: string[] = [];
-  for (const symbol of symbols) {
-    const matches = store.findNodes(symbol);
-    const node = matches.length === 1 ? matches[0]! : null;
-    if (!node) {
-      lines.push(`No dependents found for '${symbol}' within depth ${maxDepth}.`);
-      continue;
-    }
-    const signals = signalComputer.compute(node.id, []);
+function buildEmptyImpactDiagnostic(seeds: GraphNode[], signalComputer: SignalComputer, maxDepth: number): string {
+  const lines = seeds.map((node) => {
     if (node.kind === "interface") {
-      lines.push(
-        `No call-edge dependents found for interface '${node.name}'. Consider checking implementors via symbol_graph.`,
-      );
-    } else if (signals.roles.includes("entry-point")) {
-      lines.push(`No dependents found — '${node.name}' is an entry point with no callers.`);
-    } else {
-      lines.push(`No dependents found for '${node.name}' within depth ${maxDepth}.`);
+      return `No call-edge dependents found for interface '${node.name}'. Consider checking implementors via symbol_graph.`;
     }
-  }
+    if (signalComputer.compute(node.id, []).roles.includes("entry-point")) {
+      return `No dependents found — '${node.name}' is an entry point with no callers.`;
+    }
+    return `No dependents found for '${node.name}' within depth ${maxDepth}.`;
+  });
   return `${lines.join("\n")}\n`;
 }
 
@@ -207,15 +192,10 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
     );
   }
 
-  for (const symbol of params.symbols) {
-    const resolved = resolveUniqueSymbol({
-      name: symbol,
-      store: params.store,
-      projectRoot: params.projectRoot,
-      notFoundLabel: "Symbol",
-    });
-    if (resolved.kind === "ambiguous") return withFreshness(resolved.text);
-    if (resolved.kind === "not_found") return withFreshness(resolved.text);
+  for (const [i, nodes] of matches.entries()) {
+    const symbol = params.symbols[i]!;
+    if (nodes.length === 0) return withFreshness(`Symbol "${symbol}" not found`);
+    if (nodes.length > 1) return withFreshness(formatAmbiguousMatches(symbol, nodes, params.projectRoot));
   }
 
   if (params.changeType === "addition") {
@@ -226,7 +206,7 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
 
   const signalComputer = createSignalComputer(params.store);
   const hits = collectImpactDetails({
-    symbols: params.symbols,
+    seeds: targetNodes,
     changeType: params.changeType,
     store: params.store,
     maxDepth: params.maxDepth,
@@ -234,8 +214,7 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
   });
 
   if (hits.length === 0) {
-    const body = buildEmptyImpactDiagnostic(params.symbols, params.store, signalComputer, params.maxDepth ?? 5);
-    return withFreshness(body);
+    return withFreshness(buildEmptyImpactDiagnostic(targetNodes, signalComputer, params.maxDepth ?? 5));
   }
 
   const lines = hits.flatMap((hit) => {
@@ -254,8 +233,4 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
   });
   const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
   return withFreshness(body, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
-}
-
-export function impact(params: ImpactParams): string {
-  return impactResult(params).text;
 }
