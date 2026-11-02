@@ -83,8 +83,8 @@ export async function runProbes(probes: Probe[], reposDir: string): Promise<Prob
     sh("git", ["worktree", "add", "--detach", worktree, commit], sourceRepo);
     try {
       installDeps(worktree);
-      const { indexed, errors } = await indexWorktree(worktree);
-      console.error(`${repo}@${commit.slice(0, 8)}: indexed ${indexed} files, ${errors} errors`);
+      const { indexed, errors, partial } = await indexWorktree(worktree);
+      console.error(`${repo}@${commit.slice(0, 8)}: indexed ${indexed} files, ${errors} errors, ${partial.length} partially parsed`);
       for (const probe of group) {
         const execute = tools.get(probe.tool);
         if (!execute) throw new Error(`probe ${probe.id}: no tool named ${probe.tool}`);
