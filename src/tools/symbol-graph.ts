@@ -11,7 +11,7 @@ import {
 } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, type NodeSignals } from "../output/signals.js";
-import { renderSymbolCardBody, renderSymbolSourceSection } from "./symbol-card.js";
+import { namedTestCallerFiles, renderSymbolCardBody, renderSymbolSourceSection } from "./symbol-card.js";
 import { renderSymbolContractBody } from "./symbol-contract.js";
 import { formatAmbiguousMatches } from "./symbol-resolution.js";
 
@@ -200,7 +200,13 @@ function collectDefaultCardScope(params: SymbolGraphParams, node: GraphNode): {
     (nr) => !nr.node.file.startsWith("__meta__") && !nr.node.file.startsWith("__unresolved__"),
   );
   const tests = allNeighbors.filter((nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id);
-  const callers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id).slice(0, 5);
+  const allCallers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id);
+  const testCallers = allCallers.filter((nr) => nr.node.kind === "test");
+  const namedTestFiles = new Set(namedTestCallerFiles(testCallers));
+  const callers = [
+    ...allCallers.filter((nr) => nr.node.kind !== "test").slice(0, 5),
+    ...testCallers.filter((nr) => namedTestFiles.has(nr.node.file)),
+  ];
   const callees = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.source === node.id).slice(0, 5);
   const imports = allNeighbors.filter((nr) => nr.edge.kind === "imports" && nr.edge.source === node.id).slice(0, 5);
   const extendsOut = allNeighbors.filter((nr) => nr.edge.kind === "extends" && nr.edge.source === node.id).slice(0, 5);
