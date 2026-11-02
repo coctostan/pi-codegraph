@@ -30,12 +30,14 @@ function toPosixPath(p: string): string {
   return p.split(sep).join("/");
 }
 
+const SKIPPED_DIRS = new Set(["node_modules", ".megapowers", ".git"]);
+
 function walkTsFiles(root: string): string[] {
   const out: string[] = [];
 
   const walk = (dir: string) => {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
-      if (ent.name === "node_modules" || ent.name === ".megapowers" || ent.name === ".git") continue;
+      if (SKIPPED_DIRS.has(ent.name)) continue;
       const full = join(dir, ent.name);
 
       if (ent.isDirectory()) {
@@ -70,7 +72,7 @@ function listTsFiles(root: string): string[] {
   if (listed.length === 0) return walkTsFiles(root);
   // A Set drops the repeat an unmerged path gets per conflict stage; existsSync drops a tracked file deleted from disk.
   return [...new Set(listed)]
-    .filter((rel) => rel.endsWith(".ts") || rel.endsWith(".tsx"))
+    .filter((rel) => (rel.endsWith(".ts") || rel.endsWith(".tsx")) && !rel.split("/").some((part) => SKIPPED_DIRS.has(part)))
     .map((rel) => join(root, rel))
     .filter((abs) => existsSync(abs));
 }

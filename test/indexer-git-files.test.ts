@@ -31,11 +31,12 @@ function tempRepo(): string {
   return root;
 }
 
-test("indexProject in a repo indexes the files git lists, leaving ignored ones out", async () => {
+test("indexProject in a repo indexes the files git lists, leaving ignored ones and the walk's skipped dirs out", async () => {
   const root = tempRepo();
   write(root, ".gitignore", "dist/\n");
   write(root, "src/a.ts");
   write(root, "src/gone.ts");
+  write(root, ".megapowers/plans/repro.test.ts");
   git(root, "add", ".");
   git(root, "commit", "-q", "-m", "c1");
   write(root, "src/untracked.tsx");
@@ -48,6 +49,29 @@ test("indexProject in a repo indexes the files git lists, leaving ignored ones o
     expect(store.listFiles().filter((f) => !f.startsWith("__")).sort()).toEqual(["src/a.ts", "src/untracked.tsx"]);
     expect(result.indexed).toBe(2);
     expect(result.errors).toBe(0);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("indexProject indexes a file with a merge conflict once, though git lists it per stage", async () => {
+  const root = tempRepo();
+  write(root, "src/a.ts", "export const a = 0;\n");
+  git(root, "add", ".");
+  git(root, "commit", "-q", "-m", "base");
+  git(root, "checkout", "-q", "-b", "side");
+  write(root, "src/a.ts", "export const a = 1;\n");
+  git(root, "commit", "-q", "-am", "side");
+  git(root, "checkout", "-q", "-");
+  write(root, "src/a.ts", "export const a = 2;\n");
+  git(root, "commit", "-q", "-am", "main");
+  expect(() => git(root, "merge", "-q", "side")).toThrow();
+
+  const store = new SqliteGraphStore();
+  try {
+    const result = await indexProject(root, store, { lspClientFactory: () => noopClient });
+    expect([result.indexed, result.skipped]).toEqual([1, 0]);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });
