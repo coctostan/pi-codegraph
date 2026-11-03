@@ -1,16 +1,28 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
-import { resolverMarkerKey } from "../graph/sqlite.js";
+import { resolverFailedKey, resolverMarkerKey } from "../graph/sqlite.js";
 import type { GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
-function hasMarker(store: GraphStore, kind: "callers" | "implementations", symbol: GraphNode): boolean {
+type ResolverKind = "callers" | "implementations";
+
+function hasMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode): boolean {
   return store.getMetadata(resolverMarkerKey(kind, symbol.id)) !== null;
 }
 
-function setMarker(store: GraphStore, kind: "callers" | "implementations", symbol: GraphNode): void {
+function setMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode): void {
   store.setMetadata(resolverMarkerKey(kind, symbol.id), "1");
+  store.setMetadata(resolverFailedKey(kind, symbol.id), null);
+}
+
+/**
+ * A tsserver that can't start (not installed) never will, so it is marked done rather than retried on every call.
+ * A crash or timeout leaves the marker unset for the next call to retry, and a record that turns the result partial.
+ */
+function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode, err: unknown): void {
+  if (err instanceof Error && err.message.startsWith("TsServer failed to start:")) setMarker(store, kind, symbol);
+  else store.setMetadata(resolverFailedKey(kind, symbol.id), "1");
 }
 
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {
@@ -74,22 +86,22 @@ export async function resolveMissingCallers(
   try {
     refs = await client.references(node.file, node.start_line, col);
   } catch (err) {
-    // If tsserver is permanently unavailable (not installed), set the marker so we
-    // don't retry on every symbol_graph call.  For transient failures (crash, timeout,
-    // etc.) leave the marker unset so the next call can succeed.
-    if (err instanceof Error && err.message.startsWith("TsServer failed to start:")) {
-      setMarker(store, "callers", node);
-    }
+    recordFailure(store, "callers", node, err);
     // Do NOT create edges here — writing lsp-provenance edges from a name-match
     // fallback would misrepresent confidence; the existing unresolved tree-sitter
     // edges already capture the same information honestly.
     return;
   }
+  const failedCalls = store.getFailedLookups();
   for (const ref of refs) {
     const callerNode = store
       .getNodesByFile(ref.file)
       .find((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line));
     if (!callerNode) continue;
+    // tsserver located this call, so a failed `definition` lookup on it hides no caller.
+    for (const f of failedCalls) {
+      if (f.source === callerNode.id && f.evidence.startsWith(`${node.name}:${ref.line}:`)) store.setLookupFailed(f.source, f.evidence, false);
+    }
     if (callerNode.id === node.id) continue; // self reference/declaration
 
     const exists = store.getEdgesBySource(callerNode.id).some((e) => e.kind === "calls" && e.target === node.id);
@@ -161,22 +173,15 @@ export async function resolveImplementations(
     return;
   }
   const col = findSymbolColumn(projectRoot, node.file, node.start_line, node.name);
-  const addFallbackImplementations = () => {
-    syncDeclaredImplementations();
-    setMarker(store, "implementations", node);
-  };
   let impls;
   try {
     impls = await client.implementations(node.file, node.start_line, col);
-  } catch {
-    addFallbackImplementations();
+  } catch (err) {
+    syncDeclaredImplementations();
+    recordFailure(store, "implementations", node, err);
     return;
   }
-  if (!impls || impls.length === 0) {
-    addFallbackImplementations();
-    return;
-  }
-  for (const implLoc of impls) {
+  for (const implLoc of impls ?? []) {
     const implNode = store
       .getNodesByFile(implLoc.file)
       .find((n) => n.kind === "class" && n.start_line <= implLoc.line && (n.end_line === null || n.end_line >= implLoc.line));
