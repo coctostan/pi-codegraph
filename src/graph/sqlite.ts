@@ -290,6 +290,21 @@ export class SqliteGraphStore implements GraphStore {
     }
   }
 
+  clearFile(file: string): void {
+    const inFile = "SELECT id FROM nodes WHERE file = ?";
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare(`DELETE FROM edges WHERE provenance_source NOT IN ('agent', 'git') AND (source IN (${inFile}) OR (provenance_source = 'coverage' AND target IN (${inFile})))`).run(file, file);
+      this.db.prepare(`DELETE FROM test_trace_steps WHERE test_node_id IN (${inFile}) OR node_id IN (${inFile})`).run(file, file);
+      this.db.prepare(`DELETE FROM nodes WHERE file = ?`).run(file);
+      this.db.prepare(`DELETE FROM file_hashes WHERE file = ?`).run(file);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   listFiles(): string[] {
     const rows = this.db.prepare("SELECT file FROM file_hashes ORDER BY file ASC").all() as Array<{ file: string }>;
     return rows.map((row) => row.file);

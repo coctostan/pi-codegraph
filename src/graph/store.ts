@@ -35,6 +35,12 @@ export interface GraphStore {
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
   getNodesByFile(file: string): GraphNode[];
   deleteFile(file: string): void;
+  /**
+   * Delete what indexing `file` wrote: its nodes and hash, the edges they source but git's, and the coverage edges and
+   * test traces touching them, which the coverage stage rebuilds. Other edges into it stay, a vanished target's for the
+   * caller to fix.
+   */
+  clearFile(file: string): void;
   listFiles(): string[];
   getFileHash(file: string): string | null;
   /** `partial` records that tree-sitter parsed the file with errors. */

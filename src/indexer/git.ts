@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import type { GraphStore } from "../graph/store.js";
+import type { GraphEdge } from "../graph/types.js";
 
 const GIT_HEAD_KEY = "__git_cochange_head__";
 
@@ -72,6 +73,17 @@ function getCurrentHead(projectRoot: string): string | null {
   }
 }
 
+/** A co-change edge, stamped with its source module's content hash. */
+function coChangeEdge(source: string, target: string, confidence: number, evidence: string, contentHash: string): GraphEdge {
+  return {
+    source,
+    target,
+    kind: "co_changes_with",
+    provenance: { source: "git", confidence, evidence, content_hash: contentHash },
+    created_at: Date.now(),
+  };
+}
+
 export async function runGitCoChangeStage(
   store: GraphStore,
   projectRoot: string,
@@ -81,7 +93,20 @@ export async function runGitCoChangeStage(
   const head = getCurrentHead(projectRoot);
   if (!head) return errors;
   const lastHead = store.getFileHash(GIT_HEAD_KEY);
-  if (lastHead === head) return errors;
+  if (lastHead === head) {
+    // Re-extraction keeps a module's git edges: restamp those whose source module changed, as a run here would write them.
+    const stale = store.queryRows<{ source: string; target: string; confidence: number; evidence: string; hash: string }>(
+      "SELECT e.source, e.target, e.confidence, e.evidence, n.content_hash AS hash FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source = 'git' AND e.content_hash <> n.content_hash",
+    );
+    for (const e of stale) {
+      try {
+        store.addEdge(coChangeEdge(e.source, e.target, e.confidence, e.evidence, e.hash));
+      } catch {
+        errors++;
+      }
+    }
+    return errors;
+  }
   const oldEdges = store.queryRows<{ source: string; target: string }>(
     "SELECT source, target FROM edges WHERE kind = 'co_changes_with' AND provenance_source = 'git'",
   );
@@ -129,18 +154,7 @@ export async function runGitCoChangeStage(
     if (!nodeA || !nodeB) continue;
     const evidence = `co_changes: ${data.count}, recency_score: ${data.weightedScore.toFixed(1)}, window: ${windowDays}d`;
     try {
-      store.addEdge({
-        source: nodeA.id,
-        target: nodeB.id,
-        kind: "co_changes_with",
-        provenance: {
-          source: "git",
-          confidence: Math.min(0.9, 0.3 + data.count * 0.1),
-          evidence,
-          content_hash: nodeA.content_hash,
-        },
-        created_at: Date.now(),
-      });
+      store.addEdge(coChangeEdge(nodeA.id, nodeB.id, Math.min(0.9, 0.3 + data.count * 0.1), evidence, nodeA.content_hash));
     } catch {
       errors++;
     }
