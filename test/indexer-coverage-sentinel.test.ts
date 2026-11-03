@@ -73,7 +73,7 @@ test("a run whose reports are gone clears an earlier sentinel", () => {
 });
 
 // Root writes any file, so the readonly DB below would take writes.
-test.skipIf(process.getuid?.() === 0).each([false, true])("an unchanged project on a readonly DB indexes with no error (coverage report: %p)", async (withReport) => {
+test.skipIf(process.getuid?.() === 0).each([false, true])("an unchanged project on a readonly DB counts an error only when it holds coverage (report: %p)", async (withReport) => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-covsentinel-ro-"));
   const dbPath = join(projectRoot, "graph.db");
   mkdirSync(join(projectRoot, "src"), { recursive: true });
@@ -94,7 +94,9 @@ test.skipIf(process.getuid?.() === 0).each([false, true])("an unchanged project 
     chmodSync(dbPath, 0o444);
     const store = new SqliteGraphStore(dbPath);
     try {
-      expect((await indexProject(projectRoot, store, { lspClientFactory: client })).errors).toBe(0);
+      // Its coverage can't be replaced, so its first write fails; with none, it writes nothing.
+      expect((await indexProject(projectRoot, store, { lspClientFactory: client })).errors).toBe(withReport ? 1 : 0);
+      expect(store.queryRows("SELECT 1 FROM edges WHERE kind = 'tested_by'")).toHaveLength(withReport ? 1 : 0);
       expect(store.hasCoverageData()).toBe(withReport);
     } finally {
       store.close();
@@ -103,4 +105,15 @@ test.skipIf(process.getuid?.() === 0).each([false, true])("an unchanged project 
     chmodSync(dbPath, 0o644);
     rmSync(projectRoot, { recursive: true, force: true });
   }
+});
+
+test("a coverage write failure other than readonly propagates", () => {
+  withProject((projectRoot, coverageDir, store) => {
+    const busy = Object.assign(new Error("database is locked"), { errno: 5, errcode: 5 });
+    store.clearCoverage = () => { throw busy; };
+    expect(() => runCoverageIndexStage(store, projectRoot, coverageDir)).toThrow(busy);
+    const readonly = Object.assign(new Error("attempt to write a readonly database"), { errno: 8, errcode: 8 });
+    store.clearCoverage = () => { throw readonly; };
+    expect(runCoverageIndexStage(store, projectRoot, coverageDir)).toBe(1);
+  });
 });

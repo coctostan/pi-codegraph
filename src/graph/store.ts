@@ -51,7 +51,7 @@ export interface GraphStore {
   deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
   saveTestTrace(trace: TestTraceRecord): void;
   getTestTrace(testNodeId: string): TestTraceRecord | null;
-  /** Delete every `coverage` edge and test trace, so the coverage stage writes only what its reports back. */
+  /** Delete every `coverage` edge and test trace, so the coverage stage writes only what its reports back; with none, write nothing. */
   clearCoverage(): void;
   getStatistics(projectRoot?: string): GraphStatistics;
   queryRows<T extends Record<string, unknown>>(sql: string, params?: unknown[]): T[];
