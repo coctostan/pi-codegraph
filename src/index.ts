@@ -495,11 +495,11 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "trace",
     label: "Trace",
-    description: "Return the call tree below an entry point, or a covering test's recorded path when coverage has one.",
-    promptSnippet: "Trace what a TypeScript function, endpoint, or test calls, as a call tree in call-site order",
+    description: "Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.",
+    promptSnippet: "Trace what a TypeScript function, endpoint, or test calls, as a call tree in call-site order, or list the functions a covering test's report covered",
     promptGuidelines: [
       "Use trace to follow what an entry point executes instead of reading each callee by hand.",
-      "trace prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `(see above)`, an unresolved call is a `? name (unresolved, file:line)` line, and `N more omitted beyond depth 3` counts the rest, so trace a deeper callee to continue. When a test run recorded a path through the entry, it prints that path instead, under `mode: coverage`.",
+      "trace prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `(see above)`, an unresolved call is a `? name (unresolved, file:line)` line, and `N more omitted beyond depth 3` counts the rest, so trace a deeper callee to continue. When a coverage report covers the entry, it prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list.",
     ],
     parameters: TraceParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {

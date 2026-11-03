@@ -46,7 +46,7 @@ test("trace resolves endpoint entries through routes_to edges to the same determ
     });
 
     const output = traceResult({ entry: "endpoint:GET:/users", store, projectRoot }).text;
-    expect(output).toContain("mode: coverage");
+    expect(output).toMatch(/^mode: coverage \(/m);
     expect(output).toContain("usersTest");
     expect(output).toContain("handler");
     expect(output).toContain("service");

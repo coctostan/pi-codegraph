@@ -65,7 +65,7 @@ test("trace reports changed files and row-level stale markers for stale stored t
     expect(output).toContain("Trust: partial");
     expect(output).toContain("changed files: src/app.ts");
     expect(output).toContain("affected symbols: prod");
-    expect(output).toContain("mode: coverage [stale]");
+    expect(output).toMatch(/^mode: coverage \(.*\) \[stale\]$/m);
     expect(output).toContain("prod  function [stale]");
   } finally {
     fixture.store.close();
@@ -80,7 +80,7 @@ test("trace reports deleted files for stored trace steps whose files were remove
     const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store: fixture.store, projectRoot: fixture.projectRoot }).text;
     expect(output).toContain("Trust: partial");
     expect(output).toContain("deleted files: src/app.ts");
-    expect(output).toContain("mode: coverage [stale]");
+    expect(output).toMatch(/^mode: coverage \(.*\) \[stale\]$/m);
   } finally {
     fixture.store.close();
     rmSync(fixture.projectRoot, { recursive: true, force: true });

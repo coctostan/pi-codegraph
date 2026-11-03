@@ -127,8 +127,8 @@ impact({ symbols: ["validateToken"], changeType: "behavior_change", maxDepth: 2 
 ```
 
 #### `trace`
-Return the call tree below an entry point, or a covering test's recorded path when coverage has one.
-The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a test run recorded a path through the entry, `trace` prints that path instead, under `mode: coverage`. The entry is a function, endpoint or test case.
+Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.
+The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a coverage report covers the entry, `trace` prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list. The entry is a function, endpoint or test case.
 ```
 trace({ entry: "loginHandler" })
 ```
@@ -150,7 +150,7 @@ The graph is built in layers, each adding different kinds of relationships:
 | 1. tree-sitter | AST parsing | Symbols, calls, imports, type signatures |
 | 2. LSP | tsserver | Resolved references, interface implementations |
 | 3. ast-grep | Pattern rules | Framework-specific edges (Express routes, React renders) |
-| 4. Coverage | V8 test coverage | `tested_by` edges, execution traces |
+| 4. Coverage | V8 test coverage | `tested_by` edges, each test's covered functions |
 | 5. Git | Commit history | Co-change correlations between symbols |
 
 Indexing is incremental — files are tracked by content hash, and only changed files are re-processed.
@@ -238,7 +238,7 @@ An agent reviewing a PR can call `impact` to see exactly which downstream symbol
 `symbol_graph({ name })` gives the compact summary of signature, tests, relationships, and signals. `symbol_graph({ name, include: ["contract"] })` surfaces what those tests actually assert so an agent can identify untested error paths and generate targeted tests.
 
 ### Safe Refactoring
-Before renaming or restructuring, `impact` with `changeType: "signature_change"` reveals every caller that would break. `trace` shows execution paths through the changed code.
+Before renaming or restructuring, `impact` with `changeType: "signature_change"` reveals every caller that would break. `trace` shows the call tree below the changed code.
 
 ### Understanding Unfamiliar Code
 `symbol_graph({ name })` gives the compact default lookup surface. Add `include: ["neighborhood"]` for the full relationship neighborhood or `include: ["source"]` for the anchored source snippet.

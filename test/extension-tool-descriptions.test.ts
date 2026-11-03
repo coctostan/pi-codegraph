@@ -4,7 +4,7 @@ test("pi extension registers the approved descriptions for the default public to
   const expected = new Map([
     ["symbol_graph", "Summarize a symbol with relationships, tests, and key metadata."],
     ["impact", "Classify blast radius for changed symbols."],
-    ["trace", "Return the call tree below an entry point, or a covering test's recorded path when coverage has one."],
+    ["trace", "Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered."],
   ]);
   const expectedIncludeDescription = "Extra sections to include.";
   const registeredTools: Array<{ name: string; description: string; parameters?: any }> = [];
@@ -51,17 +51,17 @@ async function registeredTool(name: string): Promise<Registered & { claims: stri
 }
 
 function expectClaims(label: string, text: string, present: RegExp[], absent: RegExp[] = []): void {
-  for (const re of present) if (!re.test(text)) throw new Error(`${label} does not say ${re}: ${text}`);
   for (const re of absent) if (re.test(text)) throw new Error(`${label} still says ${re}: ${text}`);
+  for (const re of present) if (!re.test(text)) throw new Error(`${label} does not say ${re}: ${text}`);
 }
 
-test("trace's metadata names the call tree's call-site order, its depth cap and the coverage path", async () => {
+test("trace's metadata names the call tree's call-site order, its depth cap and what coverage mode prints", async () => {
   const trace = await registeredTool("trace");
   expectClaims(
     "trace",
     trace.claims,
-    [/call tree/, /call-site order/, /3 calls deep/, /\(see above\)/, /\? name \(unresolved, file:line\)/, /more omitted beyond depth 3/, /coverage/],
-    [/execution path/, /call path/],
+    [/call tree/, /call-site order/, /3 calls deep/, /\(see above\)/, /\? name \(unresolved, file:line\)/, /more omitted beyond depth 3/, /mode: coverage/, /report covered/, /by file and line, not call order/, /same list/],
+    [/execution path/, /call path/, /recorded/, /\bpath\b/],
   );
   expectClaims("trace.entry", trace.parameters.properties.entry.description, [/test case/]);
 });
