@@ -14,6 +14,12 @@ function openDb(path: string): any {
   return new DatabaseSync(path);
 }
 
+/**
+ * The extractor's output version. Bump it with any change to what indexing writes for unchanged source, so an
+ * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
+ */
+export const SCHEMA_VERSION = 2;
+
 interface NeighborRow {
   id: string;
   kind: GraphNode["kind"];
@@ -112,47 +118,32 @@ export class SqliteGraphStore implements GraphStore {
       CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
     `);
 
-    const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
-    if (!existing) {
-      this.db.prepare("INSERT INTO schema_version(version) VALUES (2)").run();
+    const columns: Array<[table: string, name: string, type: string]> = [
+      ["nodes", "is_exported", "INTEGER NOT NULL DEFAULT 0"],
+      ["nodes", "signature", "TEXT"],
+      ["file_hashes", "partial", "INTEGER NOT NULL DEFAULT 0"],
+      ["edges", "call_end_line", "INTEGER"],
+      ["edges", "call_end_col", "INTEGER"],
+    ];
+    for (const [table, name, type] of columns) {
+      const existingColumns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+      if (!existingColumns.some((column) => column.name === name)) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
     }
 
-    const nodeColumns = this.db.prepare("PRAGMA table_info(nodes)").all() as Array<{ name: string }>;
-    if (!nodeColumns.some((column) => column.name === "is_exported")) {
-      this.db.prepare("ALTER TABLE nodes ADD COLUMN is_exported INTEGER NOT NULL DEFAULT 0").run();
-    }
-    if (!nodeColumns.some((column) => column.name === "signature")) {
-      this.db.prepare("ALTER TABLE nodes ADD COLUMN signature TEXT").run();
-    }
-    // Each migration below marks what an older extractor wrote differently: re-extract every file once, and rerun the
-    // git stage (its `__git_cochange_head__` row), whose edges the re-extraction drops. In one transaction: a migration
-    // applied without the invalidation would skip it on every later open.
-    const reextractAfter = (migrate: () => void) => {
-      this.db.exec("BEGIN");
-      try {
-        migrate();
-        this.db.prepare("UPDATE file_hashes SET hash = ''").run();
-        this.db.exec("COMMIT");
-      } catch (error) {
-        this.db.exec("ROLLBACK");
-        throw error;
-      }
-    };
-    // `partial`: a file that parsed with errors was left module-only; `call_end_*`: no `calls` edge carried its call site.
-    const reextractColumns: Array<[table: string, columns: Array<[name: string, type: string]>]> = [
-      ["file_hashes", [["partial", "INTEGER NOT NULL DEFAULT 0"]]],
-      ["edges", [["call_end_line", "INTEGER"], ["call_end_col", "INTEGER"]]],
-    ];
-    for (const [table, columns] of reextractColumns) {
-      const existingColumns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-      if (existingColumns.some((column) => column.name === columns[0]![0])) continue;
-      reextractAfter(() => {
-        for (const [name, type] of columns) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
-      });
-    }
-    // Version 2: `calls` edges to package imports and JS globals are gone, a change no column marks.
-    if (existing && existing.version < 2) {
-      reextractAfter(() => this.db.prepare("UPDATE schema_version SET version = 2").run());
+    // Below SCHEMA_VERSION, an older extractor wrote the rows: re-extract every file once, and rerun the git stage (its
+    // `__git_cochange_head__` row), whose edges the re-extraction drops. In one transaction: a version bumped without
+    // the invalidation would skip it on every later open.
+    const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
+    if ((existing?.version ?? 0) >= SCHEMA_VERSION) return;
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("DELETE FROM schema_version").run();
+      this.db.prepare("INSERT INTO schema_version(version) VALUES (?)").run(SCHEMA_VERSION);
+      this.db.prepare("UPDATE file_hashes SET hash = ''").run();
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
   }
 
