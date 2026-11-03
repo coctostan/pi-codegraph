@@ -66,6 +66,26 @@ test("an errored lookup counts as failed, a tsserver that never started does not
   });
 });
 
+test("a failed lookup leaves results that neither render its call nor name its callee fresh", async () => {
+  await withRepo(async (root, store) => {
+    // `y`'s call to `b` sits at the same line and column as `a`'s, so only its source tells the two apart.
+    writeFileSync(join(root, "src", "other.ts"), ["export function y() {", "  b();", "}", "export function c() {}", ""].join("\n"));
+    const client = (): ITsServerClient => ({
+      definition: async (file) => {
+        if (file === "src/main.ts") throw new Error("TsServer request timed out: definition");
+        return null;
+      },
+      references: async () => [],
+      implementations: async () => [],
+      shutdown: async () => {},
+    });
+    await indexProject(root, store, { lspClientFactory: client });
+    expect(card(root, store, "b")).toContain(NOTE);
+    expect(trace(root, store, "y")).toContain("? b (unresolved, src/other.ts:2)");
+    for (const text of [trace(root, store, "y"), card(root, store, "c")]) expect(text).toStartWith("Trust: fresh");
+  });
+});
+
 test("a failed lookup whose call is edited away leaves no record", async () => {
   await withRepo(async (root, store) => {
     const timingOut = throwing("TsServer request timed out: definition");
