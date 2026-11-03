@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -170,4 +170,41 @@ test.each(EDITS)("an incremental re-index after %s equals a fresh index", async 
   await index(db("fresh"));
   expect(diffGraphs(snapshotGraph(db("incremental")), snapshotGraph(db("fresh")))).toEqual([]);
   expect(fileStats(db("incremental"))).toEqual(fileStats(db("fresh")));
+}, 60_000);
+
+test("a resolver marker into a removed file lists no file", async () => {
+  reset();
+  rmSync(join(root, "src/lib.ts"));
+  copyFileSync(db("baseline"), db("incremental"));
+  const store = new SqliteGraphStore(db("incremental"));
+  try {
+    // As `resolveMissingCallers` marks `helper` resolved, from a node of no file.
+    const helper = store.findNodes("helper", "src/lib.ts")[0]!;
+    store.addNode({ id: "__meta__::resolver::callers::x", kind: "module", name: "m", file: "__meta__/resolver", start_line: 1, end_line: 1, content_hash: "meta" });
+    store.addEdge({ source: "__meta__::resolver::callers::x", target: helper.id, kind: "imports", provenance: { source: "lsp", confidence: 1, evidence: "resolved:callers", content_hash: "meta" }, created_at: 0 });
+  } finally {
+    store.close();
+  }
+  await index(db("incremental"));
+  expect(fileStats(db("incremental")).listed).not.toContain("__meta__/resolver");
+});
+
+// Root reads any file, so the unreadable caller below would read.
+test.skipIf(process.getuid?.() === 0)("a caller unreadable on the run that removes its callee re-extracts on the next", async () => {
+  reset();
+  rmSync(join(root, "src/lib.ts"));
+  copyFileSync(db("baseline"), db("incremental"));
+  chmodSync(join(root, "src/use.ts"), 0o000);
+  const store = new SqliteGraphStore(db("incremental"));
+  try {
+    const result = await indexProject(root, store, { lspClientFactory: () => nameResolvingClient(root), coverageDir: coverageDir() });
+    expect(result.errors).toBeGreaterThan(0);
+  } finally {
+    store.close();
+    chmodSync(join(root, "src/use.ts"), 0o644);
+  }
+  await index(db("incremental"));
+  rmSync(db("fresh"), { force: true });
+  await index(db("fresh"));
+  expect(diffGraphs(snapshotGraph(db("incremental")), snapshotGraph(db("fresh")))).toEqual([]);
 }, 60_000);
