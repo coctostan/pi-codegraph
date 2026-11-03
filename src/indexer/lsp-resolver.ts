@@ -100,7 +100,7 @@ export async function resolveMissingCallers(
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
     for (const f of failedCalls) {
-      if (f.source === callerNode.id && f.evidence.startsWith(`${node.name}:${ref.line}:`)) store.setLookupFailed(f.source, f.evidence, false);
+      if (f.source === callerNode.id && f.evidence === `${node.name}:${ref.line}:${ref.col}`) store.setLookupFailed(f.source, f.evidence, false);
     }
     if (callerNode.id === node.id) continue; // self reference/declaration
 

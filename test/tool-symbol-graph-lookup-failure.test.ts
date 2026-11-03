@@ -127,8 +127,8 @@ test("a tsserver that fails to start still sets both markers and reads fresh", a
 test("a references answer clears the failed definition records of the calls it finds, and only those", async () => {
   const timingOut = async (): Promise<LspLocation | null> => { throw new Error(`${TIMEOUT}: definition`); };
   await withRepo(async (root, store) => {
-    // `y` calls `b` at the line and column `a` does, and `d` on that line too.
-    writeFileSync(join(root, "src", "other.ts"), ["export function y() {", "  b(); d();", "}", ""].join("\n"));
+    // `y` calls `b` at the line and column `a` does, then `d` and `b` again on that line; tree-sitter keeps the first `b`.
+    writeFileSync(join(root, "src", "other.ts"), ["export function y() {", "  b(); d(); b();", "}", ""].join("\n"));
     await indexProject(root, store, { lspClientFactory: () => client({ definition: timingOut }).c });
     const b = node(store, "b");
     const y = store.findNodes("y", "src/other.ts")[0]!;
@@ -138,15 +138,17 @@ test("a references answer clears the failed definition records of the calls it f
     await resolveMissingCallers(b, store, root, client({}).c);
     expect(card(root, store, "b")).toContain(note("2 calls"));
 
+    // A reference elsewhere on `y`'s line, as `right.b()` beside a `left.b()` whose lookup failed, clears nothing there.
+    const yAt = (col: number): LspLocation => ({ file: "src/other.ts", line: 2, col });
     store.setMetadata(resolverMarkerKey("callers", b.id), null);
-    await resolveMissingCallers(b, store, root, client({ references: async () => [A_CALLS_B] }).c);
+    await resolveMissingCallers(b, store, root, client({ references: async () => [A_CALLS_B, yAt(13)] }).c);
     const text = card(root, store, "b");
     expect(text).toContain(note("1 call"));
-    expect(text).toContain("Callers (1):  a");
+    expect(text).toContain("Callers (2):  a, y");
 
     store.setMetadata(resolverMarkerKey("callers", b.id), null);
-    await resolveMissingCallers(b, store, root, client({ references: async () => [A_CALLS_B, { file: "src/other.ts", line: 2, col: 3 }] }).c);
+    await resolveMissingCallers(b, store, root, client({ references: async () => [A_CALLS_B, yAt(3), yAt(13)] }).c);
     expect(card(root, store, "b")).toStartWith("Trust: fresh");
-    expect(store.getFailedLookups().map((f) => [f.source, f.evidence.split(":")[0]])).toEqual([[y.id, "d"]]);
+    expect(store.getFailedLookups().map((f) => [f.source, f.evidence])).toEqual([[y.id, "d:2:8"]]);
   }, timingOut);
 });
