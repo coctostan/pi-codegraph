@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-// Each tool's one export is its `*Result` form.
+// Each tool module's one exported function is its `*Result` form.
 test("each tool module exports its *Result form and no string wrapper", async () => {
   const expected: Record<string, string[]> = {
     "symbol-graph": ["symbolGraphResult"],
