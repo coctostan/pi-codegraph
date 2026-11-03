@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { diffGraphs, EDITS, main, report, snapshotGraph, type Edit } from "../bench/index-parity.js";
@@ -146,6 +146,15 @@ test("main fails a tree edited differently on each side, then resets both to pas
 test("main refuses an index with no call tsserver resolved, leaving no worktree behind", async () => {
   await withRepo({ "src/a.ts": "export const one = 1;\n" }, async (repo, commit, git) => {
     await expect(capture(() => main(repo, commit, [{ name: "control", apply: () => {} }]))).rejects.toThrow("baseline: tsserver resolved no call");
+    expect(git("worktree", "list").split("\n")).toHaveLength(1);
+  });
+}, 180_000);
+
+test("main refuses an index that reported errors, leaving no worktree behind", async () => {
+  await withRepo(CALLING, async (repo, commit, git) => {
+    // An unreadable file is an indexing error, with tsserver's edges from the baseline still in the db.
+    const unreadable: Edit = { name: "unreadable", apply: (dir) => chmodSync(join(dir, "src", "b.ts"), 0o000) };
+    await expect(capture(() => main(repo, commit, [unreadable]))).rejects.toThrow("unreadable incremental: indexing reported 1 errors");
     expect(git("worktree", "list").split("\n")).toHaveLength(1);
   });
 }, 180_000);
