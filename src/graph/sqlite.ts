@@ -28,6 +28,10 @@ const RESOLVER_MARKER_PREFIX = "resolver:";
 export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
   return `${RESOLVER_MARKER_PREFIX}${kind}:${symbolId}`;
 }
+/** The `graph_metadata` key recording that `symbolId`'s last `kind` lookup timed out or errored; it goes with the markers. */
+export function resolverFailedKey(kind: "callers" | "implementations", symbolId: string): string {
+  return `${RESOLVER_MARKER_PREFIX}failed:${kind}:${symbolId}`;
+}
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 

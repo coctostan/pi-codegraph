@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { resolverFailedKey } from "../graph/sqlite.js";
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { sha256Hex } from "../indexer/tree-sitter.js";
@@ -24,6 +25,8 @@ export interface FreshnessReport {
   partialFiles: string[];
   /** The result's rendered calls, and calls named after a target, whose last tsserver lookup timed out or errored. */
   failedLookups: number;
+  /** The targets' `symbol_graph` lookups whose last ask timed out or errored, as `callers of b`. */
+  failedResolves: string[];
   message: string;
   recommendation?: string;
 }
@@ -91,6 +94,19 @@ function failedLookups(store: GraphStore, targets: GraphNode[], edges: GraphEdge
   return store
     .getFailedLookups()
     .filter((f) => rendered.has(`${f.source}\0${f.evidence}`) || targetNames.has(f.evidence.split(":")[0]!)).length;
+}
+
+function failedResolves(store: GraphStore, targets: GraphNode[]): string[] {
+  try {
+    return targets.flatMap((node) =>
+      (["callers", "implementations"] as const)
+        .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
+        .map((kind) => `${kind} of ${node.name}`),
+    );
+  } catch {
+    // A db opened read-only before `graph_metadata` existed can't gain it, so it records none.
+    return [];
+  }
 }
 
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {
@@ -165,7 +181,8 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     report.localStale = true;
   }
   const failed = failedLookups(params.store, params.targetNodes ?? [], params.resultEdges ?? []);
-  if (failed > 0) report.localStale = true;
+  const resolves = failedResolves(params.store, params.targetNodes ?? []);
+  if (failed > 0 || resolves.length > 0) report.localStale = true;
 
   const status: FreshnessStatus = report.unknown
     ? "unknown"
@@ -188,6 +205,7 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     coverageUnknown: nodesById.size > 0 && !params.store.hasCoverageData(),
     partialFiles: partialFiles(params.store, params.targetNodes ?? [], [...nodesById.values()]),
     failedLookups: failed,
+    failedResolves: resolves,
     message,
     recommendation: params.recommendation,
   };
@@ -214,9 +232,11 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
   if (deleted) lines.push(deleted);
   if (report.affectedSymbols.length > 0) lines.push(`- affected symbols: ${report.affectedSymbols.join(", ")}`);
   if (report.staleEdgeCount > 0) lines.push(`- stale edges: ${report.staleEdgeCount}`);
-  if (report.failedLookups > 0) {
-    lines.push(`- lookups failed: ${report.failedLookups} ${report.failedLookups === 1 ? "call" : "calls"} (tsserver timed out or errored)`);
-  }
+  const failedNotes = [
+    ...(report.failedLookups > 0 ? [`${report.failedLookups} ${report.failedLookups === 1 ? "call" : "calls"}`] : []),
+    ...report.failedResolves,
+  ];
+  if (failedNotes.length > 0) lines.push(`- lookups failed: ${failedNotes.join(", ")} (tsserver timed out or errored)`);
   lines.push(...notes);
   lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
   return lines.join("\n");
