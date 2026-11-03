@@ -1,5 +1,5 @@
 # Now
-- [bench-holes](arcs/bench-holes.md) (Close the holes the bench exposed): graph holes fixed, output trimmed, descriptions accurate; the 36-cell on-arm re-run reads `freeze` in decision 0003, missing all three targets; close stopped on done-when 6 (`impact.ts` still exports `collectImpact`); next slice 14 (Stop exporting impact's traversal), then `close`
+- [bench-holes](arcs/bench-holes.md) (Close the holes the bench exposed): graph holes fixed, output trimmed, descriptions accurate; the 36-cell on-arm re-run reads `freeze` in decision 0003, missing all three targets; close stopped on done-when 6 (`impact.ts` still exports `collectImpact`); active: slice 14 (Stop exporting impact's traversal), then `close`
 
 ## Next
 - For the owner: decision 0003's re-run reads `freeze`, by one Opus cell that pruned a listed test file; rule whether it supersedes decision 0002's `keep`, which stands until then.
