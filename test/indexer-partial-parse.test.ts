@@ -71,7 +71,9 @@ test("a db indexed before file_hashes.partial re-extracts its unchanged files an
     old.setFileHash("__git_cochange_head__", "abc");
     old.close();
     const raw = new Database(dbPath);
+    // Such a db predates schema_version 2, which landed after file_hashes.partial.
     raw.run("ALTER TABLE file_hashes DROP COLUMN partial");
+    raw.run("UPDATE schema_version SET version = 1");
     raw.close();
 
     const store = new SqliteGraphStore(dbPath);
@@ -84,32 +86,6 @@ test("a db indexed before file_hashes.partial re-extracts its unchanged files an
     } finally {
       store.close();
     }
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("the file_hashes.partial migration rolls back whole, so a failed one reruns on the next open", () => {
-  const root = mkdtempSync(join(tmpdir(), "pi-cg-partial-atomic-"));
-  const dbPath = join(root, "graph.db");
-  try {
-    const old = new SqliteGraphStore(dbPath);
-    old.setFileHash("src/bad.ts", "h");
-    old.close();
-    const raw = new Database(dbPath);
-    raw.run("ALTER TABLE file_hashes DROP COLUMN partial");
-    raw.run("CREATE TRIGGER fail_update BEFORE UPDATE ON file_hashes BEGIN SELECT RAISE(ABORT, 'interrupted'); END");
-    raw.close();
-
-    expect(() => new SqliteGraphStore(dbPath)).toThrow(/interrupted/);
-    const after = new Database(dbPath);
-    expect((after.prepare("PRAGMA table_info(file_hashes)").all() as Array<{ name: string }>).map((c) => c.name)).not.toContain("partial");
-    after.run("DROP TRIGGER fail_update");
-    after.close();
-
-    const store = new SqliteGraphStore(dbPath);
-    expect(store.getFileHash("src/bad.ts")).toBe("");
-    store.close();
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

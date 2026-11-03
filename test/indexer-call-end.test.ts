@@ -66,8 +66,10 @@ test("a db indexed before edges.call_end gains the columns and re-extracts every
     old.setFileHash("src/x.ts", "h");
     old.close();
     const raw = new Database(dbPath);
+    // Such a db predates schema_version 2, which landed after edges.call_end.
     raw.run("ALTER TABLE edges DROP COLUMN call_end_line");
     raw.run("ALTER TABLE edges DROP COLUMN call_end_col");
+    raw.run("UPDATE schema_version SET version = 1");
     raw.close();
 
     new SqliteGraphStore(dbPath).close();
