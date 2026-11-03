@@ -65,6 +65,7 @@ const validStore: GraphStore = {
   findNodes: () => [],
   listFiles: () => [],
   deleteFile: () => {},
+  clearFile: () => {},
   getFileHash: () => null,
   setFileHash: () => {},
   getUnresolvedEdges: () => [],

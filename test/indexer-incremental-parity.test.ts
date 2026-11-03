@@ -1,0 +1,122 @@
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { diffGraphs, snapshotGraph } from "../bench/index-parity.js";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { indexProject } from "../src/indexer/pipeline.js";
+import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
+
+/** Resolves a call by its callee's name to the first `function <name>(` under `src/`, as tsserver would by import. */
+function nameResolvingClient(root: string): ITsServerClient {
+  return {
+    async definition(file, line, col) {
+      const name = /^[A-Za-z_$][\w$]*/.exec(readFileSync(join(root, file), "utf8").split("\n")[line - 1]!.slice(col - 1))?.[0];
+      if (!name) return null;
+      for (const rel of readdirSync(join(root, "src")).sort()) {
+        const lines = readFileSync(join(root, "src", rel), "utf8").split("\n");
+        const at = lines.findIndex((l) => l.includes(`function ${name}(`));
+        if (at >= 0) return { file: `src/${rel}`, line: at + 1, col: lines[at]!.indexOf(`function ${name}(`) + "function ".length + 1 };
+      }
+      return null;
+    },
+    async references() { return []; },
+    async implementations() { return []; },
+    async shutdown() {},
+  };
+}
+
+const LIB = 'export function helper(): number {\n  return 1;\n}\n\nexport function other(): number {\n  return helper() + missing();\n}\n';
+const FILES: Record<string, string> = {
+  "src/lib.ts": LIB,
+  "src/use.ts": 'import { helper, other } from "./lib";\n\nexport function useIt(): number {\n  return helper() + other();\n}\n',
+  "src/app.ts": 'import { helper } from "./lib";\ndeclare const app: { get(path: string, h: () => number): void };\n\nfunction handler(): number {\n  return helper();\n}\n\napp.get("/x", handler);\n',
+  "src/lib.test.ts": 'import { helper } from "./lib";\n\ntest("helper works", () => {\n  helper();\n});\n',
+};
+
+let root = "";
+let work = "";
+const coverageDir = () => join(work, "coverage");
+const db = (name: string) => join(work, `${name}.db`);
+
+function git(...args: string[]): void {
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root, stdio: "ignore" });
+}
+
+async function index(dbPath: string): Promise<void> {
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    const result = await indexProject(root, store, { lspClientFactory: () => nameResolvingClient(root), coverageDir: coverageDir() });
+    expect(result.errors).toBe(0);
+  } finally {
+    store.close();
+  }
+}
+
+/** A V8 report covering the test's callback and `helper`, at their offsets in the committed tree. */
+function writeCoverageReport(): void {
+  const testText = FILES["src/lib.test.ts"]!;
+  const fn = (functionName: string, text: string, from: string, to: string) => ({
+    functionName,
+    ranges: [{ startOffset: text.indexOf(from), endOffset: text.indexOf(to) + to.length, count: 1 }],
+  });
+  mkdirSync(coverageDir(), { recursive: true });
+  writeFileSync(join(coverageDir(), "report.json"), JSON.stringify({
+    result: [
+      { url: pathToFileURL(join(root, "src/lib.test.ts")).href, functions: [fn("", testText, "() => {", "});")] },
+      { url: pathToFileURL(join(root, "src/lib.ts")).href, functions: [fn("helper", LIB, "export function helper", "return 1;\n}")] },
+    ],
+  }));
+}
+
+beforeAll(async () => {
+  work = mkdtempSync(join(tmpdir(), "cg-incremental-parity-"));
+  root = join(work, "repo");
+  mkdirSync(join(root, "src"), { recursive: true });
+  git("init", "-q");
+  // Three commits touching lib, use and app together, so each pair co-changes the git stage's minimum of twice.
+  for (const rev of [1, 2, 3]) {
+    for (const [file, text] of Object.entries(FILES)) {
+      writeFileSync(join(root, file), rev === 3 || file === "src/lib.test.ts" ? text : `${text}// rev ${rev}\n`);
+    }
+    git("add", ".");
+    git("commit", "-qm", `rev ${rev}`);
+  }
+  writeCoverageReport();
+  await index(db("baseline"));
+}, 60_000);
+
+afterAll(() => {
+  rmSync(work, { recursive: true, force: true });
+});
+
+test("the baseline holds an edge of every stage", () => {
+  const store = new SqliteGraphStore(db("baseline"));
+  try {
+    const kinds = store.queryRows<{ k: string }>("SELECT DISTINCT kind || '/' || provenance_source AS k FROM edges ORDER BY k").map((r) => r.k);
+    expect(kinds).toEqual(["calls/lsp", "calls/tree-sitter", "co_changes_with/git", "imports/tree-sitter", "routes_to/ast-grep", "tested_by/coverage"]);
+    expect(store.queryRows("SELECT 1 FROM test_trace_steps")).not.toHaveLength(0);
+  } finally {
+    store.close();
+  }
+});
+
+const EDITS: Array<[name: string, edit: (lib: string) => string]> = [
+  ["control", (t) => t],
+  ["comment append", (t) => `${t}// appended\n`],
+  ["line shift", (t) => `\n${t}`],
+  ["callee rename", (t) => t.replace("function helper(", "function helperRenamed(")],
+];
+
+test.each(EDITS)("an incremental re-index after a %s to src/lib.ts equals a fresh index", async (_name, edit) => {
+  git("checkout", "-q", "--", ".");
+  const lib = join(root, "src/lib.ts");
+  writeFileSync(lib, edit(readFileSync(lib, "utf8")));
+  copyFileSync(db("baseline"), db("incremental"));
+  await index(db("incremental"));
+  rmSync(db("fresh"), { force: true });
+  await index(db("fresh"));
+  expect(diffGraphs(snapshotGraph(db("incremental")), snapshotGraph(db("fresh")))).toEqual([]);
+}, 60_000);

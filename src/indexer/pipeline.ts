@@ -103,29 +103,46 @@ export async function indexProject(
   const partial: string[] = [];
   const changedFiles: string[] = [];
 
+  /** Write `rel`'s extraction over what indexing it last wrote, keeping the edges into it from other files. */
+  const extractInto = (rel: string, content: string, hash: string) => {
+    store.clearFile(rel);
+    const extracted = extractFile(rel, content);
+    store.addNode(extracted.module);
+    for (const node of extracted.nodes) store.addNode(node);
+    for (const edge of extracted.edges) store.addEdge(edge);
+    store.setFileHash(rel, hash, extracted.partial);
+    if (extracted.partial) partial.push(rel);
+    changedFiles.push(rel);
+  };
+
   const currentRel = new Set(files.map((absPath) => toPosixPath(relative(projectRoot, absPath))));
   for (const absPath of files) {
     const rel = toPosixPath(relative(projectRoot, absPath));
     try {
       const content = readFileSync(absPath, "utf8");
       const hash = sha256Hex(content);
-      const existing = store.getFileHash(rel);
-      if (existing === hash) {
+      if (store.getFileHash(rel) === hash) {
         skipped++;
         continue;
       }
-      if (existing !== null) {
-        store.deleteFile(rel);
-      }
-
-      const extracted = extractFile(rel, content);
-      store.addNode(extracted.module);
-      for (const node of extracted.nodes) store.addNode(node);
-      for (const edge of extracted.edges) store.addEdge(edge);
-      store.setFileHash(rel, hash, extracted.partial);
-      if (extracted.partial) partial.push(rel);
-      changedFiles.push(rel);
+      extractInto(rel, content, hash);
       indexed++;
+    } catch {
+      errors++;
+    }
+  }
+
+  // A kept edge into a changed file whose target moved or went: re-extract its unchanged source, so the lsp stage
+  // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn.
+  const dangling = store.queryRows<{ file: string }>(
+    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
+  );
+  for (const { file } of dangling) {
+    // A file gone from disk is the removal loop's.
+    if (!currentRel.has(file)) continue;
+    try {
+      const content = readFileSync(join(projectRoot, file), "utf8");
+      extractInto(file, content, sha256Hex(content));
     } catch {
       errors++;
     }
