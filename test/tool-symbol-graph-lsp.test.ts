@@ -136,7 +136,7 @@ test("resolveMissingCallers re-resolves after file re-index (stale marker cleare
   await resolveMissingCallers(target, store, "/project", client);
   expect(calls).toBe(1);
 
-  // Simulate file re-index: deleteFile removes the symbol node, its edges and its resolver markers,
+  // Simulate file re-index: deleteFile removes the symbol node, its edges and every resolver marker,
   // then re-adds the symbol.
   store.deleteFile("src/api.ts");
   store.addNode(target);

@@ -210,6 +210,51 @@ test("a resolver marker into a removed file lists no file", async () => {
   expect(fileStats(db("incremental"))).toEqual({ listed, total: listed.length, stale: 0 });
 });
 
+/** `nameResolvingClient` whose `references` lists each line under `src/` naming the symbol, its declaration aside. */
+function referencingClient(root: string): ITsServerClient {
+  return {
+    ...nameResolvingClient(root),
+    async references(file, line, col) {
+      const name = /^[A-Za-z_$][\w$]*/.exec(readFileSync(join(root, file), "utf8").split("\n")[line - 1]!.slice(col - 1))![0];
+      return readdirSync(join(root, "src")).sort().flatMap((rel) =>
+        readFileSync(join(root, "src", rel), "utf8").split("\n").flatMap((text, i) => {
+          const at = text.search(new RegExp(`\\b${name}\\b`));
+          return at < 0 || text.includes(`function ${name}(`) ? [] : [{ file: `src/${rel}`, line: i + 1, col: at + 1 }];
+        }),
+      );
+    },
+  };
+}
+
+/** Resolve `helper`'s callers on `dbPath` as `symbol_graph` does, and list them. */
+async function helperCallers(dbPath: string): Promise<string[]> {
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    const helper = store.findNodes("helper", "src/lib.ts")[0]!;
+    await resolveMissingCallers(helper, store, root, referencingClient(root));
+    return store.getNeighbors(helper.id, { direction: "in", kind: "calls" }).map((n) => `${n.node.id} ${n.edge.provenance.source}`).sort();
+  } finally {
+    store.close();
+  }
+}
+
+test("a caller only references finds, lost after an edit to its file, comes back", async () => {
+  reset();
+  // tree-sitter leaves `h()` unresolved and `definition` finds no `function h(`; only `references` reaches `helper`.
+  const alias = 'import { helper } from "./lib";\n\nexport function viaAlias(): number {\n  const h = helper;\n  return h();\n}\n';
+  writeFileSync(join(root, "src/alias.ts"), alias);
+  rmSync(db("incremental"), { force: true });
+  await index(db("incremental"));
+  expect(await helperCallers(db("incremental"))).toContain("src/alias.ts::viaAlias:3 lsp");
+  writeFileSync(join(root, "src/alias.ts"), `\n${alias}`);
+  await index(db("incremental"));
+  rmSync(db("fresh"), { force: true });
+  await index(db("fresh"));
+  const fresh = await helperCallers(db("fresh"));
+  expect(fresh).toContain("src/alias.ts::viaAlias:4 lsp");
+  expect(await helperCallers(db("incremental"))).toEqual(fresh);
+}, 60_000);
+
 // Root reads any file, so the unreadable caller below would read.
 test.skipIf(process.getuid?.() === 0)("a caller unreadable on the run that removes its callee re-extracts on the next", async () => {
   reset();

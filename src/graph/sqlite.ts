@@ -23,9 +23,10 @@ function openDb(path: string): any {
 export const SCHEMA_VERSION = 3;
 /** The `graph_metadata` key holding the git stage's last-seen HEAD. */
 export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
-/** The `graph_metadata` key marking `symbolId`'s `kind` resolved, so `symbol_graph` asks tsserver once; it goes with the symbol's file. */
+const RESOLVER_MARKER_PREFIX = "resolver:";
+/** The `graph_metadata` key marking `symbolId`'s `kind` resolved, so `symbol_graph` asks tsserver once; every one goes when any file is re-extracted or removed. */
 export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
-  return `resolver:${kind}:${symbolId}`;
+  return `${RESOLVER_MARKER_PREFIX}${kind}:${symbolId}`;
 }
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
@@ -322,9 +323,7 @@ export class SqliteGraphStore implements GraphStore {
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`DELETE FROM edges WHERE provenance_source NOT IN ('agent', 'coverage') AND (source IN (SELECT id FROM nodes WHERE file = ?) OR target IN (SELECT id FROM nodes WHERE file = ?))`).run(file, file);
-      for (const { id } of this.db.prepare(`SELECT id FROM nodes WHERE file = ?`).all(file) as Array<{ id: string }>) {
-        for (const kind of ["callers", "implementations"] as const) this.setMetadata(resolverMarkerKey(kind, id), null);
-      }
+      this.clearResolverMarkers();
       this.db.prepare(`DELETE FROM nodes WHERE file = ?`).run(file);
       this.db.prepare(`DELETE FROM file_hashes WHERE file = ?`).run(file);
       this.db.exec("COMMIT");
@@ -338,6 +337,7 @@ export class SqliteGraphStore implements GraphStore {
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`DELETE FROM edges WHERE provenance_source NOT IN ('agent', 'git', 'coverage') AND source IN (SELECT id FROM nodes WHERE file = ?)`).run(file);
+      this.clearResolverMarkers();
       this.db.prepare(`DELETE FROM nodes WHERE file = ?`).run(file);
       this.db.prepare(`DELETE FROM file_hashes WHERE file = ?`).run(file);
       this.db.exec("COMMIT");
@@ -345,6 +345,11 @@ export class SqliteGraphStore implements GraphStore {
       this.db.exec("ROLLBACK");
       throw error;
     }
+  }
+
+  /** A changed file can add or drop a caller or implementation tsserver found for a symbol anywhere, so all markers go. */
+  private clearResolverMarkers(): void {
+    this.db.prepare(`DELETE FROM graph_metadata WHERE SUBSTR(key, 1, ?) = ?`).run(RESOLVER_MARKER_PREFIX.length, RESOLVER_MARKER_PREFIX);
   }
 
   listFiles(): string[] {
