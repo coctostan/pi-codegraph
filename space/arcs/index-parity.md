@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # An incremental index matches a fresh one
 
@@ -7,13 +7,12 @@ status: active
 An existing `.codegraph/graph.db` answers as a fresh index of the same tree would after a file edit, a file added or removed, a coverage report changed or an extractor change, so `Trust: fresh` is true; indexes damaged before the fix repair themselves once.
 
 ## Done when
-- [ ] `bun bench/index-parity.ts` on this repo at HEAD, with real tsserver, passes a control (no edit) and each scripted edit (comment append, line shift, callee rename, file removal, file addition): the re-indexed graph equals a fresh index of the same tree on nodes, edges and `test_trace_steps`, `created_at` aside; it exits 0 — verified by that command
-- [ ] On a fixture git repo with a name-resolving fake LSP, the same edits keep parity for an edge from every stage that writes one (`calls` from tree-sitter and lsp, `imports`, ast-grep's, `co_changes_with`, `tested_by`); a deleted root `__tests__/x.ts` leaves the index and `getStatistics`; a removed coverage report takes its `tested_by` edges and test traces with it — verified by `bun test test/indexer-incremental-parity.test.ts`
-- [ ] `initSchema` re-extracts on one trigger, a `schema_version` below the current one, and adds a missing `partial`/`call_end_*` column without re-extracting; `extractFile`'s output on a fixture is pinned to `schema_version`, a change to it failing with a message that names the bump — verified by `bun test test/graph-schema-version.test.ts`
-- [ ] An index written before this arc re-extracts once on its next open: AGENTS.md's loader command running `symbol_graph` `{"name":"formatRoleTags"}` on this checkout's existing `.codegraph/graph.db` lists 6 callers, `renderSymbolCardBody` among them, where it lists 2 at shape — verified by that command and `bun test test/graph-schema-version.test.ts`
+- [x] `bun bench/index-parity.ts` on this repo at HEAD, with real tsserver, passes a control (no edit) and each scripted edit (comment append, line shift, callee rename, file removal, file addition): the re-indexed graph equals a fresh index of the same tree on nodes, edges and `test_trace_steps`, `created_at` aside; it exits 0 — verified by that command · close, 2026-11-03, at `a9080060`, load average 2.9: PASS on all six, `6/6 edits pass`, exit 0, 61 s
+- [x] On a fixture git repo with a name-resolving fake LSP, the same edits keep parity for an edge from every stage that writes one (`calls` from tree-sitter and lsp, `imports`, ast-grep's, `co_changes_with`, `tested_by`); a deleted root `__tests__/x.ts` leaves the index and `getStatistics`; a removed coverage report takes its `tested_by` edges and test traces with it — verified by `bun test test/indexer-incremental-parity.test.ts` · close, 2026-11-03: with check 3's file, 25 pass, 0 fail
+- [x] `initSchema` re-extracts on one trigger, a `schema_version` below the current one, and adds a missing `partial`/`call_end_*` column without re-extracting; `extractFile`'s output on a fixture is pinned to `schema_version`, a change to it failing with a message that names the bump — verified by `bun test test/graph-schema-version.test.ts` · close, 2026-11-03: green in the run above; the pin's message names `bump SCHEMA_VERSION in src/graph/sqlite.ts` (spec review)
+- [x] An index written before this arc re-extracts once on its next open: AGENTS.md's loader command running `symbol_graph` `{"name":"formatRoleTags"}` on this checkout's existing `.codegraph/graph.db` lists 6 callers, `renderSymbolCardBody` among them, where it lists 2 at shape — verified by that command and `bun test test/graph-schema-version.test.ts` · close, 2026-11-03: `Trust: fresh`, `Callers (6)` with `renderSymbolCardBody`, `schema_version` 3; the 2 → 6 open, observed at slice 6 (Re-extract every existing index once) on 2026-11-03 against the pre-arc db's backup, since the live db had already re-gained its callers (13.2 s, then 1.8 s on the next open)
 
 ## Now
-slice 6 (Re-extract every existing index once) merged as #101; every slice is done. Next action: run `close` on index-parity (An incremental index matches a fresh one) in a fresh session.
 
 ## Seams
 - Store: `SqliteGraphStore` in `src/graph/sqlite.ts` behind `GraphStore` in `src/graph/store.ts` (`initSchema`, `deleteFile`, `listFiles`, `getStatistics`); tests in `test/graph-*.test.ts` on `:memory:` and temp dbs.
