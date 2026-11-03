@@ -1,0 +1,64 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "5821256be3bf69c9b44802853f2dbd8f7471aaf7",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T23:57:08.292Z",
+  "wallMs": 12540,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 1824,
+      "lsp": 3957,
+      "ast-grep": 54,
+      "coverage": 0,
+      "git": 445
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 729,
+    "cacheRead": 8476,
+    "cacheWrite": 5362,
+    "total": 14575
+  },
+  "costUsd": 0.0592032,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Inside src/, `readSourceSnippet` has one direct caller. Three more functions reach it through that caller. I found these with the `impact` tool and checked them with a grep.\n\n**Direct caller (will break on a signature change):**\n- `renderSymbolSourceSection` (src/tools/symbol-card.ts:25). It calls `readSourceSnippet(node, projectRoot, maxSourceLines)` at line 41.\n\n**Indirect callers (behaviour may change):**\n- `symbolCard` (src/tools/symbol-card.ts:120) calls `renderSymbolSourceSection`. It is exported, but nothing else in src/ calls it.\n- `symbolGraph` (src/tools/symbol-graph.ts:265) calls `renderSymbolSourceSection` at line 289.\n- `piCodegraph` (src/index.ts:373) is the tool entry point. It calls `symbolGraph` at line 444.\n\nThe tests that reach this code include test/read-source-snippet.test.ts and the tool-symbol-card-*, tool-symbol-graph-* and extension-* tests: 104 test cases in 41 files.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

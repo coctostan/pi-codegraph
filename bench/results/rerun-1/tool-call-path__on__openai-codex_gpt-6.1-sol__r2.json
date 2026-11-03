@@ -1,0 +1,66 @@
+{
+  "cell": "tool-call-path__on__openai-codex_gpt-6.1-sol__r2",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "5821256be3bf69c9b44802853f2dbd8f7471aaf7",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T23:57:41.116Z",
+  "wallMs": 42310,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 1963,
+      "lsp": 3908,
+      "ast-grep": 50,
+      "coverage": 0,
+      "git": 219
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 27034,
+    "output": 1314,
+    "cacheRead": 56320,
+    "cacheWrite": 0,
+    "total": 84668
+  },
+  "costUsd": 0.07283999999999999,
+  "toolCalls": {
+    "ls": 1,
+    "read": 8,
+    "trace": 7,
+    "grep": 1
+  },
+  "codegraphCalls": 7,
+  "stopReason": "stop",
+  "finalText": "<answer>\nAll three tools share this sequence, with a tool-specific middle.\n\n### 1. Prepare the project\nIn `src/index.ts`:\n\n`execute()` → `prepare()` →\n1. `signal?.throwIfAborted()`\n2. `getOrCreateProject(ctx.cwd)` — creates `.codegraph/`, then `new SqliteGraphStore()` → `openDb()` → `initSchema()`, opening `.codegraph/graph.db`.\n3. `setStatus(\"codegraph: indexing…\")`\n4. `ensureIndexed()` → `indexProjectImpl()` (normally `indexProject()`), awaited through `raceAbort()`.\n\n### 2. Index the project\n`indexProject()` in `src/indexer/pipeline.ts:53` runs these stages **sequentially**:\n\n1. `walkTsFiles()` → recursive `walk()` discovers `.ts`/`.tsx` files.\n2. For each file: `readFileSync()` → `sha256Hex()` → `store.getFileHash()`. Unchanged files are skipped; changed files have old graph data deleted, then `extractFile()` parses them with tree-sitter → `store.addNode()` / `store.addEdge()` → `store.setFileHash()`.\n3. `store.listFiles()` → `store.deleteFile()` removes disappeared files.\n4. `new TsServerClient()` → `runLspIndexStage()` resolves/upgrades call edges using `client.definition()` → `client.shutdown()`.\n5. `runAstGrepIndexStage()` → `loadRules()` → `runScan()` → `applyRuleMatches()` adds framework relationships for changed files.\n6. `runCoverageIndexStage()` → `parseCoverageReports()` → `mapCoverageToNodes()` adds `tested_by` edges and saves traces from existing coverage reports.\n7. `runGitCoChangeStage()` → `getCurrentHead()` →, if HEAD changed, `parseGitLog()` and `computeDecayWeight()` produce co-change edges.\n\nBack in `ensureIndexed()`, errors are recorded and the in-flight indexing promise is cleared. `prepare()` then calls `setStatus()` to clear/report status → `ensureHashInit()`.\n\n### 3. Run the requested query\nBack in the tool’s `execute()`:\n\n- **`symbol_graph`:** `store.findNodes()` → if uniquely resolved, `getClient()` → `resolveMissingCallers()` → additionally `resolveImplementations()` for an interface, awaited through `raceAbort()` → `symbolGraph()`.\n- **`impact`:** `impact()`.\n- **`trace`:** `trace()`.\n\nThese query functions render graph results with anchors and freshness information.\n\n### 4. Wrap and return\nEach handler calls:\n\n`finalizeReadOnlyOutput()` →\n`suppressFreshTrustHeader()` →\noptional `stripTrustHeader()` →\n`indexingFailedNote()` →\n`appendTokenMetaIfEnabled()` →\n`toolResult()` → `extractAnchors()`.\n\nThe returned object contains text `content`, lookup-failure `isError`, and `structuredContent: { text, anchors, indexingFailed }`.\n\n**Important:** indexing is not strictly once per session. Each tool call invokes `ensureIndexed()`; concurrent calls share an in-flight run, and persisted hashes make subsequent runs incremental.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "All three tools share this sequence, with a tool-specific middle.\n\n### 1. Prepare the project\nIn `src/index.ts`:\n\n`execute()` → `prepare()` →\n1. `signal?.throwIfAborted()`\n2. `getOrCreateProject(ctx.cwd)` — creates `.codegraph/`, then `new SqliteGraphStore()` → `openDb()` → `initSchema()`, opening `.codegraph/graph.db`.\n3. `setStatus(\"codegraph: indexing…\")`\n4. `ensureIndexed()` → `indexProjectImpl()` (normally `indexProject()`), awaited through `raceAbort()`.\n\n### 2. Index the project\n`indexProject()` in `src/indexer/pipeline.ts:53` runs these stages **sequentially**:\n\n1. `walkTsFiles()` → recursive `walk()` discovers `.ts`/`.tsx` files.\n2. For each file: `readFileSync()` → `sha256Hex()` → `store.getFileHash()`. Unchanged files are skipped; changed files have old graph data deleted, then `extractFile()` parses them with tree-sitter → `store.addNode()` / `store.addEdge()` → `store.setFileHash()`.\n3. `store.listFiles()` → `store.deleteFile()` removes disappeared files.\n4. `new TsServerClient()` → `runLspIndexStage()` resolves/upgrades call edges using `client.definition()` → `client.shutdown()`.\n5. `runAstGrepIndexStage()` → `loadRules()` → `runScan()` → `applyRuleMatches()` adds framework relationships for changed files.\n6. `runCoverageIndexStage()` → `parseCoverageReports()` → `mapCoverageToNodes()` adds `tested_by` edges and saves traces from existing coverage reports.\n7. `runGitCoChangeStage()` → `getCurrentHead()` →, if HEAD changed, `parseGitLog()` and `computeDecayWeight()` produce co-change edges.\n\nBack in `ensureIndexed()`, errors are recorded and the in-flight indexing promise is cleared. `prepare()` then calls `setStatus()` to clear/report status → `ensureHashInit()`.\n\n### 3. Run the requested query\nBack in the tool’s `execute()`:\n\n- **`symbol_graph`:** `store.findNodes()` → if uniquely resolved, `getClient()` → `resolveMissingCallers()` → additionally `resolveImplementations()` for an interface, awaited through `raceAbort()` → `symbolGraph()`.\n- **`impact`:** `impact()`.\n- **`trace`:** `trace()`.\n\nThese query functions render graph results with anchors and freshness information.\n\n### 4. Wrap and return\nEach handler calls:\n\n`finalizeReadOnlyOutput()` →\n`suppressFreshTrustHeader()` →\noptional `stripTrustHeader()` →\n`indexingFailedNote()` →\n`appendTokenMetaIfEnabled()` →\n`toolResult()` → `extractAnchors()`.\n\nThe returned object contains text `content`, lookup-failure `isError`, and `structuredContent: { text, anchors, indexingFailed }`.\n\n**Important:** indexing is not strictly once per session. Each tool call invokes `ensureIndexed()`; concurrent calls share an in-flight run, and persisted hashes make subsequent runs incremental.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

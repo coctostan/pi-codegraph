@@ -1,0 +1,63 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "5821256be3bf69c9b44802853f2dbd8f7471aaf7",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T23:54:35.987Z",
+  "wallMs": 47804,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 1654,
+      "lsp": 3392,
+      "ast-grep": 55,
+      "coverage": 0,
+      "git": 979
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 5290,
+    "cacheRead": 78150,
+    "cacheWrite": 25436,
+    "total": 108890
+  },
+  "costUsd": 0.324974,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1,
+    "bash": 4
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "I found 62 test files that run `buildAnthropicCcHeaders`. The `impact` tool listed only 31 of them, so it misses a lot here. I added the rest by grepping `tests/` and checking what each file calls.\n\n**How each group reaches the function** (the only production callers are in `src/anthropic-cc/request.ts` and `src/anthropic-cc/stream.ts`):\n- **5 files call it directly:** AuthModes, BetaComposition, HeaderSuppression, InlineToolsBetaFlags and OAuthBetaComposition.\n- **35 files go through the request builders** `buildAnthropicCcRequest` or `buildAnthropicCcRequestFromContext`. Some do this via `tests/helpers/pi099.ts`.\n- **22 files go through `streamAnthropicCc`**, either directly or via the `captureCc` helper in `tests/helpers/pi099.ts`.\n\n**Files I left out on purpose:**\n- `anthropicCcContextManagementGuard`, `ContextManagementPreserved` and `LateThinkingSanitization` only call `sanitizeAnthropicCcRequestParams`.\n- `anthropicCcEndpointHeaders` and `Pi086TranscriptContext` use the vendored `streamSimpleAnthropic` instead.\n- `anthropicCcRegistration`, `ApiKeyConfig` and `ProviderConfig` only check that `config.streamSimple` is `streamAnthropicCc`. They never run it.\n- The `index*` tests run the built-in `anthropic` provider wrapper, which doesn't use this function. If you want to be extra safe, these exclusions are cheap to add back.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcAdaptiveReasoning.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcFableAdaptiveReasoning.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcLegacyThinking.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcOAuthAuthMode.test.ts\ntests/anthropicCcOptionalFields.test.ts\ntests/anthropicCcOpus47Migration.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcParity.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcRequestHeaders.test.ts\ntests/anthropicCcRequestIdentity.test.ts\ntests/anthropicCcRequestOptions.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemPrompt.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTools.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcClaude5StreamSanitizer.test.ts\ntests/anthropicCcClaude5WireAuth.test.ts\ntests/anthropicCcClaude5WireIdentity.test.ts\ntests/anthropicCcClaude5WireTools.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcManagedBetaIsolation.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcPi083Fetch.test.ts\ntests/anthropicCcPi083FreshRetry.test.ts\ntests/anthropicCcPi083MissingStop.test.ts\ntests/anthropicCcPi083MissingUsage.test.ts\ntests/anthropicCcPi083RawStop.test.ts\ntests/anthropicCcPi083RetryAbort.test.ts\ntests/anthropicCcPi083RetryDelay.test.ts\ntests/anthropicCcPi083RetryPolicy.test.ts\ntests/anthropicCcPi083SensitiveStop.test.ts\ntests/anthropicCcPi099ReadAbort.test.ts\ntests/anthropicCcRequestPropagation.test.ts\ntests/anthropicCcStream.test.ts\ntests/anthropicCcStreamParity.test.ts\ntests/anthropicCcStreamSystemPrompt.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcAdaptiveReasoning.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcFableAdaptiveReasoning.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcLegacyThinking.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcOAuthAuthMode.test.ts\ntests/anthropicCcOptionalFields.test.ts\ntests/anthropicCcOpus47Migration.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcParity.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcRequestHeaders.test.ts\ntests/anthropicCcRequestIdentity.test.ts\ntests/anthropicCcRequestOptions.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemPrompt.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTools.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcClaude5StreamSanitizer.test.ts\ntests/anthropicCcClaude5WireAuth.test.ts\ntests/anthropicCcClaude5WireIdentity.test.ts\ntests/anthropicCcClaude5WireTools.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcManagedBetaIsolation.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcPi083Fetch.test.ts\ntests/anthropicCcPi083FreshRetry.test.ts\ntests/anthropicCcPi083MissingStop.test.ts\ntests/anthropicCcPi083MissingUsage.test.ts\ntests/anthropicCcPi083RawStop.test.ts\ntests/anthropicCcPi083RetryAbort.test.ts\ntests/anthropicCcPi083RetryDelay.test.ts\ntests/anthropicCcPi083RetryPolicy.test.ts\ntests/anthropicCcPi083SensitiveStop.test.ts\ntests/anthropicCcPi099ReadAbort.test.ts\ntests/anthropicCcRequestPropagation.test.ts\ntests/anthropicCcStream.test.ts\ntests/anthropicCcStreamParity.test.ts\ntests/anthropicCcStreamSystemPrompt.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

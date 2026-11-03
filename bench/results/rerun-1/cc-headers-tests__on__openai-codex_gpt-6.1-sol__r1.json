@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__openai-codex_gpt-6.1-sol__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "5821256be3bf69c9b44802853f2dbd8f7471aaf7",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-02T23:51:32.996Z",
+  "wallMs": 18189,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 3896,
+      "lsp": 4102,
+      "ast-grep": 75,
+      "coverage": 0,
+      "git": 1369
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 3021,
+    "output": 480,
+    "cacheRead": 3968,
+    "cacheWrite": 0,
+    "total": 7469
+  },
+  "costUsd": 0.0112388,
+  "toolCalls": {
+    "symbol_graph": 1,
+    "impact": 1
+  },
+  "codegraphCalls": 2,
+  "stopReason": "stop",
+  "finalText": "<answer>\nTest files exercising `buildAnthropicCcHeaders` directly or indirectly:\n\n```text\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts\n```\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "Test files exercising `buildAnthropicCcHeaders` directly or indirectly:\n\n```text\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts\n```",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
