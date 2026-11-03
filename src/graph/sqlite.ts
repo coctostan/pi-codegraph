@@ -21,8 +21,10 @@ function openDb(path: string): any {
  * stale edges or dropped live ones.
  */
 export const SCHEMA_VERSION = 3;
-/** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
-export const GIT_HEAD_KEY = "__git_cochange_head__";
+/** The `graph_metadata` key holding the git stage's last-seen HEAD. */
+export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
+/** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
+const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 
 /** SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`. */
 export function isReadonlyError(error: unknown): boolean {
@@ -139,9 +141,23 @@ export class SqliteGraphStore implements GraphStore {
       if (!existingColumns.some((column) => column.name === name)) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
     }
 
+    // An index from before index-honesty (The index says when it lost data) kept the git head as a `file_hashes` row.
+    const legacyHead = this.db.prepare("SELECT hash FROM file_hashes WHERE file = ?").get(LEGACY_GIT_HEAD_FILE) as { hash: string } | null;
+    if (legacyHead) {
+      this.db.exec("BEGIN");
+      try {
+        this.db.prepare("INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)").run(GIT_HEAD_METADATA_KEY, legacyHead.hash);
+        this.db.prepare("DELETE FROM file_hashes WHERE file = ?").run(LEGACY_GIT_HEAD_FILE);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+
     // Below SCHEMA_VERSION, an older extractor wrote the rows: re-extract every file once, and rerun the git stage (its
-    // `__git_cochange_head__` row), whose edges the re-extraction drops. In one transaction: a version bumped without
-    // the invalidation would skip it on every later open.
+    // head key), whose edges the re-extraction drops. In one transaction: a version bumped without the invalidation
+    // would skip it on every later open.
     const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
     if ((existing?.version ?? 0) >= SCHEMA_VERSION) return;
     this.db.exec("BEGIN");
@@ -149,6 +165,7 @@ export class SqliteGraphStore implements GraphStore {
       this.db.prepare("DELETE FROM schema_version").run();
       this.db.prepare("INSERT INTO schema_version(version) VALUES (?)").run(SCHEMA_VERSION);
       this.db.prepare("UPDATE file_hashes SET hash = ''").run();
+      this.db.prepare("DELETE FROM graph_metadata WHERE key = ?").run(GIT_HEAD_METADATA_KEY);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -312,7 +329,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   listFiles(): string[] {
-    const rows = this.db.prepare("SELECT file FROM file_hashes WHERE file <> ? ORDER BY file ASC").all(GIT_HEAD_KEY) as Array<{ file: string }>;
+    const rows = this.db.prepare("SELECT file FROM file_hashes ORDER BY file ASC").all() as Array<{ file: string }>;
     return rows.map((row) => row.file);
   }
 
@@ -337,7 +354,7 @@ export class SqliteGraphStore implements GraphStore {
       edges[row.kind][row.provenance_source] = row.cnt;
     }
 
-    const fileRows = this.db.prepare("SELECT file, hash FROM file_hashes WHERE file <> ?").all(GIT_HEAD_KEY) as Array<{ file: string; hash: string }>;
+    const fileRows = this.db.prepare("SELECT file, hash FROM file_hashes").all() as Array<{ file: string; hash: string }>;
     const total = fileRows.length;
 
     let stale = 0;
@@ -400,6 +417,15 @@ export class SqliteGraphStore implements GraphStore {
     return this.db.prepare(sql).all(...params) as T[];
   }
 
+  getMetadata(key: string): string | null {
+    const row = this.db.prepare(`SELECT value FROM graph_metadata WHERE key = ?`).get(key) as { value: string } | null;
+    return row?.value ?? null;
+  }
+
+  setMetadata(key: string, value: string | null): void {
+    if (value === null) this.db.prepare(`DELETE FROM graph_metadata WHERE key = ?`).run(key);
+    else this.db.prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`).run(key, value);
+  }
   hasCoverageData(): boolean {
     try {
       const row = this.db

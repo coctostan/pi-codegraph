@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { GIT_HEAD_METADATA_KEY, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
@@ -68,7 +68,7 @@ test("a db indexed before file_hashes.partial re-extracts its unchanged files an
       old.addNode(extractFile(file, BROKEN).module);
       old.setFileHash(file, sha256Hex(BROKEN));
     }
-    old.setFileHash("__git_cochange_head__", "abc");
+    old.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     old.close();
     const raw = new Database(dbPath);
     // Such a db predates schema_version 2, which landed after file_hashes.partial.
@@ -79,7 +79,7 @@ test("a db indexed before file_hashes.partial re-extracts its unchanged files an
     const store = new SqliteGraphStore(dbPath);
     try {
       // Re-extracting a file drops its git edges, so the git stage must run again too.
-      expect(store.getFileHash("__git_cochange_head__")).toBe("");
+      expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
       const result = await indexProject(root, store, { lspClientFactory: () => noopClient });
       expect(result.partial.sort()).toEqual(["__tests__/bad.ts", "src/bad.ts"]);
       expect(store.findNodes("caller")).toHaveLength(2);

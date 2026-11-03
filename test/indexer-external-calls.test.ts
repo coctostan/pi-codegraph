@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
+import { GIT_HEAD_METADATA_KEY, SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 
 const calleesOf = (source: string, fn: string): string[] =>
@@ -128,7 +128,7 @@ test("a db at schema_version 1 re-extracts every file once, then keeps its hashe
   try {
     const old = new SqliteGraphStore(dbPath);
     old.setFileHash("src/x.ts", "h");
-    old.setFileHash("__git_cochange_head__", "abc");
+    old.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     old.close();
     const raw = new Database(dbPath);
     raw.run("UPDATE schema_version SET version = 1");
@@ -136,7 +136,7 @@ test("a db at schema_version 1 re-extracts every file once, then keeps its hashe
 
     const upgraded = new SqliteGraphStore(dbPath);
     expect(upgraded.getFileHash("src/x.ts")).toBe("");
-    expect(upgraded.getFileHash("__git_cochange_head__")).toBe("");
+    expect(upgraded.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
     upgraded.setFileHash("src/x.ts", "h2");
     upgraded.close();
 
