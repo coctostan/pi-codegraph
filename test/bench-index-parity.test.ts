@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -73,12 +73,14 @@ test("each scripted edit applies to this repo's src/ and refuses a tree without 
     expect(refused(dir)).toEqual(EDITS.slice(1).map((e) => e.name));
     cpSync(join(import.meta.dir, "..", "src"), join(dir, "src"), { recursive: true });
     expect(refused(dir)).toEqual([]);
+    // A rename whose target is already gone changes nothing, and says so.
+    expect(() => EDITS[3]!.apply(dir)).toThrow("nothing to change");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("runParity passes an unedited tree, fails one edited differently on each side, and leaves no worktree behind", async () => {
+test("runParity fails a tree edited differently on each side, then resets both to pass an unedited one, leaving no worktree behind", async () => {
   const repo = mkdtempSync(join(tmpdir(), "cg-parity-repo-"));
   const git = (...args: string[]) => {
     const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo, encoding: "utf8" });
@@ -96,17 +98,22 @@ test("runParity passes an unedited tree, fails one edited differently on each si
 
     let applied = 0;
     const edits: Edit[] = [
-      { name: "control", apply: () => {} },
       // Writes a different function on each side, so the two trees differ by construction.
       { name: "perturb", apply: (dir) => writeFileSync(join(dir, "src", "c.ts"), `export function side${applied++}() {}\n`) },
+      // Passes only when both sides are back at the commit's tree and the incremental side at its first index.
+      { name: "control", apply: () => {} },
     ];
-    const results = await runParity(repo, commit, edits);
+    const logged: string[] = [];
+    const spy = spyOn(console, "error").mockImplementation((line) => void logged.push(String(line)));
+    const results = await runParity(repo, commit, edits).finally(() => spy.mockRestore());
+    // The control re-indexes the first index of the unedited tree, not the perturbed one reverted.
+    expect(logged).toContain("control incremental: indexed 0, skipped 2, removed 0, 0 errors");
 
     expect(results.map((r) => [r.name, r.diffs.map((d) => d.table)])).toEqual([
-      ["control", []],
       ["perturb", ["nodes"]],
+      ["control", []],
     ]);
-    const nodes = results[1]!.diffs[0]!;
+    const nodes = results[0]!.diffs[0]!;
     expect(nodes.onlyIncremental).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side0:1")]));
     expect(nodes.onlyFresh).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side1:1")]));
     expect(git("worktree", "list").split("\n")).toHaveLength(1);
