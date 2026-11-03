@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { diffGraphs, EDITS, main, report, snapshotGraph, type Edit } from "../bench/index-parity.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphEdge } from "../src/graph/types.js";
@@ -80,9 +80,14 @@ test("each scripted edit applies to this repo's src/ and refuses a tree without 
   }
 });
 
-/** A git repo of `files` in one commit; `run` gets its path and that commit, and the repo is removed afterwards. */
+/**
+ * A git repo of `files` in one commit; `run` gets its path and that commit, and the repo is removed afterwards.
+ * The repo has no deps, so this checkout's `tsserver` goes on PATH, where `TsServerClient` falls back to look.
+ */
 async function withRepo(files: Record<string, string>, run: (repo: string, commit: string, git: (...args: string[]) => string) => Promise<void>) {
   const repo = mkdtempSync(join(tmpdir(), "cg-parity-repo-"));
+  const path = process.env.PATH;
+  process.env.PATH = `${join(import.meta.dir, "..", "node_modules", ".bin")}${delimiter}${path}`;
   const git = (...args: string[]) => {
     const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo, encoding: "utf8" });
     if (r.status !== 0) throw new Error(r.stderr);
@@ -98,6 +103,7 @@ async function withRepo(files: Record<string, string>, run: (repo: string, commi
     git("commit", "-qm", "one");
     await run(repo, git("rev-parse", "HEAD"), git);
   } finally {
+    process.env.PATH = path;
     rmSync(repo, { recursive: true, force: true });
   }
 }
