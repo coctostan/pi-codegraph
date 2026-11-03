@@ -73,20 +73,29 @@ test("a run whose reports are gone clears an earlier sentinel", () => {
 });
 
 // Root writes any file, so the readonly DB below would take writes.
-test.skipIf(process.getuid?.() === 0)("an unchanged project on a readonly DB with no coverage indexes with no error", async () => {
+test.skipIf(process.getuid?.() === 0).each([false, true])("an unchanged project on a readonly DB indexes with no error (coverage report: %p)", async (withReport) => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-covsentinel-ro-"));
   const dbPath = join(projectRoot, "graph.db");
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   writeFileSync(join(projectRoot, "src", "a.ts"), SOURCE);
+  if (withReport) {
+    const TEST = 'test("t", () => {});\n';
+    writeFileSync(join(projectRoot, "src", "a.test.ts"), TEST);
+    const entry = (file: string, text: string) => ({ url: new URL(`file://${join(projectRoot, file)}`).href, functions: [{ functionName: "", ranges: [{ startOffset: 0, endOffset: text.length, count: 1 }] }] });
+    mkdirSync(join(projectRoot, ".codegraph", "coverage"), { recursive: true });
+    writeFileSync(join(projectRoot, ".codegraph", "coverage", "report.json"), JSON.stringify({ result: [entry("src/a.ts", SOURCE), entry("src/a.test.ts", TEST)] }));
+  }
   const client = () => ({ definition: async () => null, references: async () => [], implementations: async () => [], shutdown: async () => {} });
   try {
     const seed = new SqliteGraphStore(dbPath);
     await indexProject(projectRoot, seed, { lspClientFactory: client });
+    expect(seed.queryRows("SELECT 1 FROM edges WHERE kind = 'tested_by'")).toHaveLength(withReport ? 1 : 0);
     seed.close();
     chmodSync(dbPath, 0o444);
     const store = new SqliteGraphStore(dbPath);
     try {
       expect((await indexProject(projectRoot, store, { lspClientFactory: client })).errors).toBe(0);
+      expect(store.hasCoverageData()).toBe(withReport);
     } finally {
       store.close();
     }
