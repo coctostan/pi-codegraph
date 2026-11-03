@@ -26,6 +26,7 @@ function installFakeTsserver(root: string): string {
     "let inFlight = 0;",
     "let maxInFlight = 0;",
     "const opened = new Set();",
+    "let answered = 0;",
     "function send(msg){ process.stdout.write(JSON.stringify(msg) + '\\n'); }",
     "process.stdin.setEncoding('utf8');",
     "let buffer = '';",
@@ -51,7 +52,8 @@ function installFakeTsserver(root: string): string {
     "      else if (msg.command === 'implementation') send({ type: 'response', request_seq: msg.seq, success: true, body: [{ file: 'src/impl.ts', start: { line: 2, offset: 14 } }] });",
     "      else if (msg.command === 'debugMaxInFlight') send({ type: 'response', request_seq: msg.seq, success: true, body: { maxInFlight } });",
     "      else send({ type: 'response', request_seq: msg.seq, success: false, message: 'unknown command' });",
-    "    }, 30);",
+    // The first answer waits on the project load, as tsserver's does.
+    "    }, answered++ === 0 ? 300 : 30);",
     "  }",
     "});",
   ].join("\n");
@@ -89,6 +91,12 @@ test("the first request of a process opens its file before asking", async () => 
   await client.shutdown();
 });
 
+test("the first request of a process waits out the project load past its timeout", async () => {
+  const client = new TsServerClient(projectRoot, { tsserverPath: fakeTsserverPath, timeoutMs: 80 });
+  expect((await client.definition("src/impl.ts", 4, 5))?.file).toBe("src/api.ts");
+  await client.shutdown();
+});
+
 test("AC2/AC3: idle shutdown then respawn on next request", async () => {
   const client = new TsServerClient(projectRoot, { idleMs: 50, timeoutMs: 5_000, tsserverPath: fakeTsserverPath });
 
@@ -122,7 +130,7 @@ test("AC5: pending requests are rejected if process crashes", async () => {
 
 test("AC6: request timeout rejects without killing process", async () => {
   const client = new TsServerClient(projectRoot, { tsserverPath: fakeTsserverPath, timeoutMs: 80 });
-
+  await client.definition("src/impl.ts", 4, 5); // past the project load's grace
   await expect(client.rawRequestForTest("slowDefinition", { file: "src/impl.ts", line: 4, offset: 5 })).rejects.toThrow(
     "TsServer request timed out: slowDefinition",
   );

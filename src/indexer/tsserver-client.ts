@@ -39,8 +39,9 @@ export class TsServerClient implements ITsServerClient {
   private startPromise: Promise<void> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private stdoutBuffer = "";
-  private lastSpawnAt = 0;
-  private readonly startupGraceMs = 250;
+  /** Set at spawn: the next request waits for tsserver to load the project, which can take seconds. */
+  private loadingProject = false;
+  private readonly projectLoadGraceMs = 60_000;
 
   constructor(private readonly projectRoot: string, options: TsServerClientOptions = {}) {
     this.idleMs = options.idleMs ?? 30_000;
@@ -89,7 +90,7 @@ export class TsServerClient implements ITsServerClient {
       const onSpawn = () => {
         proc.removeListener("error", onError);
         this.proc = proc;
-        this.lastSpawnAt = Date.now();
+        this.loadingProject = true;
         proc.stdout?.setEncoding("utf8");
         proc.stdout?.on("data", (chunk: string) => this.onStdout(chunk));
         proc.once("exit", () => {
@@ -183,7 +184,8 @@ export class TsServerClient implements ITsServerClient {
 
       return new Promise<T>((resolveReq, rejectReq) => {
         const seq = ++this.seq;
-        const startupGrace = Date.now() - this.lastSpawnAt < this.startupGraceMs ? this.startupGraceMs : 0;
+        const startupGrace = this.loadingProject ? this.projectLoadGraceMs : 0;
+        this.loadingProject = false;
         const timer = setTimeout(() => {
           this.pending.delete(seq);
           rejectReq(new Error(`TsServer request timed out: ${command}`));
