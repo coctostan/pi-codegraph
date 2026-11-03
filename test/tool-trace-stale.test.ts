@@ -28,7 +28,7 @@ test("trace marks stale and unresolved stored steps without failing the whole tr
     });
 
     const output = traceResult({ entry: "prodTest", file: "src/app.test.ts", store, projectRoot }).text;
-    expect(output).toContain("mode: coverage [stale]");
+    expect(output).toMatch(/^mode: coverage \(.*\) \[stale\]$/m);
     expect(output).toMatch(/src\/app\.test\.ts  1:[0-9a-f]{3}/);
     expect(output).not.toMatch(/src\/app\.test\.ts:1:[0-9a-f]{4}/);
     expect(output).toContain("[stale]");

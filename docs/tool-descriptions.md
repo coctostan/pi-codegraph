@@ -14,7 +14,7 @@ Tool descriptions exist to help the model decide whether to call a tool. Keep th
 - `Summarize a symbol with relationships, tests, and key metadata.`
 - `Run a Cypher-subset query against the symbol graph.`
 - `Classify blast radius for changed symbols.`
-- `Return the call tree below an entry point, or a covering test's recorded path when coverage has one.`
+- `Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.`
 
 ## Bad
 - `Execute a Cypher subset query against the graph. Examples: MATCH ...`

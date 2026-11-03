@@ -29,7 +29,7 @@ Tools → Query Engine → Graph Store (SQLite) → Indexing Pipeline (5 layers)
 1. tree-sitter — AST parse → nodes + direct call/import edges
 2. LSP (tsserver) — resolve references, upgrade edge confidence
 3. ast-grep — framework pattern rules (Express routes, React renders, etc.)
-4. V8 test coverage — `tested_by` edges, execution traces
+4. V8 test coverage — `tested_by` edges, each test's covered functions
 5. git co-change — correlated symbol changes from commit history
 
 Incremental: content hashes per file, only re-index what changed.
@@ -39,7 +39,7 @@ Incremental: content hashes per file, only re-index what changed.
 | Tool | Purpose |
 |------|---------|
 | `symbol_graph` | Given a symbol, return its compact card (signature, tests, key relationships, signals); `include` adds the full neighborhood, contract or anchored source |
-| `trace` | Given an entry point (function, endpoint, test), return its call tree in call-site order, or a covering test's recorded path |
+| `trace` | Given an entry point (function, endpoint, test), return its call tree in call-site order, or the functions a covering test's coverage report covered, by file and line |
 | `impact` | Given changed symbols, return classified dependents (breaking/behavioral) and the tests reached |
 
 A lookup that resolves to no symbol, or to several, returns `isError: true` with the message and any candidate matches. A new capability extends one of the three before it earns a tool of its own ([decision 0001](space/decisions/0001-three-tool-public-surface.md)).

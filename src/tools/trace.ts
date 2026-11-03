@@ -194,7 +194,9 @@ function formatFileScopedMiss(name: string, requestedFile: string, nodes: GraphN
 }
 
 function formatModeHeader(mode: "coverage" | "static", stale = false): string {
-  const base = mode === "coverage" ? "mode: coverage" : "mode: static (heuristic, no runtime evidence)";
+  const base = mode === "coverage"
+    ? "mode: coverage (the test, then every function its report covered, by file and line, not call order)"
+    : "mode: static (heuristic, no runtime evidence)";
   return `${base}${stale ? " [stale]" : ""}`;
 }
 
