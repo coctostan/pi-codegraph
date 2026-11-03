@@ -8,7 +8,7 @@ import { formatAmbiguousMatches } from "./symbol-resolution.js";
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
 export type ImpactClassification = "breaking" | "behavioral";
 
-export interface CollectImpactParams {
+interface CollectImpactParams {
   /** The changed nodes, already resolved from the requested names. */
   seeds: GraphNode[];
   changeType: ChangeType;
@@ -17,7 +17,7 @@ export interface CollectImpactParams {
 }
 
 /** A dependent reached at its shallowest depth, with the edge that first reached it. */
-export interface ImpactItem {
+interface ImpactItem {
   node: GraphNode;
   depth: number;
   classification: ImpactClassification;
@@ -47,7 +47,7 @@ function compareItems(a: ImpactItem, b: ImpactItem): number {
 }
 
 /** Callers and implementors of the seeds, breadth-first up to `maxDepth`, by depth then file then line. */
-export function collectImpact(params: CollectImpactParams): ImpactItem[] {
+function collectImpact(params: CollectImpactParams): ImpactItem[] {
   const { seeds, changeType, store, maxDepth = 5 } = params;
   if (changeType === "addition") return [];
 

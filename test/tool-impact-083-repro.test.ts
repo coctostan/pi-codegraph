@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import { collectImpact, impactResult } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
 function setup() {
   const projectRoot = join(tmpdir(), `pi-cg-impact-083-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -82,18 +82,20 @@ test("BUG #073 + #074: impact on an interface with implementors returns the impl
   }
 });
 
-test("BUG #074: impact on an interface traverses implements edges via collectImpact", () => {
+test("BUG #074: impact on an interface lists implementors and their callers by depth", () => {
   const { projectRoot, store } = setup();
   try {
-    const hits = collectImpact({
-      seeds: store.findNodes("Store"),
+    const out = impactResult({
+      symbols: ["Store"],
       changeType: "signature_change",
       store,
+      projectRoot,
       maxDepth: 5,
-    });
-    expect(hits).toMatchObject([
-      { node: { id: "src/iface.ts::MyStore:2", name: "MyStore", file: "src/iface.ts" }, depth: 1, classification: "breaking" },
-      { node: { id: "src/iface.ts::useStore:3", name: "useStore", file: "src/iface.ts" }, depth: 2, classification: "behavioral" },
+    }).text;
+    const rows = out.split("\n").filter((line) => / depth:\d/.test(line));
+    expect(rows).toEqual([
+      expect.stringMatching(/^src\/iface\.ts  2:[0-9a-f]{3}  MyStore  breaking  depth:1( \[stale\])?$/),
+      expect.stringMatching(/^src\/iface\.ts  3:[0-9a-f]{3}  useStore  behavioral  depth:2( \[stale\])?$/),
     ]);
   } finally {
     store.close();
