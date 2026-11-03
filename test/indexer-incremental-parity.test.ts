@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { diffGraphs, snapshotGraph } from "../bench/index-parity.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { resolveMissingCallers } from "../src/indexer/lsp-resolver.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 
@@ -200,15 +201,13 @@ test("a resolver marker into a removed file lists no file", async () => {
   copyFileSync(db("baseline"), db("incremental"));
   const store = new SqliteGraphStore(db("incremental"));
   try {
-    // As `resolveMissingCallers` marks `helper` resolved, from a node of no file.
-    const helper = store.findNodes("helper", "src/lib.ts")[0]!;
-    store.addNode({ id: "__meta__::resolver::callers::x", kind: "module", name: "m", file: "__meta__/resolver", start_line: 1, end_line: 1, content_hash: "meta" });
-    store.addEdge({ source: "__meta__::resolver::callers::x", target: helper.id, kind: "imports", provenance: { source: "lsp", confidence: 1, evidence: "resolved:callers", content_hash: "meta" }, created_at: 0 });
+    await resolveMissingCallers(store.findNodes("helper", "src/lib.ts")[0]!, store, root, nameResolvingClient(root));
   } finally {
     store.close();
   }
   await index(db("incremental"));
-  expect(fileStats(db("incremental")).listed).not.toContain("__meta__/resolver");
+  const listed = Object.keys(FILES).filter((f) => f !== "src/lib.ts").sort();
+  expect(fileStats(db("incremental"))).toEqual({ listed, total: listed.length, stale: 0 });
 });
 
 // Root reads any file, so the unreadable caller below would read.

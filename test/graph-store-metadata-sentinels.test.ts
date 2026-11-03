@@ -4,11 +4,14 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { GIT_HEAD_METADATA_KEY, SqliteGraphStore } from "../src/graph/sqlite.js";
+import { GIT_HEAD_METADATA_KEY, resolverMarkerKey, SqliteGraphStore } from "../src/graph/sqlite.js";
+import type { GraphNode } from "../src/graph/types.js";
 import { runGitCoChangeStage } from "../src/indexer/git.js";
+import { resolveImplementations, resolveMissingCallers } from "../src/indexer/lsp-resolver.js";
+import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 
 /** Keys the index once kept in its content tables as sentinel rows. */
-const SENTINELS = ["__git_cochange_head__"];
+const SENTINELS = ["__git_cochange_head__", "__meta__"];
 
 /** Every `nodes`, `edges` or `file_hashes` row naming a sentinel key. */
 function sentinelRows(store: SqliteGraphStore): unknown[] {
@@ -35,15 +38,20 @@ function withDir(fn: (dir: string) => void | Promise<void>): Promise<void> | voi
   }
 }
 
-/** A current-schema db whose git stage wrote its head as a `file_hashes` row, as before index-honesty (The index says when it lost data). */
+/**
+ * A current-schema db holding, as before index-honesty (The index says when it lost data), the git head as a `file_hashes`
+ * row and a resolver marker as a node with an edge into its symbol.
+ */
 function seedPreArcDb(dbPath: string): void {
   new SqliteGraphStore(dbPath).close();
   const raw = new Database(dbPath);
   raw.run("INSERT INTO file_hashes (file, hash, indexed_at, partial) VALUES ('src/x.ts', 'h', 1, 0), ('__git_cochange_head__', 'abc', 1, 0)");
+  raw.run("INSERT INTO nodes (id, kind, name, file, start_line, end_line, content_hash) VALUES ('src/x.ts::x:1', 'function', 'x', 'src/x.ts', 1, 1, 'h'), ('__meta__::resolver::callers::src/x.ts::x:1', 'module', '__meta__::resolver::callers::src/x.ts::x:1', '__meta__/resolver', 1, 1, 'meta')");
+  raw.run("INSERT INTO edges (source, target, kind, provenance_source, confidence, evidence, content_hash, created_at) VALUES ('__meta__::resolver::callers::src/x.ts::x:1', 'src/x.ts::x:1', 'imports', 'lsp', 1, 'resolved:callers', 'meta', 1)");
   raw.close();
 }
 
-test("a db holding the git head as a file_hashes row moves it to graph_metadata on open", () => {
+test("a db from before the arc moves the git head to graph_metadata and drops its resolver markers on open", () => {
   withDir((dir) => {
     const dbPath = join(dir, "graph.db");
     seedPreArcDb(dbPath);
@@ -53,10 +61,38 @@ test("a db holding the git head as a file_hashes row moves it to graph_metadata 
       expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBe("abc");
       expect(store.listFiles()).toEqual(["src/x.ts"]);
       expect(store.getFileHash("src/x.ts")).toBe("h");
+      expect(store.getNodesByFile("src/x.ts").map((n) => n.id)).toEqual(["src/x.ts::x:1"]);
     } finally {
       store.close();
     }
   });
+});
+
+test("the resolver keeps its markers in graph_metadata, out of every content table", async () => {
+  const store = new SqliteGraphStore();
+  try {
+    const node: GraphNode = { id: "src/x.ts::x:1", kind: "interface", name: "x", file: "src/x.ts", start_line: 1, end_line: 1, content_hash: "h" };
+    store.addNode(node);
+    const asked: string[] = [];
+    const client: ITsServerClient = {
+      async definition() { return null; },
+      async references() { asked.push("references"); return []; },
+      async implementations() { asked.push("implementations"); return []; },
+      async shutdown() {},
+    };
+    for (let run = 0; run < 2; run++) {
+      await resolveMissingCallers(node, store, "/nowhere", client);
+      await resolveImplementations(node, store, "/nowhere", client);
+    }
+    expect(asked).toEqual(["references", "implementations"]);
+    expect(sentinelRows(store)).toEqual([]);
+    expect(store.queryRows("SELECT id FROM nodes")).toEqual([{ id: node.id }]);
+    expect(store.queryRows("SELECT 1 FROM edges")).toEqual([]);
+    expect(store.getMetadata(resolverMarkerKey("callers", node.id))).toBe("1");
+    expect(store.getMetadata(resolverMarkerKey("implementations", node.id))).toBe("1");
+  } finally {
+    store.close();
+  }
 });
 
 test("the git stage keeps its head in graph_metadata, out of every content table", async () => {
@@ -108,12 +144,13 @@ function withReadOnlyPreArcDb(fn: (dbPath: string) => void): void {
   });
 }
 
-// Accepted limit: a read-only db can't move the row, so it opens as is and lists the row as a file.
+// Accepted limit: a read-only db can't move the row or drop the markers, so it opens as is, listing the row as a file.
 test("a read-only pre-arc db opens as is", () => {
   withReadOnlyPreArcDb((dbPath) => {
     const store = new SqliteGraphStore(dbPath);
     try {
       expect(store.listFiles()).toEqual(["__git_cochange_head__", "src/x.ts"]);
+      expect(store.queryRows("SELECT id FROM nodes WHERE content_hash = 'meta'")).toHaveLength(1);
     } finally {
       store.close();
     }

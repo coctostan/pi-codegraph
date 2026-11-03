@@ -1,39 +1,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
+import { resolverMarkerKey } from "../graph/sqlite.js";
 import type { GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
-function markerNodeId(kind: "callers" | "implementations", symbolId: string): string {
-  return `__meta__::resolver::${kind}::${symbolId}`;
-}
-
 function hasMarker(store: GraphStore, kind: "callers" | "implementations", symbol: GraphNode): boolean {
-  const id = markerNodeId(kind, symbol.id);
-  if (store.getNode(id) === null) return false;
-  // After a file re-index the marker node survives but its outbound edge is deleted.
-  // Only treat the marker as valid when the edge still points to the symbol.
-  return store.getEdgesBySource(id).some((e) => e.target === symbol.id);
+  return store.getMetadata(resolverMarkerKey(kind, symbol.id)) !== null;
 }
 
 function setMarker(store: GraphStore, kind: "callers" | "implementations", symbol: GraphNode): void {
-  const id = markerNodeId(kind, symbol.id);
-  store.addNode({
-    id,
-    kind: "module",
-    name: id,
-    file: "__meta__/resolver",
-    start_line: 1,
-    end_line: 1,
-    content_hash: "meta",
-  });
-  store.addEdge({
-    source: id,
-    target: symbol.id,
-    kind: "imports",
-    provenance: { source: "lsp", confidence: 1, evidence: `resolved:${kind}`, content_hash: "meta" },
-    created_at: Date.now(),
-  });
+  store.setMetadata(resolverMarkerKey(kind, symbol.id), "1");
 }
 
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {

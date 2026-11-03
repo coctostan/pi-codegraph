@@ -127,8 +127,7 @@ export async function indexProject(
         "SELECT DISTINCT s.file FROM edges e JOIN nodes s ON s.id = e.source JOIN nodes t ON t.id = e.target WHERE t.file = ? AND e.provenance_source NOT IN ('git', 'coverage')",
         [oldFile],
       )) {
-        // A `__meta__` marker is no file.
-        if (currentRel.has(file)) store.setFileHash(file, "");
+        store.setFileHash(file, "");
       }
       store.deleteFile(oldFile);
       removed++;
@@ -159,8 +158,6 @@ export async function indexProject(
     "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source <> 'coverage' AND SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
   );
   for (const { file } of dangling) {
-    // A `__meta__` marker is no file.
-    if (!currentRel.has(file)) continue;
     try {
       const content = readFileSync(join(projectRoot, file), "utf8");
       extractInto(file, content, sha256Hex(content));

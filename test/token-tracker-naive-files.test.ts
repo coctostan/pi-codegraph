@@ -13,6 +13,18 @@ test("collectNaiveFiles for symbol_graph returns target + neighbor files", () =>
   } finally { store.close(); }
 });
 
+test("collectNaiveFiles counts a root __tests__ file", () => {
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: "h1", is_exported: true });
+    store.addNode({ id: "__tests__/x.ts::x:1", kind: "test", name: "x", file: "__tests__/x.ts", start_line: 1, end_line: 1, content_hash: "h2" });
+    store.addEdge({ source: "__tests__/x.ts::x:1", target: "src/a.ts::foo:1", kind: "calls", provenance: { source: "tree-sitter", confidence: 0.5, evidence: "call", content_hash: "h2" }, created_at: Date.now() });
+    expect(collectNaiveFiles("symbol_graph", { name: "foo" }, store).sort()).toEqual(["__tests__/x.ts", "src/a.ts"]);
+    expect(collectNaiveFiles("impact", { symbols: ["foo"] }, store).sort()).toEqual(["__tests__/x.ts", "src/a.ts"]);
+    expect(collectNaiveFiles("trace", { entry: "x" }, store).sort()).toEqual(["__tests__/x.ts", "src/a.ts"]);
+  } finally { store.close(); }
+});
+
 test("collectNaiveFiles for impact returns downstream files", () => {
   const store = new SqliteGraphStore();
   try {

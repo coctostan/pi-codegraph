@@ -101,7 +101,6 @@ function renderNeighborhoodBody(params: SymbolGraphParams, node: GraphNode): str
   const buckets = new Map<string, NeighborResult[]>();
     const unresolvedResults: NeighborResult[] = [];
   for (const nr of allNeighbors) {
-    if (nr.node.file.startsWith("__meta__")) continue;
     if (nr.node.file.startsWith("__unresolved__")) {
       unresolvedResults.push(nr);
       continue;
@@ -152,7 +151,6 @@ function collectVisibleNeighborhoodScope(params: SymbolGraphParams, node: GraphN
   const unresolvedResults: NeighborResult[] = [];
 
   for (const nr of params.store.getNeighbors(node.id)) {
-    if (nr.node.file.startsWith("__meta__")) continue;
     if (nr.node.file.startsWith("__unresolved__")) {
       unresolvedResults.push(nr);
       continue;
@@ -197,7 +195,7 @@ function collectDefaultCardScope(params: SymbolGraphParams, node: GraphNode): {
   resultEdges: GraphEdge[];
 } {
   const allNeighbors = params.store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__meta__") && !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !nr.node.file.startsWith("__unresolved__"),
   );
   const tests = allNeighbors.filter((nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id);
   const allCallers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id);

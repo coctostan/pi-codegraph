@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { resolverMarkerKey, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { nodeId } from "../src/graph/types.js";
 import { resolveMissingCallers, resolveImplementations } from "../src/indexer/lsp-resolver.js";
 import type { ITsServerClient, LspLocation } from "../src/indexer/tsserver-client.js";
@@ -93,7 +93,7 @@ test("resolveMissingCallers ignores self-reference at declaration location", asy
   store.close();
 });
 
-test("resolveMissingCallers re-resolves after file re-index (stale marker edge cleared)", async () => {
+test("resolveMissingCallers re-resolves after file re-index (stale marker cleared)", async () => {
   const store = new SqliteGraphStore();
 
   const target = {
@@ -136,13 +136,13 @@ test("resolveMissingCallers re-resolves after file re-index (stale marker edge c
   await resolveMissingCallers(target, store, "/project", client);
   expect(calls).toBe(1);
 
-  // Simulate file re-index: deleteFile removes symbol node and all non-agent edges
-  // (including the marker→symbol edge), then re-adds the symbol.
+  // Simulate file re-index: deleteFile removes the symbol node, its edges and its resolver markers,
+  // then re-adds the symbol.
   store.deleteFile("src/api.ts");
   store.addNode(target);
   store.addNode(caller);
 
-  // Second resolution — marker node exists but edge was deleted → should re-resolve
+  // Second resolution — the marker went with the file → should re-resolve
   await resolveMissingCallers(target, store, "/project", client);
   expect(calls).toBe(2); // must NOT be blocked by stale marker
 
@@ -299,24 +299,7 @@ test("resolveImplementations removes stale persisted lsp implements edges when m
     created_at: Date.now(),
   });
 
-  const markerId = `__meta__::resolver::implementations::${iface.id}`;
-  store.addNode({
-    id: markerId,
-    kind: "module",
-    name: markerId,
-    file: "__meta__/resolver",
-    start_line: 1,
-    end_line: 1,
-    content_hash: "meta",
-    is_exported: false,
-  });
-  store.addEdge({
-    source: markerId,
-    target: iface.id,
-    kind: "imports",
-    provenance: { source: "lsp", confidence: 1, evidence: "resolved:implementations", content_hash: "meta" },
-    created_at: Date.now(),
-  });
+  store.setMetadata(resolverMarkerKey("implementations", iface.id), "1");
 
   const client: ITsServerClient = {
     async implementations(): Promise<LspLocation[]> {

@@ -3,10 +3,12 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { resolveMissingCallers } from "../src/indexer/lsp-resolver.js";
+import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 import { symbolCard } from "../src/tools/symbol-card.js";
 import { sha256Hex } from "../src/indexer/tree-sitter.js";
 
-test("symbolCard filters out __meta__ and __unresolved__ neighbors from relationships", () => {
+test("symbolCard shows no resolver marker and no __unresolved__ neighbor among relationships", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-sc-meta-${Date.now()}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
 
@@ -18,8 +20,6 @@ test("symbolCard filters out __meta__ and __unresolved__ neighbors from relation
     const hash = sha256Hex(fileContent);
 
     store.addNode({ id: "src/a.ts::foo:1", kind: "function", name: "foo", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: hash });
-    // Internal meta node
-    store.addNode({ id: "__meta__/resolver::resolver::callers::src/a.ts::foo:1", kind: "function", name: "resolver_marker", file: "__meta__/resolver", start_line: 1, end_line: 1, content_hash: "fake" });
     // Unresolved import target
     store.addNode({ id: "__unresolved__::bar:0", kind: "function", name: "bar", file: "__unresolved__", start_line: 0, end_line: 0, content_hash: "fake" });
 
@@ -28,18 +28,20 @@ test("symbolCard filters out __meta__ and __unresolved__ neighbors from relation
       provenance: { source: "tree-sitter", confidence: 0.3, evidence: "call", content_hash: hash },
       created_at: Date.now(),
     });
-    store.addEdge({
-      source: "__meta__/resolver::resolver::callers::src/a.ts::foo:1", target: "src/a.ts::foo:1", kind: "calls",
-      provenance: { source: "lsp", confidence: 0.8, evidence: "meta", content_hash: "fake" },
-      created_at: Date.now(),
-    });
+    // Marks `foo`'s callers resolved, as `symbol_graph` does.
+    const client: ITsServerClient = {
+      async definition() { return null; },
+      async references() { return []; },
+      async implementations() { return []; },
+      async shutdown() {},
+    };
+    await resolveMissingCallers(store.getNode("src/a.ts::foo:1")!, store, projectRoot, client);
 
     const output = symbolCard({ name: "foo", store, projectRoot });
 
     // Should NOT contain internal markers in output
-    expect(output).not.toContain("__meta__");
+    expect(output).not.toContain("resolver");
     expect(output).not.toContain("__unresolved__");
-    expect(output).not.toContain("resolver_marker");
     // Should NOT have Key Relationships since the only neighbors are internal
     expect(output).not.toContain("### Key Relationships");
 
