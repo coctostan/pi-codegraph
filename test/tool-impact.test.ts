@@ -1,10 +1,19 @@
 import { expect, test } from "bun:test";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphNode } from "../src/graph/types.js";
-import { collectImpact, type ImpactItem } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
 
-const rows = (items: ImpactItem[]) =>
-  items.map(({ node, depth, classification }) => ({ nodeId: node.id, name: node.name, file: node.file, depth, classification }));
+type ChangeType = Parameters<typeof impactResult>[0]["changeType"];
+
+// No files on disk: rows read `<line>:?` and `[stale]`, which these cases ignore.
+const ROW = /^(\S+)  \S+  (\S+)  (breaking|behavioral)  depth:(\d+)/;
+function rows(store: SqliteGraphStore, symbol: string, changeType: ChangeType, maxDepth = 5) {
+  const { text } = impactResult({ symbols: [symbol], changeType, store, projectRoot: "/nonexistent", maxDepth });
+  return text.split("\n").flatMap((line) => {
+    const m = ROW.exec(line);
+    return m ? [{ file: m[1], name: m[2], classification: m[3], depth: Number(m[4]) }] : [];
+  });
+}
 
 function addNode(store: SqliteGraphStore, node: GraphNode) {
   store.addNode(node);
@@ -25,7 +34,7 @@ function addCall(store: SqliteGraphStore, source: string, target: string) {
   });
 }
 
-test("collectImpact classifies direct and transitive dependents by change type", () => {
+test("impact classifies direct and transitive dependents by change type", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
@@ -35,38 +44,18 @@ test("collectImpact classifies direct and transitive dependents by change type",
     addCall(store, "src/a.ts::a:1", "src/lib.ts::shared:1");
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
 
-    const signature = collectImpact({
-      seeds: store.findNodes("shared"),
-      changeType: "signature_change",
-      store,
-      maxDepth: 5,
-    });
-    expect(rows(signature)).toEqual([
-      { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
-      { nodeId: "src/b.ts::b:1", name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
+    expect(rows(store, "shared", "signature_change")).toEqual([
+      { name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
+      { name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
     ]);
-
-    const removal = collectImpact({
-      seeds: store.findNodes("shared"),
-      changeType: "removal",
-      store,
-      maxDepth: 5,
-    });
-    expect(removal.map((item) => item.classification)).toEqual(["breaking", "behavioral"]);
-
-    const behavioral = collectImpact({
-      seeds: store.findNodes("shared"),
-      changeType: "behavior_change",
-      store,
-      maxDepth: 5,
-    });
-    expect(behavioral.map((item) => item.classification)).toEqual(["behavioral", "behavioral"]);
+    expect(rows(store, "shared", "removal").map((row) => row.classification)).toEqual(["breaking", "behavioral"]);
+    expect(rows(store, "shared", "behavior_change").map((row) => row.classification)).toEqual(["behavioral", "behavioral"]);
   } finally {
     store.close();
   }
 });
 
-test("collectImpact respects maxDepth", () => {
+test("impact respects maxDepth", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
@@ -75,36 +64,31 @@ test("collectImpact respects maxDepth", () => {
     addCall(store, "src/a.ts::a:1", "src/lib.ts::shared:1");
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
 
-    expect(
-      rows(collectImpact({ seeds: store.findNodes("shared"), changeType: "signature_change", store, maxDepth: 1 })),
-    ).toEqual([
-      { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
+    expect(rows(store, "shared", "signature_change", 1)).toEqual([
+      { name: "a", file: "src/a.ts", depth: 1, classification: "breaking" },
     ]);
-
-    expect(
-      collectImpact({ seeds: store.findNodes("shared"), changeType: "addition", store, maxDepth: 5 }),
-    ).toEqual([]);
   } finally {
     store.close();
   }
 });
 
-test("collectImpact returns no dependents for addition", () => {
+test("impact returns no dependents for addition", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
     addNode(store, { id: "src/a.ts::a:1", kind: "function", name: "a", file: "src/a.ts", start_line: 1, end_line: 1, content_hash: "h" });
     addCall(store, "src/a.ts::a:1", "src/lib.ts::shared:1");
 
+    expect(rows(store, "shared", "addition")).toEqual([]);
     expect(
-      collectImpact({ seeds: store.findNodes("shared"), changeType: "addition", store, maxDepth: 5 }),
-    ).toEqual([]);
+      impactResult({ symbols: ["shared"], changeType: "addition", store, projectRoot: "/nonexistent" }).text,
+    ).toContain("addition: impact analysis for additions is not yet supported");
   } finally {
     store.close();
   }
 });
 
-test("collectImpact terminates on cycles without duplicates", () => {
+test("impact terminates on cycles without duplicates", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
@@ -115,23 +99,16 @@ test("collectImpact terminates on cycles without duplicates", () => {
     addCall(store, "src/b.ts::b:1", "src/a.ts::a:1");
     addCall(store, "src/a.ts::a:1", "src/b.ts::b:1");
 
-    const result = collectImpact({
-      seeds: store.findNodes("shared"),
-      changeType: "behavior_change",
-      store,
-      maxDepth: 5,
-    });
-
-    expect(rows(result)).toEqual([
-      { nodeId: "src/a.ts::a:1", name: "a", file: "src/a.ts", depth: 1, classification: "behavioral" },
-      { nodeId: "src/b.ts::b:1", name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
+    expect(rows(store, "shared", "behavior_change")).toEqual([
+      { name: "a", file: "src/a.ts", depth: 1, classification: "behavioral" },
+      { name: "b", file: "src/b.ts", depth: 2, classification: "behavioral" },
     ]);
   } finally {
     store.close();
   }
 });
 
-test("collectImpact terminates on a 3-node cycle without duplicates", () => {
+test("impact terminates on a 3-node cycle without duplicates", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
@@ -144,18 +121,13 @@ test("collectImpact terminates on a 3-node cycle without duplicates", () => {
     addCall(store, "src/c.ts::c:1", "src/b.ts::b:1");
     addCall(store, "src/a.ts::a:1", "src/c.ts::c:1");
 
-    const result = collectImpact({ seeds: store.findNodes("shared"), changeType: "behavior_change", store, maxDepth: 10 });
-    expect(result.map((r) => r.node.id).sort()).toEqual([
-      "src/a.ts::a:1",
-      "src/b.ts::b:1",
-      "src/c.ts::c:1",
-    ]);
+    expect(rows(store, "shared", "behavior_change", 10).map((row) => row.name).sort()).toEqual(["a", "b", "c"]);
   } finally {
     store.close();
   }
 });
 
-test("collectImpact classification matrix (AC 34) across all change types", () => {
+test("impact classification matrix (AC 34) across all change types", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/lib.ts::shared:1", kind: "function", name: "shared", file: "src/lib.ts", start_line: 1, end_line: 1, content_hash: "h" });
@@ -170,8 +142,7 @@ test("collectImpact classification matrix (AC 34) across all change types", () =
     ] as const;
 
     for (const c of cases) {
-      const out = collectImpact({ seeds: store.findNodes("shared"), changeType: c.changeType, store, maxDepth: 5 });
-      expect(out.map((r) => r.classification)).toEqual(c.expected as any);
+      expect(rows(store, "shared", c.changeType).map((row) => row.classification)).toEqual([...c.expected]);
     }
   } finally {
     store.close();

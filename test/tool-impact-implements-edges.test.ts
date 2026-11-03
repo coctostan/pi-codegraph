@@ -1,7 +1,19 @@
 import { expect, test } from "bun:test";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphNode } from "../src/graph/types.js";
-import { collectImpact } from "../src/tools/impact.js";
+import { impactResult } from "../src/tools/impact.js";
+
+type ChangeType = Parameters<typeof impactResult>[0]["changeType"];
+
+// No files on disk: rows read `<line>:?` and `[stale]`, which these cases ignore.
+const ROW = /^(\S+)  \S+  (\S+)  (breaking|behavioral)  depth:(\d+)/;
+function rows(store: SqliteGraphStore, symbol: string, changeType: ChangeType) {
+  const { text } = impactResult({ symbols: [symbol], changeType, store, projectRoot: "/nonexistent", maxDepth: 5 });
+  return text.split("\n").flatMap((line) => {
+    const m = ROW.exec(line);
+    return m ? [{ file: m[1], name: m[2], classification: m[3], depth: Number(m[4]) }] : [];
+  });
+}
 
 function addNode(store: SqliteGraphStore, node: GraphNode) {
   store.addNode(node);
@@ -28,7 +40,7 @@ function addEdge(
   });
 }
 
-test("collectImpact follows inbound `implements` edges: interface change reaches implementors and their callers", () => {
+test("impact follows inbound `implements` edges: interface change reaches implementors and their callers", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/iface.ts::Store:1", kind: "interface", name: "Store", file: "src/iface.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
@@ -40,24 +52,22 @@ test("collectImpact follows inbound `implements` edges: interface change reaches
     // useStore calls MyStore
     addEdge(store, "src/app.ts::useStore:1", "src/impl.ts::MyStore:1", "calls", 0.7);
 
-    const sig = collectImpact({ seeds: store.findNodes("Store"), changeType: "signature_change", store, maxDepth: 5 });
-    expect(sig).toMatchObject([
-      { node: { id: "src/impl.ts::MyStore:1", name: "MyStore", file: "src/impl.ts" }, depth: 1, classification: "breaking" },
-      { node: { id: "src/app.ts::useStore:1", name: "useStore", file: "src/app.ts" }, depth: 2, classification: "behavioral" },
+    expect(rows(store, "Store", "signature_change")).toEqual([
+      { name: "MyStore", file: "src/impl.ts", depth: 1, classification: "breaking" },
+      { name: "useStore", file: "src/app.ts", depth: 2, classification: "behavioral" },
     ]);
 
-    const removal = collectImpact({ seeds: store.findNodes("Store"), changeType: "removal", store, maxDepth: 5 });
-    expect(removal.map((h) => h.node.name)).toEqual(["MyStore", "useStore"]);
-    expect(removal.find((h) => h.node.name === "MyStore")?.classification).toBe("breaking");
+    const removal = rows(store, "Store", "removal");
+    expect(removal.map((row) => row.name)).toEqual(["MyStore", "useStore"]);
+    expect(removal.find((row) => row.name === "MyStore")?.classification).toBe("breaking");
 
-    const behavioral = collectImpact({ seeds: store.findNodes("Store"), changeType: "behavior_change", store, maxDepth: 5 });
-    expect(behavioral.map((h) => h.classification)).toEqual(["behavioral", "behavioral"]);
+    expect(rows(store, "Store", "behavior_change").map((row) => row.classification)).toEqual(["behavioral", "behavioral"]);
   } finally {
     store.close();
   }
 });
 
-test("collectImpact deduplicates a node that both `calls` and `implements` a changed seed (AC #074.5)", () => {
+test("impact deduplicates a node that both `calls` and `implements` a changed seed (AC #074.5)", () => {
   const store = new SqliteGraphStore();
   try {
     addNode(store, { id: "src/iface.ts::Store:1", kind: "interface", name: "Store", file: "src/iface.ts", start_line: 1, end_line: 1, content_hash: "h", is_exported: true });
@@ -67,13 +77,10 @@ test("collectImpact deduplicates a node that both `calls` and `implements` a cha
     addEdge(store, "src/dual.ts::Dual:1", "src/iface.ts::Store:1", "implements", 0.9);
     addEdge(store, "src/dual.ts::Dual:1", "src/iface.ts::Store:1", "calls", 0.6);
 
-    const hits = collectImpact({ seeds: store.findNodes("Store"), changeType: "signature_change", store, maxDepth: 5 });
-    // No duplicates for Dual.
-    expect(hits.filter((h) => h.node.id === "src/dual.ts::Dual:1")).toHaveLength(1);
-    // It must be classified as the breaking dependent at depth 1.
-    const dual = hits.find((h) => h.node.id === "src/dual.ts::Dual:1")!;
-    expect(dual.depth).toBe(1);
-    expect(dual.classification).toBe("breaking");
+    // One breaking row for Dual, at depth 1.
+    expect(rows(store, "Store", "signature_change")).toEqual([
+      { name: "Dual", file: "src/dual.ts", depth: 1, classification: "breaking" },
+    ]);
   } finally {
     store.close();
   }
