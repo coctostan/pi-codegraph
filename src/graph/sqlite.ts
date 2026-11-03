@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import type { GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
+import type { FailedLookup, GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string): any {
@@ -121,6 +121,12 @@ export class SqliteGraphStore implements GraphStore {
       CREATE TABLE IF NOT EXISTS graph_metadata (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS failed_lookups (
+        source TEXT NOT NULL,
+        evidence TEXT NOT NULL,
+        PRIMARY KEY (source, evidence)
       );
 
       CREATE TABLE IF NOT EXISTS schema_version (
@@ -449,6 +455,20 @@ export class SqliteGraphStore implements GraphStore {
   setMetadata(key: string, value: string | null): void {
     if (value === null) this.db.prepare(`DELETE FROM graph_metadata WHERE key = ?`).run(key);
     else this.db.prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`).run(key, value);
+  }
+
+  getFailedLookups(): FailedLookup[] {
+    try {
+      return this.db.prepare(`SELECT source, evidence FROM failed_lookups ORDER BY source, evidence`).all() as FailedLookup[];
+    } catch {
+      // A db opened read-only before the table existed can't gain it, so it records none.
+      return [];
+    }
+  }
+
+  setLookupFailed(source: string, evidence: string, failed: boolean): void {
+    if (failed) this.db.prepare(`INSERT OR IGNORE INTO failed_lookups (source, evidence) VALUES (?, ?)`).run(source, evidence);
+    else this.db.prepare(`DELETE FROM failed_lookups WHERE source = ? AND evidence = ?`).run(source, evidence);
   }
   hasCoverageData(): boolean {
     try {

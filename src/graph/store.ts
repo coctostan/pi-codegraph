@@ -62,5 +62,14 @@ export interface GraphStore {
   getMetadata(key: string): string | null;
   /** Set a `graph_metadata` value or, with null, delete it. */
   setMetadata(key: string, value: string | null): void;
+  /** The calls whose last `definition` lookup timed out or errored, by the edge's source and evidence. */
+  getFailedLookups(): FailedLookup[];
+  /** Record, or with `false` clear, a failed lookup for the call `source` makes at `evidence`. */
+  setLookupFailed(source: string, evidence: string, failed: boolean): void;
   close(): void;
+}
+
+export interface FailedLookup {
+  source: string;
+  evidence: string;
 }
