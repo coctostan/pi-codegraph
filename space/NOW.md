@@ -1,5 +1,5 @@
 # Now
-- [bench-holes](arcs/bench-holes.md) (Close the holes the bench exposed): graph holes fixed, output trimmed; the 36-cell on-arm re-run reads `freeze` in decision 0003, missing all three targets; close stopped again, on done-when 5: `trace` promises a test's recorded path where coverage mode prints the report's covered functions in source order; active: slice 15 (Say what coverage trace prints), then `close`
+- [bench-holes](arcs/bench-holes.md) (Close the holes the bench exposed): graph holes fixed, output trimmed; the 36-cell on-arm re-run reads `freeze` in decision 0003, missing all three targets; close stopped on done-when 5, fixed by slice 15 (Say what coverage trace prints) (`c85717ca`); every slice done, next `close` in a fresh session
 
 ## Next
 - First, ahead of the description tuning below: on an existing index, editing a file drops every `calls` edge into it from unchanged files while `Trust:` still reads `fresh` (bench-holes (Close the holes the bench exposed), from slice 14 (Stop exporting impact's traversal)). Shape it as an arc starting with `diagnose` and a failing test (index, edit a callee's file, assert its inbound edges survive); tuning pick rate first would send agents to a graph that is wrong after their own edits.
