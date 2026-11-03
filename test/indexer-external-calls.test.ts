@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 
 const calleesOf = (source: string, fn: string): string[] =>
@@ -148,7 +148,7 @@ test("a db at schema_version 1 re-extracts every file once, then keeps its hashe
     }
     const after = new Database(dbPath);
     try {
-      expect(after.prepare("SELECT version FROM schema_version").all()).toEqual([{ version: 2 }]);
+      expect(after.prepare("SELECT version FROM schema_version").all()).toEqual([{ version: SCHEMA_VERSION }]);
     } finally {
       after.close();
     }

@@ -17,8 +17,9 @@ function openDb(path: string): any {
 /**
  * The extractor's output version. Bump it with any change to what indexing writes for unchanged source, so an
  * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
+ * 3 re-extracts indexes whose incremental runs, before index-parity, kept stale edges or dropped live ones.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 /** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
 export const GIT_HEAD_KEY = "__git_cochange_head__";
 
