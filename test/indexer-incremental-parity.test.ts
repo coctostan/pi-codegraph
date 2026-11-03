@@ -103,17 +103,39 @@ test("the baseline holds an edge of every stage", () => {
   }
 });
 
-const EDITS: Array<[name: string, edit: (lib: string) => string]> = [
-  ["control", (t) => t],
-  ["comment append", (t) => `${t}// appended\n`],
-  ["line shift", (t) => `\n${t}`],
-  ["callee rename", (t) => t.replace("function helper(", "function helperRenamed(")],
+const rewrite = (file: string, edit: (text: string) => string) => () => writeFileSync(join(root, file), edit(readFileSync(join(root, file), "utf8")));
+const shiftLib = rewrite("src/lib.ts", (t) => `\n${t}`);
+
+const EDITS: Array<[name: string, apply: () => void]> = [
+  ["control", () => {}],
+  ["comment append to src/lib.ts", rewrite("src/lib.ts", (t) => `${t}// appended\n`)],
+  ["line shift in src/lib.ts", shiftLib],
+  ["callee rename in src/lib.ts", rewrite("src/lib.ts", (t) => t.replace("function helper(", "function helperRenamed("))],
+  // Moves the test node a `tested_by` edge from src/lib.ts points at.
+  ["line shift in src/lib.test.ts", rewrite("src/lib.test.ts", (t) => `\n${t}`)],
+  // src/use.ts calls into src/lib.ts: its edges dangle, but it is gone, so it is deleted rather than re-extracted.
+  ["line shift in src/lib.ts with src/use.ts removed", () => { shiftLib(); rmSync(join(root, "src/use.ts")); }],
 ];
 
-test.each(EDITS)("an incremental re-index after a %s to src/lib.ts equals a fresh index", async (_name, edit) => {
+test("a run with nothing changed re-extracts no file", async () => {
   git("checkout", "-q", "--", ".");
-  const lib = join(root, "src/lib.ts");
-  writeFileSync(lib, edit(readFileSync(lib, "utf8")));
+  copyFileSync(db("baseline"), db("incremental"));
+  await index(db("incremental"));
+  // The coverage stage rewrites its edges every run; a re-extracted file would rewrite its own.
+  const stamps = (path: string) => {
+    const store = new SqliteGraphStore(path);
+    try {
+      return store.queryRows("SELECT source, target, kind, provenance_source, created_at FROM edges WHERE provenance_source <> 'coverage' ORDER BY 1, 2, 3, 4");
+    } finally {
+      store.close();
+    }
+  };
+  expect(stamps(db("incremental"))).toEqual(stamps(db("baseline")));
+});
+
+test.each(EDITS)("an incremental re-index after %s equals a fresh index", async (_name, apply) => {
+  git("checkout", "-q", "--", ".");
+  apply();
   copyFileSync(db("baseline"), db("incremental"));
   await index(db("incremental"));
   rmSync(db("fresh"), { force: true });
