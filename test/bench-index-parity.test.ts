@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { diffGraphs, EDITS, report, runParity, snapshotGraph, type Edit } from "../bench/index-parity.js";
+import { diffGraphs, EDITS, main, report, snapshotGraph, type Edit } from "../bench/index-parity.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import type { GraphEdge } from "../src/graph/types.js";
 
@@ -80,7 +80,8 @@ test("each scripted edit applies to this repo's src/ and refuses a tree without 
   }
 });
 
-test("runParity fails a tree edited differently on each side, then resets both to pass an unedited one, leaving no worktree behind", async () => {
+/** A git repo of `files` in one commit; `run` gets its path and that commit, and the repo is removed afterwards. */
+async function withRepo(files: Record<string, string>, run: (repo: string, commit: string, git: (...args: string[]) => string) => Promise<void>) {
   const repo = mkdtempSync(join(tmpdir(), "cg-parity-repo-"));
   const git = (...args: string[]) => {
     const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo, encoding: "utf8" });
@@ -88,14 +89,38 @@ test("runParity fails a tree edited differently on each side, then resets both t
     return r.stdout.trim();
   };
   try {
-    mkdirSync(join(repo, "src"));
     git("init", "-q");
-    writeFileSync(join(repo, "src", "a.ts"), "export function alpha() {\n  return beta();\n}\nexport function beta() {\n  return 1;\n}\n");
-    writeFileSync(join(repo, "src", "b.ts"), 'import { alpha } from "./a";\nexport function gamma() {\n  return alpha();\n}\n');
+    for (const [file, text] of Object.entries(files)) {
+      mkdirSync(join(repo, file, ".."), { recursive: true });
+      writeFileSync(join(repo, file), text);
+    }
     git("add", ".");
     git("commit", "-qm", "one");
-    const commit = git("rev-parse", "HEAD");
+    await run(repo, git("rev-parse", "HEAD"), git);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+}
 
+/** `main`'s exit code with what it printed to stdout and stderr. */
+async function capture(run: () => Promise<number>) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const spies = [spyOn(console, "log").mockImplementation((l) => void out.push(String(l))), spyOn(console, "error").mockImplementation((l) => void err.push(String(l)))];
+  try {
+    return { code: await run(), out, err };
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
+}
+
+const CALLING = {
+  "src/a.ts": "export function alpha() {\n  return beta();\n}\nexport function beta() {\n  return 1;\n}\n",
+  "src/b.ts": 'import { alpha } from "./a";\nexport function gamma() {\n  return alpha();\n}\n',
+};
+
+test("main fails a tree edited differently on each side, then resets both to pass an unedited one, leaving no worktree behind", async () => {
+  await withRepo(CALLING, async (repo, commit, git) => {
     let applied = 0;
     const edits: Edit[] = [
       // Writes a different function on each side, so the two trees differ by construction.
@@ -103,21 +128,24 @@ test("runParity fails a tree edited differently on each side, then resets both t
       // Passes only when both sides are back at the commit's tree and the incremental side at its first index.
       { name: "control", apply: () => {} },
     ];
-    const logged: string[] = [];
-    const spy = spyOn(console, "error").mockImplementation((line) => void logged.push(String(line)));
-    const results = await runParity(repo, commit, edits).finally(() => spy.mockRestore());
-    // The control re-indexes the first index of the unedited tree, not the perturbed one reverted.
-    expect(logged).toContain("control incremental: indexed 0, skipped 2, removed 0, 0 errors");
+    const { code, out, err } = await capture(() => main(repo, commit, edits));
 
-    expect(results.map((r) => [r.name, r.diffs.map((d) => d.table)])).toEqual([
-      ["perturb", ["nodes"]],
-      ["control", []],
-    ]);
-    const nodes = results[0]!.diffs[0]!;
-    expect(nodes.onlyIncremental).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side0:1")]));
-    expect(nodes.onlyFresh).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side1:1")]));
+    expect(code).toBe(1);
+    expect(out[0]).toStartWith("FAIL perturb: nodes ");
+    expect(out.filter((l) => l.startsWith("  - nodes "))).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side0:1")]));
+    expect(out.filter((l) => l.startsWith("  + nodes "))).toEqual(expect.arrayContaining([expect.stringContaining("src/c.ts::side1:1")]));
+    expect(out.slice(-2)).toEqual(["PASS control", "1/2 edits pass"]);
+    // The control re-indexes the first index of the unedited tree, not the perturbed one reverted.
+    expect(err).toContain("control incremental: indexed 0, skipped 2, removed 0, 0 errors");
     expect(git("worktree", "list").split("\n")).toHaveLength(1);
-  } finally {
-    rmSync(repo, { recursive: true, force: true });
-  }
+
+    expect((await capture(() => main(repo, commit, [{ name: "control", apply: () => {} }]))).code).toBe(0);
+  });
+}, 180_000);
+
+test("main refuses an index with no call tsserver resolved, leaving no worktree behind", async () => {
+  await withRepo({ "src/a.ts": "export const one = 1;\n" }, async (repo, commit, git) => {
+    await expect(capture(() => main(repo, commit, [{ name: "control", apply: () => {} }]))).rejects.toThrow("baseline: tsserver resolved no call");
+    expect(git("worktree", "list").split("\n")).toHaveLength(1);
+  });
 }, 180_000);

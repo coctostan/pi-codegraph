@@ -99,9 +99,20 @@ function reset(dir: string): void {
   sh("git", ["clean", "-fdq", "-e", ".codegraph", "-e", "node_modules"], dir);
 }
 
+/** Index `dir`, refusing a run with errors or with no call tsserver resolved: a diff of either would prove nothing. */
 async function index(dir: string, label: string): Promise<void> {
   const r = await indexWorktree(dir);
   console.error(`${label}: indexed ${r.indexed}, skipped ${r.skipped}, removed ${r.removed}, ${r.errors} errors`);
+  if (r.errors > 0) throw new Error(`${label}: indexing reported ${r.errors} errors`);
+  const db = new Database(dbOf(dir), { readonly: true });
+  try {
+    // The lsp stage swallows a tsserver that fails to start, so its edges are the one sign it ran.
+    if (!db.query("SELECT 1 FROM edges WHERE provenance_source = 'lsp' LIMIT 1").get()) {
+      throw new Error(`${label}: tsserver resolved no call`);
+    }
+  } finally {
+    db.close();
+  }
 }
 
 /** Run each edit on an incremental and a fresh worktree of `commit`, both removed afterwards. */
@@ -159,9 +170,15 @@ export function report(results: ParityResult[]): { lines: string[]; code: number
   return { lines, code: passed === results.length ? 0 : 1 };
 }
 
-if (import.meta.main) {
-  const repo = resolve(import.meta.dir, "..");
-  const { lines, code } = report(await runParity(repo, sh("git", ["rev-parse", "HEAD"], repo), EDITS));
+/** The CLI: prints the report for `edits` on `repo` at `commit`, returning its exit code. */
+export async function main(
+  repo = resolve(import.meta.dir, ".."),
+  commit = sh("git", ["rev-parse", "HEAD"], repo),
+  edits = EDITS,
+): Promise<number> {
+  const { lines, code } = report(await runParity(repo, commit, edits));
   for (const line of lines) console.log(line);
-  process.exit(code);
+  return code;
 }
+
+if (import.meta.main) process.exit(await main());
