@@ -22,6 +22,8 @@ export interface FreshnessReport {
   coverageUnknown: boolean;
   /** Files of the result's nodes that tree-sitter parsed with errors, the targets' files first. */
   partialFiles: string[];
+  /** The result's rendered calls, and calls named after a target, whose last tsserver lookup timed out or errored. */
+  failedLookups: number;
   message: string;
   recommendation?: string;
 }
@@ -80,6 +82,15 @@ function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNod
     sortedStrings(new Set(nodes.map((node) => node.file).filter((file) => partial.has(file) && !skip.includes(file))));
   const targetFiles = pick(targets);
   return [...targetFiles, ...pick(touched, targetFiles)];
+}
+
+function failedLookups(store: GraphStore, targets: GraphNode[], edges: GraphEdge[]): number {
+  const rendered = new Set(edges.map((edge) => `${edge.source}\0${edge.provenance.evidence}`));
+  const targetNames = new Set(targets.map((node) => node.name));
+  // A call's evidence is `<callee>:<line>:<col>`, so a call to a target stays countable while it reads unresolved.
+  return store
+    .getFailedLookups()
+    .filter((f) => rendered.has(`${f.source}\0${f.evidence}`) || targetNames.has(f.evidence.split(":")[0]!)).length;
 }
 
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {
@@ -153,6 +164,8 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     report.unknown = true;
     report.localStale = true;
   }
+  const failed = failedLookups(params.store, params.targetNodes ?? [], params.resultEdges ?? []);
+  if (failed > 0) report.localStale = true;
 
   const status: FreshnessStatus = report.unknown
     ? "unknown"
@@ -174,6 +187,7 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     staleEdgeCount: report.staleEdgeCount,
     coverageUnknown: nodesById.size > 0 && !params.store.hasCoverageData(),
     partialFiles: partialFiles(params.store, params.targetNodes ?? [], [...nodesById.values()]),
+    failedLookups: failed,
     message,
     recommendation: params.recommendation,
   };
@@ -200,6 +214,9 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
   if (deleted) lines.push(deleted);
   if (report.affectedSymbols.length > 0) lines.push(`- affected symbols: ${report.affectedSymbols.join(", ")}`);
   if (report.staleEdgeCount > 0) lines.push(`- stale edges: ${report.staleEdgeCount}`);
+  if (report.failedLookups > 0) {
+    lines.push(`- lookups failed: ${report.failedLookups} ${report.failedLookups === 1 ? "call" : "calls"} (tsserver timed out or errored)`);
+  }
   lines.push(...notes);
   lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
   return lines.join("\n");

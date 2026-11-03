@@ -54,6 +54,21 @@ export async function runLspIndexStage(
     }
   }
   const work = [...unresolved, ...confirmed];
+  // Every run asks each call again, so a record is current once this run has asked; one whose call is gone goes now.
+  // Each write waits on a change, so an unchanged index on a read-only db writes nothing.
+  const key = (source: string, evidence: string) => `${source}\0${evidence}`;
+  const recorded = store.getFailedLookups();
+  const failed = new Set(recorded.map((f) => key(f.source, f.evidence)));
+  const recordLookup = (source: string, evidence: string, failedNow: boolean) => {
+    if (failed.has(key(source, evidence)) === failedNow) return;
+    try {
+      store.setLookupFailed(source, evidence, failedNow);
+    } catch {
+      errors++;
+    }
+  };
+  const asked = new Set(work.map((e) => key(e.source, e.provenance.evidence)));
+  for (const f of recorded) if (!asked.has(key(f.source, f.evidence))) recordLookup(f.source, f.evidence, false);
   for (const edge of work) {
     const sourceNode = store.getNode(edge.source);
     if (!sourceNode) continue;
@@ -64,8 +79,10 @@ export async function runLspIndexStage(
       loc = await client.definition(sourceNode.file, parsed.line, parsed.col);
     } catch (err) {
       if (isStartupError(err)) return errors;
+      recordLookup(edge.source, edge.provenance.evidence, true);
       continue;
     }
+    recordLookup(edge.source, edge.provenance.evidence, false);
     if (!loc) continue;
     if (isUnresolvedTarget(edge.target)) {
       const targetNode = store
