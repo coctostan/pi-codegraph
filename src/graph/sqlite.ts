@@ -22,6 +22,12 @@ export const SCHEMA_VERSION = 2;
 /** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
 export const GIT_HEAD_KEY = "__git_cochange_head__";
 
+/** SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`. */
+export function isReadonlyError(error: unknown): boolean {
+  const { errno, errcode } = (error ?? {}) as { errno?: number; errcode?: number };
+  return ((errno ?? errcode ?? 0) & 0xff) === 8;
+}
+
 interface NeighborRow {
   id: string;
   kind: GraphNode["kind"];
@@ -52,10 +58,9 @@ export class SqliteGraphStore implements GraphStore {
     this.db = openDb(dbPath);
     try {
       this.initSchema();
-    } catch (error: any) {
+    } catch (error) {
       // A read-only DB can't migrate (`IF NOT EXISTS` on a missing table is a write) and can't be indexed either, so serve it as is.
-      // SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`.
-      if (((error?.errno ?? error?.errcode) & 0xff) !== 8) throw error;
+      if (!isReadonlyError(error)) throw error;
       const edgeColumns = this.db.prepare("PRAGMA table_info(edges)").all() as Array<{ name: string }>;
       // Nor can it gain `edges.call_end_*`: its edges read back without a call site.
       if (!edgeColumns.some((column) => column.name === "call_end_line")) this.callEndColumns = "NULL AS call_end_line, NULL AS call_end_col";
@@ -350,6 +355,21 @@ export class SqliteGraphStore implements GraphStore {
     }
 
     return { nodes, edges, files: { total, stale } };
+  }
+
+  clearCoverage(): void {
+    // Nothing to clear writes nothing, so a readonly DB without coverage indexes clean.
+    const held = this.db.prepare(`SELECT 1 FROM edges WHERE provenance_source = 'coverage' UNION ALL SELECT 1 FROM test_trace_steps LIMIT 1`).get();
+    if (!held) return;
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare(`DELETE FROM edges WHERE provenance_source = 'coverage'`).run();
+      this.db.prepare(`DELETE FROM test_trace_steps`).run();
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   saveTestTrace(trace: TestTraceRecord): void {
