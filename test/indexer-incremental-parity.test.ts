@@ -57,18 +57,18 @@ async function index(dbPath: string): Promise<void> {
   }
 }
 
-/** A V8 report covering the test's callback and `helper`, at their offsets in the committed tree. */
-function writeCoverageReport(): void {
+/** A V8 report covering the test's callback and `covered` (default `helper`), at their offsets in the committed tree. */
+function writeCoverageReport(covered = "helper"): void {
   const testText = FILES["src/lib.test.ts"]!;
   const fn = (functionName: string, text: string, from: string, to: string) => ({
     functionName,
-    ranges: [{ startOffset: text.indexOf(from), endOffset: text.indexOf(to) + to.length, count: 1 }],
+    ranges: [{ startOffset: text.indexOf(from), endOffset: text.indexOf(to, text.indexOf(from)) + to.length, count: 1 }],
   });
   mkdirSync(coverageDir(), { recursive: true });
   writeFileSync(join(coverageDir(), "report.json"), JSON.stringify({
     result: [
       { url: pathToFileURL(join(root, "src/lib.test.ts")).href, functions: [fn("", testText, "() => {", "});")] },
-      { url: pathToFileURL(join(root, "src/lib.ts")).href, functions: [fn("helper", LIB, "export function helper", "return 1;\n}")] },
+      { url: pathToFileURL(join(root, "src/lib.ts")).href, functions: [fn(covered, LIB, `export function ${covered}`, "\n}")] },
     ],
   }));
 }
@@ -124,12 +124,17 @@ const EDITS: Array<[name: string, apply: () => void]> = [
   // Defines the `missing` src/lib.ts calls, left unresolved until now.
   ["addition of src/extra.ts", () => writeFileSync(join(root, "src/extra.ts"), "export function missing(): number {\n  return 2;\n}\n")],
   ["removal of __tests__/x.ts", () => rmSync(join(root, "__tests__/x.ts"))],
+  // The report's `tested_by` edges and test trace must go with it.
+  ["removal of the coverage report", () => rmSync(join(coverageDir(), "report.json"))],
+  // The report no longer covers `helper`: its edge must go, `other`'s come.
+  ["change of the coverage report", () => writeCoverageReport("other")],
 ];
 
-/** Back to the committed tree, an added file removed. */
+/** Back to the committed tree and the baseline's report, an added file removed. */
 function reset(): void {
   git("checkout", "-q", "--", ".");
   git("clean", "-fdq");
+  writeCoverageReport();
 }
 
 function fileStats(dbPath: string) {

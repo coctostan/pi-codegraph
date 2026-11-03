@@ -352,6 +352,18 @@ export class SqliteGraphStore implements GraphStore {
     return { nodes, edges, files: { total, stale } };
   }
 
+  clearCoverage(): void {
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare(`DELETE FROM edges WHERE provenance_source = 'coverage'`).run();
+      this.db.prepare(`DELETE FROM test_trace_steps`).run();
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   saveTestTrace(trace: TestTraceRecord): void {
     this.db.exec("BEGIN");
     try {

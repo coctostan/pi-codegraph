@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { runCoverageIndexStage } from "../src/indexer/coverage.js";
+import { indexProject } from "../src/indexer/pipeline.js";
 
 const SOURCE = "export function f() { return 1; }\n";
 
@@ -69,4 +70,28 @@ test("a run whose reports are gone clears an earlier sentinel", () => {
     runCoverageIndexStage(store, projectRoot, coverageDir);
     expect(store.hasCoverageData()).toBe(false);
   });
+});
+
+// Root writes any file, so the readonly DB below would take writes.
+test.skipIf(process.getuid?.() === 0)("an unchanged project on a readonly DB with no coverage indexes with no error", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-covsentinel-ro-"));
+  const dbPath = join(projectRoot, "graph.db");
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, "src", "a.ts"), SOURCE);
+  const client = () => ({ definition: async () => null, references: async () => [], implementations: async () => [], shutdown: async () => {} });
+  try {
+    const seed = new SqliteGraphStore(dbPath);
+    await indexProject(projectRoot, seed, { lspClientFactory: client });
+    seed.close();
+    chmodSync(dbPath, 0o444);
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      expect((await indexProject(projectRoot, store, { lspClientFactory: client })).errors).toBe(0);
+    } finally {
+      store.close();
+    }
+  } finally {
+    chmodSync(dbPath, 0o644);
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
 });

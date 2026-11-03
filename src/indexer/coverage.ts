@@ -143,9 +143,16 @@ export function mapCoverageToNodes(store: GraphStore, records: NormalizedCoverag
   });
 }
 
+/** Replace every coverage edge and test trace with what the reports now back. */
 export function runCoverageIndexStage(store: GraphStore, projectRoot: string, coverageDir: string): void {
   const normalized = parseCoverageReports(projectRoot, coverageDir);
   const mapped = mapCoverageToNodes(store, normalized);
+  try {
+    store.clearCoverage();
+  } catch {
+    // readonly DB: it can take no write, so serve its coverage as it was, as the sentinel below does
+    return;
+  }
   const byReport = new Map<string, MappedCoverageRecord[]>();
 
   for (const record of mapped) {
