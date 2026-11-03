@@ -27,11 +27,6 @@ export interface GraphStatistics {
   files: { total: number; stale: number };
 }
 
-export interface FailedLookup {
-  source: string;
-  evidence: string;
-}
-
 export interface GraphStore {
   addNode(node: GraphNode): void;
   addEdge(edge: GraphEdge): void;
@@ -72,4 +67,9 @@ export interface GraphStore {
   /** Record, or with `false` clear, a failed lookup for the call `source` makes at `evidence`. */
   setLookupFailed(source: string, evidence: string, failed: boolean): void;
   close(): void;
+}
+
+export interface FailedLookup {
+  source: string;
+  evidence: string;
 }
