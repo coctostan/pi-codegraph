@@ -23,6 +23,10 @@ function openDb(path: string): any {
 export const SCHEMA_VERSION = 3;
 /** The `graph_metadata` key holding the git stage's last-seen HEAD. */
 export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
+/** The `graph_metadata` key marking `symbolId`'s `kind` resolved, so `symbol_graph` asks tsserver once; it goes with the symbol's file. */
+export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
+  return `resolver:${kind}:${symbolId}`;
+}
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 
@@ -148,6 +152,18 @@ export class SqliteGraphStore implements GraphStore {
       try {
         this.db.prepare("INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)").run(GIT_HEAD_METADATA_KEY, legacyHead.hash);
         this.db.prepare("DELETE FROM file_hashes WHERE file = ?").run(LEGACY_GIT_HEAD_FILE);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    // It also kept resolver markers as nodes, each with an edge into its symbol, both alone in holding this hash.
+    if (this.db.prepare("SELECT 1 FROM nodes WHERE content_hash = 'meta' LIMIT 1").get()) {
+      this.db.exec("BEGIN");
+      try {
+        this.db.prepare("DELETE FROM edges WHERE content_hash = 'meta'").run();
+        this.db.prepare("DELETE FROM nodes WHERE content_hash = 'meta'").run();
         this.db.exec("COMMIT");
       } catch (error) {
         this.db.exec("ROLLBACK");
@@ -306,6 +322,9 @@ export class SqliteGraphStore implements GraphStore {
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`DELETE FROM edges WHERE provenance_source NOT IN ('agent', 'coverage') AND (source IN (SELECT id FROM nodes WHERE file = ?) OR target IN (SELECT id FROM nodes WHERE file = ?))`).run(file, file);
+      for (const { id } of this.db.prepare(`SELECT id FROM nodes WHERE file = ?`).all(file) as Array<{ id: string }>) {
+        for (const kind of ["callers", "implementations"] as const) this.setMetadata(resolverMarkerKey(kind, id), null);
+      }
       this.db.prepare(`DELETE FROM nodes WHERE file = ?`).run(file);
       this.db.prepare(`DELETE FROM file_hashes WHERE file = ?`).run(file);
       this.db.exec("COMMIT");

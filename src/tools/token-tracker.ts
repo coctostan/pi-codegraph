@@ -57,10 +57,10 @@ export function collectNaiveFiles(
       if (!name) break;
       const nodes = store.findNodes(name, file);
       for (const node of nodes) {
-        if (!node.file.startsWith("__")) files.add(node.file);
+        if (!node.file.startsWith("__unresolved__")) files.add(node.file);
         const neighbors = store.getNeighbors(node.id);
         for (const nr of neighbors) {
-          if (!nr.node.file.startsWith("__")) files.add(nr.node.file);
+          if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
         }
       }
       break;
@@ -72,10 +72,10 @@ export function collectNaiveFiles(
       for (const sym of symbols) {
         const nodes = store.findNodes(sym);
         for (const node of nodes) {
-          if (!node.file.startsWith("__")) files.add(node.file);
+          if (!node.file.startsWith("__unresolved__")) files.add(node.file);
           const neighbors = store.getNeighbors(node.id, { direction: "in" });
           for (const nr of neighbors) {
-            if (!nr.node.file.startsWith("__")) files.add(nr.node.file);
+            if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
           }
         }
       }
@@ -89,7 +89,7 @@ export function collectNaiveFiles(
       const nodes = store.findNodes(entry, file);
       if (nodes.length === 1) {
         const node = nodes[0]!;
-        if (!node.file.startsWith("__")) files.add(node.file);
+        if (!node.file.startsWith("__unresolved__")) files.add(node.file);
         const seen = new Set<string>([node.id]);
         const stack = [node.id];
         while (stack.length > 0) {
@@ -98,7 +98,7 @@ export function collectNaiveFiles(
           for (const nr of callees) {
             if (!seen.has(nr.node.id)) {
               seen.add(nr.node.id);
-              if (!nr.node.file.startsWith("__")) files.add(nr.node.file);
+              if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
               stack.push(nr.node.id);
             }
           }

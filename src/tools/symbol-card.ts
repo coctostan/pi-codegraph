@@ -47,7 +47,7 @@ export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbol
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
   const allNeighbors = store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__meta__") && !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !nr.node.file.startsWith("__unresolved__"),
   );
   const lines: string[] = [];
   lines.push(`## ${node.name} (${node.kind})`);
@@ -111,7 +111,7 @@ export function symbolCard(params: SymbolCardParams): string {
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
   const allNeighbors = store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__meta__") && !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !nr.node.file.startsWith("__unresolved__"),
   );
 
   const lines: string[] = [];
