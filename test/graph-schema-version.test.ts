@@ -54,6 +54,16 @@ test("a db at SCHEMA_VERSION gains a missing partial or call_end column without 
   });
 });
 
+test("a db above SCHEMA_VERSION, written by a newer release, keeps its hashes and its version", () => {
+  withDb((dbPath) => {
+    seed(dbPath, [`UPDATE schema_version SET version = ${SCHEMA_VERSION + 1}`]);
+    const store = new SqliteGraphStore(dbPath);
+    expect(store.getFileHash("src/x.ts")).toBe("h");
+    expect(store.getFileHash("__git_cochange_head__")).toBe("abc");
+    store.close();
+    expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION + 1 }]);
+  });
+});
 for (const [label, sql] of [
   ["below SCHEMA_VERSION", [`UPDATE schema_version SET version = ${SCHEMA_VERSION - 1}`]],
   ["with no schema_version row", ["DELETE FROM schema_version"]],
