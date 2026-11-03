@@ -167,3 +167,16 @@ test.skipIf(!Bun.which("node"))("a read-only pre-arc db opens as is under Node",
     expect(JSON.parse(run.stdout.trim())).toEqual(["__git_cochange_head__", "src/x.ts"]);
   });
 });
+
+test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every resolver marker, other metadata kept", (method) => {
+  const store = new SqliteGraphStore();
+  try {
+    const kept = "src/kept.ts::shared:1";
+    for (const kind of ["callers", "implementations"] as const) store.setMetadata(resolverMarkerKey(kind, kept), "1");
+    store.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
+    store[method]("src/other.ts");
+    expect(store.queryRows("SELECT key, value FROM graph_metadata WHERE key <> 'schema_version'")).toEqual([{ key: GIT_HEAD_METADATA_KEY, value: "abc" }]);
+  } finally {
+    store.close();
+  }
+});
