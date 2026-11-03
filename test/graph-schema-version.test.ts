@@ -85,6 +85,17 @@ for (const [label, sql] of [
   });
 }
 
+test("a version-2 db, written before index-parity (An incremental index matches a fresh one), re-extracts once", () => {
+  withDb((dbPath) => {
+    seed(dbPath, ["UPDATE schema_version SET version = 2"]);
+    const store = new SqliteGraphStore(dbPath);
+    expect(store.getFileHash("src/x.ts")).toBe("");
+    expect(store.getFileHash("__git_cochange_head__")).toBe("");
+    store.close();
+    expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION }]);
+  });
+});
+
 test("the re-extraction rolls back whole, so a failed one reruns on the next open", () => {
   withDb((dbPath) => {
     seed(dbPath, [

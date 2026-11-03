@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import type { GraphStore } from "../src/graph/store.js";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
 
 test("graph store modules load", async () => {
   const storeModule = await import("../src/graph/store.js");
@@ -19,7 +19,7 @@ test("SqliteGraphStore constructor accepts default dbPath", () => {
   expect(() => new SqliteGraphStore()).not.toThrow();
 });
 
-test("SqliteGraphStore initializes schema_version=2", () => {
+test("SqliteGraphStore initializes schema_version to SCHEMA_VERSION", () => {
   const dir = join(tmpdir(), "pi-codegraph-tests");
   mkdirSync(dir, { recursive: true });
   const dbPath = join(dir, `schema-${Date.now()}.sqlite`);
@@ -28,7 +28,7 @@ test("SqliteGraphStore initializes schema_version=2", () => {
     const db = new Database(dbPath);
     const rows = db.query("SELECT version FROM schema_version").all() as Array<{ version: number }>;
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.version).toBe(2);
+    expect(rows[0]?.version).toBe(SCHEMA_VERSION);
     db.close();
   } finally {
     rmSync(dbPath, { force: true });
