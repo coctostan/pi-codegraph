@@ -153,9 +153,10 @@ export async function indexProject(
   }
 
   // A kept edge into a changed file whose target moved or went: re-extract its unchanged source, so the lsp stage
-  // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn.
+  // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn. The coverage stage
+  // rewrites its own edges.
   const dangling = store.queryRows<{ file: string }>(
-    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
+    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source <> 'coverage' AND SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
   );
   for (const { file } of dangling) {
     // A `__meta__` marker is no file.
