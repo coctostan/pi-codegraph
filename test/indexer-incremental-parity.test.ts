@@ -166,6 +166,23 @@ test("a run with nothing changed re-extracts no file", async () => {
   expect(stamps(db("incremental"))).toEqual(stamps(db("baseline")));
 });
 
+test("a covered test that moves re-extracts no file it covers", async () => {
+  reset();
+  rewrite("src/lib.test.ts", (t) => `\n${t}`)();
+  copyFileSync(db("baseline"), db("incremental"));
+  await index(db("incremental"));
+  // `helper`'s `tested_by` edge into the moved test node is the coverage stage's to rewrite, not a call to resolve anew.
+  const indexedAt = (path: string) => {
+    const store = new SqliteGraphStore(path);
+    try {
+      return store.queryRows("SELECT indexed_at FROM file_hashes WHERE file = 'src/lib.ts'");
+    } finally {
+      store.close();
+    }
+  };
+  expect(indexedAt(db("incremental"))).toEqual(indexedAt(db("baseline")));
+});
+
 test.each(EDITS)("an incremental re-index after %s equals a fresh index", async (_name, apply) => {
   reset();
   apply();
