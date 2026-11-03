@@ -213,6 +213,7 @@ test("parallel calls are safe: concurrent symbol_graph/impact/trace on one proje
 
   expect(indexed).toBe(1);
   expect(results[0].content[0].text).toBe(results[1].content[0].text);
-  for (const r of results.slice(0, 4)) expect(r.content[0].text).toContain("alpha");
-  expect(results[4].content[0].text).toContain("beta");
+  for (const r of results.slice(0, 3)) expect(r.content[0].text).toContain("alpha");
+  // alpha's dependents: beta, its one caller.
+  for (const r of results.slice(3)) expect(r.content[0].text).toContain("beta");
 });

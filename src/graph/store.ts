@@ -1,7 +1,5 @@
 import type { EdgeKind, GraphEdge, GraphNode } from "./types.js";
 
-/** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
-export const GIT_HEAD_KEY = "__git_cochange_head__";
 export interface NeighborOptions {
   kind?: EdgeKind;
   direction?: "in" | "out" | "both";
@@ -43,7 +41,7 @@ export interface GraphStore {
    * caller to fix.
    */
   clearFile(file: string): void;
-  /** The indexed files, `GIT_HEAD_KEY`'s row left out. */
+  /** The indexed files, the git stage's head row left out. */
   listFiles(): string[];
   getFileHash(file: string): string | null;
   /** `partial` records that tree-sitter parsed the file with errors. */

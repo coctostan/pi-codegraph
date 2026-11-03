@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { GIT_HEAD_KEY, type GraphStatistics, type GraphStore, type NeighborOptions, type NeighborResult, type TestTraceRecord, type TestTraceStep } from "./store.js";
+import type { GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string): any {
@@ -19,6 +19,8 @@ function openDb(path: string): any {
  * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
  */
 export const SCHEMA_VERSION = 2;
+/** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
+export const GIT_HEAD_KEY = "__git_cochange_head__";
 
 interface NeighborRow {
   id: string;
