@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -75,6 +75,33 @@ test("a failed lookup whose call is edited away leaves no record", async () => {
     expect(store.getFailedLookups()).toEqual([]);
     expect(card(root, store, "b")).toStartWith("Trust: fresh");
   });
+});
+
+// Root writes any file, so the read-only db below would take writes.
+test.skipIf(process.getuid?.() === 0)("an unchanged project on a read-only db writes no lookup record", async () => {
+  for (const client of [throwing("TsServer request timed out: definition"), fakeClient(async () => null)]) {
+    const root = mkdtempSync(join(tmpdir(), "pi-cg-lookup-failure-ro-"));
+    const dbPath = join(root, "graph.db");
+    mkdirSync(join(root, "src"));
+    writeFileSync(join(root, "src", "main.ts"), SOURCE);
+    try {
+      const seed = new SqliteGraphStore(dbPath);
+      await indexProject(root, seed, { lspClientFactory: client });
+      const records = seed.getFailedLookups();
+      seed.close();
+      chmodSync(dbPath, 0o444);
+      const store = new SqliteGraphStore(dbPath);
+      try {
+        expect((await indexProject(root, store, { lspClientFactory: client })).errors).toBe(0);
+        expect(store.getFailedLookups()).toEqual(records);
+      } finally {
+        store.close();
+      }
+    } finally {
+      chmodSync(dbPath, 0o644);
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
 });
 
 // The real client gives its first request a project-load grace, and answers a lookup in a file it has open within
