@@ -213,6 +213,8 @@ test("parallel calls are safe: concurrent symbol_graph/impact/trace on one proje
 
   expect(indexed).toBe(1);
   expect(results[0].content[0].text).toBe(results[1].content[0].text);
-  for (const r of results.slice(0, 4)) expect(r.content[0].text).toContain("alpha");
+  for (const r of results.slice(0, 3)) expect(r.content[0].text).toContain("alpha");
+  // With tsserver, beta's call resolves and impact lists beta; without it, as on CI, alpha has no dependents.
+  expect(results[3].content[0].text).toMatch(/beta|'alpha'/);
   expect(results[4].content[0].text).toContain("beta");
 });

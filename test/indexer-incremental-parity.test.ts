@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,6 +34,8 @@ const FILES: Record<string, string> = {
   "src/use.ts": 'import { helper, other } from "./lib";\n\nexport function useIt(): number {\n  return helper() + other();\n}\n',
   "src/app.ts": 'import { helper } from "./lib";\ndeclare const app: { get(path: string, h: () => number): void };\n\nfunction handler(): number {\n  return helper();\n}\n\napp.get("/x", handler);\n',
   "src/lib.test.ts": 'import { helper } from "./lib";\n\ntest("helper works", () => {\n  helper();\n});\n',
+  // A root `__tests__/` path starts with the `__` the index once took for its own sentinel rows.
+  "__tests__/x.ts": 'import { helper } from "../src/lib";\n\ntest("x", () => {\n  helper();\n});\n',
 };
 
 let root = "";
@@ -74,7 +76,7 @@ function writeCoverageReport(): void {
 beforeAll(async () => {
   work = mkdtempSync(join(tmpdir(), "cg-incremental-parity-"));
   root = join(work, "repo");
-  mkdirSync(join(root, "src"), { recursive: true });
+  for (const dir of ["src", "__tests__"]) mkdirSync(join(root, dir), { recursive: true });
   git("init", "-q");
   // Three commits touching lib, use and app together, so each pair co-changes the git stage's minimum of twice.
   for (const rev of [1, 2, 3]) {
@@ -117,10 +119,34 @@ const EDITS: Array<[name: string, apply: () => void]> = [
   ["nested test in src/lib.test.ts", rewrite("src/lib.test.ts", (t) => t.replace("  helper();\n", '  helper();\n  test("inner", () => {});\n'))],
   // src/use.ts calls into src/lib.ts: its edges dangle, but it is gone, so it is deleted rather than re-extracted.
   ["line shift in src/lib.ts with src/use.ts removed", () => { shiftLib(); rmSync(join(root, "src/use.ts")); }],
+  // Every other file calls into src/lib.ts: their resolved calls must read unresolved again.
+  ["removal of src/lib.ts", () => rmSync(join(root, "src/lib.ts"))],
+  // Defines the `missing` src/lib.ts calls, left unresolved until now.
+  ["addition of src/extra.ts", () => writeFileSync(join(root, "src/extra.ts"), "export function missing(): number {\n  return 2;\n}\n")],
+  ["removal of __tests__/x.ts", () => rmSync(join(root, "__tests__/x.ts"))],
 ];
 
-test("a run with nothing changed re-extracts no file", async () => {
+/** Back to the committed tree, an added file removed. */
+function reset(): void {
   git("checkout", "-q", "--", ".");
+  git("clean", "-fdq");
+}
+
+function fileStats(dbPath: string) {
+  const store = new SqliteGraphStore(dbPath);
+  try {
+    return { listed: store.listFiles(), ...store.getStatistics(root).files };
+  } finally {
+    store.close();
+  }
+}
+
+test("getStatistics and listFiles count every indexed file, a root __tests__ one included", () => {
+  expect(fileStats(db("baseline"))).toEqual({ listed: Object.keys(FILES).sort(), total: 5, stale: 0 });
+});
+
+test("a run with nothing changed re-extracts no file", async () => {
+  reset();
   copyFileSync(db("baseline"), db("incremental"));
   await index(db("incremental"));
   // The coverage stage rewrites its edges every run; a re-extracted file would rewrite its own.
@@ -136,9 +162,47 @@ test("a run with nothing changed re-extracts no file", async () => {
 });
 
 test.each(EDITS)("an incremental re-index after %s equals a fresh index", async (_name, apply) => {
-  git("checkout", "-q", "--", ".");
+  reset();
   apply();
   copyFileSync(db("baseline"), db("incremental"));
+  await index(db("incremental"));
+  rmSync(db("fresh"), { force: true });
+  await index(db("fresh"));
+  expect(diffGraphs(snapshotGraph(db("incremental")), snapshotGraph(db("fresh")))).toEqual([]);
+  expect(fileStats(db("incremental"))).toEqual(fileStats(db("fresh")));
+}, 60_000);
+
+test("a resolver marker into a removed file lists no file", async () => {
+  reset();
+  rmSync(join(root, "src/lib.ts"));
+  copyFileSync(db("baseline"), db("incremental"));
+  const store = new SqliteGraphStore(db("incremental"));
+  try {
+    // As `resolveMissingCallers` marks `helper` resolved, from a node of no file.
+    const helper = store.findNodes("helper", "src/lib.ts")[0]!;
+    store.addNode({ id: "__meta__::resolver::callers::x", kind: "module", name: "m", file: "__meta__/resolver", start_line: 1, end_line: 1, content_hash: "meta" });
+    store.addEdge({ source: "__meta__::resolver::callers::x", target: helper.id, kind: "imports", provenance: { source: "lsp", confidence: 1, evidence: "resolved:callers", content_hash: "meta" }, created_at: 0 });
+  } finally {
+    store.close();
+  }
+  await index(db("incremental"));
+  expect(fileStats(db("incremental")).listed).not.toContain("__meta__/resolver");
+});
+
+// Root reads any file, so the unreadable caller below would read.
+test.skipIf(process.getuid?.() === 0)("a caller unreadable on the run that removes its callee re-extracts on the next", async () => {
+  reset();
+  rmSync(join(root, "src/lib.ts"));
+  copyFileSync(db("baseline"), db("incremental"));
+  chmodSync(join(root, "src/use.ts"), 0o000);
+  const store = new SqliteGraphStore(db("incremental"));
+  try {
+    const result = await indexProject(root, store, { lspClientFactory: () => nameResolvingClient(root), coverageDir: coverageDir() });
+    expect(result.errors).toBeGreaterThan(0);
+  } finally {
+    store.close();
+    chmodSync(join(root, "src/use.ts"), 0o644);
+  }
   await index(db("incremental"));
   rmSync(db("fresh"), { force: true });
   await index(db("fresh"));

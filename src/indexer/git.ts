@@ -1,9 +1,7 @@
 import { execSync } from "node:child_process";
+import { GIT_HEAD_KEY } from "../graph/sqlite.js";
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge } from "../graph/types.js";
-
-const GIT_HEAD_KEY = "__git_cochange_head__";
-
 export interface GitCoChangeOptions {
   minCoChangeCount?: number;
   windowDays?: number;

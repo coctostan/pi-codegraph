@@ -116,6 +116,26 @@ export async function indexProject(
   };
 
   const currentRel = new Set(files.map((absPath) => toPosixPath(relative(projectRoot, absPath))));
+
+  // A removed file's edges go with it, so first blank the hash of each current file calling into it: the loop below,
+  // or the next run's should this one stop, re-extracts it, its calls reading unresolved as on a fresh index. The git
+  // and coverage stages rebuild their own edges.
+  for (const oldFile of store.listFiles()) {
+    if (currentRel.has(oldFile)) continue;
+    try {
+      for (const { file } of store.queryRows<{ file: string }>(
+        "SELECT DISTINCT s.file FROM edges e JOIN nodes s ON s.id = e.source JOIN nodes t ON t.id = e.target WHERE t.file = ? AND e.provenance_source NOT IN ('git', 'coverage')",
+        [oldFile],
+      )) {
+        // A `__meta__` marker is no file.
+        if (currentRel.has(file)) store.setFileHash(file, "");
+      }
+      store.deleteFile(oldFile);
+      removed++;
+    } catch {
+      errors++;
+    }
+  }
   for (const absPath of files) {
     const rel = toPosixPath(relative(projectRoot, absPath));
     try {
@@ -138,21 +158,11 @@ export async function indexProject(
     "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
   );
   for (const { file } of dangling) {
-    // A file gone from disk is the removal loop's.
+    // A `__meta__` marker is no file.
     if (!currentRel.has(file)) continue;
     try {
       const content = readFileSync(join(projectRoot, file), "utf8");
       extractInto(file, content, sha256Hex(content));
-    } catch {
-      errors++;
-    }
-  }
-
-  for (const oldFile of store.listFiles()) {
-    if (currentRel.has(oldFile) || oldFile.startsWith("__")) continue;
-    try {
-      store.deleteFile(oldFile);
-      removed++;
     } catch {
       errors++;
     }

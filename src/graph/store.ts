@@ -41,6 +41,7 @@ export interface GraphStore {
    * caller to fix.
    */
   clearFile(file: string): void;
+  /** The indexed files, the git stage's head row left out. */
   listFiles(): string[];
   getFileHash(file: string): string | null;
   /** `partial` records that tree-sitter parsed the file with errors. */

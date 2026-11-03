@@ -39,8 +39,9 @@ export class TsServerClient implements ITsServerClient {
   private startPromise: Promise<void> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private stdoutBuffer = "";
-  private lastSpawnAt = 0;
-  private readonly startupGraceMs = 250;
+  /** Set at spawn: the next request waits for tsserver to load the project, which can take seconds. */
+  private loadingProject = false;
+  private readonly projectLoadGraceMs = 60_000;
 
   constructor(private readonly projectRoot: string, options: TsServerClientOptions = {}) {
     this.idleMs = options.idleMs ?? 30_000;
@@ -89,7 +90,7 @@ export class TsServerClient implements ITsServerClient {
       const onSpawn = () => {
         proc.removeListener("error", onError);
         this.proc = proc;
-        this.lastSpawnAt = Date.now();
+        this.loadingProject = true;
         proc.stdout?.setEncoding("utf8");
         proc.stdout?.on("data", (chunk: string) => this.onStdout(chunk));
         proc.once("exit", () => {
@@ -169,7 +170,9 @@ export class TsServerClient implements ITsServerClient {
     }, this.idleMs);
   }
 
-  private notify(command: string, args: unknown): void {
+  /** Start tsserver first: an `open` written before it runs is lost, and the request after it fails `No Project.`. */
+  private async notify(command: string, args: unknown): Promise<void> {
+    await this.ensureStarted();
     if (!this.proc?.stdin?.writable) return;
     const payload = JSON.stringify({ seq: ++this.seq, type: "request", command, arguments: args });
     this.proc.stdin.write(payload + "\n");
@@ -181,7 +184,8 @@ export class TsServerClient implements ITsServerClient {
 
       return new Promise<T>((resolveReq, rejectReq) => {
         const seq = ++this.seq;
-        const startupGrace = Date.now() - this.lastSpawnAt < this.startupGraceMs ? this.startupGraceMs : 0;
+        const startupGrace = this.loadingProject ? this.projectLoadGraceMs : 0;
+        this.loadingProject = false;
         const timer = setTimeout(() => {
           this.pending.delete(seq);
           rejectReq(new Error(`TsServer request timed out: ${command}`));
@@ -204,7 +208,7 @@ export class TsServerClient implements ITsServerClient {
 
   async definition(file: string, line: number, col: number): Promise<LspLocation | null> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<Array<{ file: string; start: { line: number; offset: number } }>>("definition", {
       file: absFile,
       line,
@@ -217,7 +221,7 @@ export class TsServerClient implements ITsServerClient {
 
   async references(file: string, line: number, col: number): Promise<LspLocation[]> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<{ refs: Array<{ file: string; start: { line: number; offset: number } }> }>("references", {
       file: absFile,
       line,
@@ -228,7 +232,7 @@ export class TsServerClient implements ITsServerClient {
 
   async implementations(file: string, line: number, col: number): Promise<LspLocation[]> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<Array<{ file: string; start: { line: number; offset: number } }>>("implementation", {
       file: absFile,
       line,

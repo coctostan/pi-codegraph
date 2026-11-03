@@ -19,6 +19,8 @@ function openDb(path: string): any {
  * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
  */
 export const SCHEMA_VERSION = 2;
+/** The git stage's last-seen HEAD, kept in `file_hashes` beside the files; no file has this key. */
+export const GIT_HEAD_KEY = "__git_cochange_head__";
 
 interface NeighborRow {
   id: string;
@@ -306,7 +308,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   listFiles(): string[] {
-    const rows = this.db.prepare("SELECT file FROM file_hashes ORDER BY file ASC").all() as Array<{ file: string }>;
+    const rows = this.db.prepare("SELECT file FROM file_hashes WHERE file <> ? ORDER BY file ASC").all(GIT_HEAD_KEY) as Array<{ file: string }>;
     return rows.map((row) => row.file);
   }
 
@@ -331,7 +333,7 @@ export class SqliteGraphStore implements GraphStore {
       edges[row.kind][row.provenance_source] = row.cnt;
     }
 
-    const fileRows = (this.db.prepare("SELECT file, hash FROM file_hashes").all() as Array<{ file: string; hash: string }>).filter((r) => !r.file.startsWith("__"));
+    const fileRows = this.db.prepare("SELECT file, hash FROM file_hashes WHERE file <> ?").all(GIT_HEAD_KEY) as Array<{ file: string; hash: string }>;
     const total = fileRows.length;
 
     let stale = 0;

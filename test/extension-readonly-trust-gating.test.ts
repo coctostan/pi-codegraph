@@ -36,17 +36,18 @@ test("fresh symbol_graph tool calls omit the Trust header but keep provenance an
   try {
     const result = await symbolGraphTool.execute(
       "call-1",
-      { name: "foo", file: "src/app.ts" },
+      // bar calls nothing; foo's one call resolves, so foo is no leaf.
+      { name: "bar", file: "src/app.ts" },
       undefined as any,
       () => {},
       { cwd: projectRoot } as any,
     );
     const text = (result.content[0] as any).text as string;
 
-    if (!text.startsWith("Trust: fresh\n- coverage: unknown, no coverage report indexed\n## foo (function)")) {
+    if (!text.startsWith("Trust: fresh\n- coverage: unknown, no coverage report indexed\n## bar (function)")) {
       throw new Error(`fresh read-only output lost the Trust header/body: ${text}`);
     }
-    if (!/src\/app\.ts  2:[0-9a-f]{3}/.test(text)) {
+    if (!/src\/app\.ts  1:[0-9a-f]{3}/.test(text)) {
       throw new Error("fresh read-only output lost the anchored body line");
     }
     if (!text.includes("leaf") || text.includes("untested")) {
