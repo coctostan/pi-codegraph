@@ -132,27 +132,34 @@ export async function indexProject(
     }
   }
 
-  // A kept edge into a changed file whose target moved or went: re-extract its unchanged source, so the lsp stage
-  // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn.
-  const dangling = store.queryRows<{ file: string }>(
-    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
-  );
-  for (const { file } of dangling) {
-    // A file gone from disk is the removal loop's.
-    if (!currentRel.has(file)) continue;
+  // A removed file's edges go with it, so each current file calling into it re-extracts below: its calls read
+  // unresolved again, as on a fresh index. The git and coverage stages rebuild their own edges.
+  const callers = new Set<string>();
+  for (const oldFile of store.listFiles()) {
+    if (currentRel.has(oldFile)) continue;
     try {
-      const content = readFileSync(join(projectRoot, file), "utf8");
-      extractInto(file, content, sha256Hex(content));
+      for (const { file } of store.queryRows<{ file: string }>(
+        "SELECT DISTINCT s.file FROM edges e JOIN nodes s ON s.id = e.source JOIN nodes t ON t.id = e.target WHERE t.file = ? AND e.provenance_source NOT IN ('git', 'coverage')",
+        [oldFile],
+      )) callers.add(file);
+      store.deleteFile(oldFile);
+      removed++;
     } catch {
       errors++;
     }
   }
 
-  for (const oldFile of store.listFiles()) {
-    if (currentRel.has(oldFile) || oldFile.startsWith("__")) continue;
+  // A kept edge into a changed file whose target moved or went: re-extract its unchanged source, so the lsp stage
+  // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn.
+  const dangling = store.queryRows<{ file: string }>(
+    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
+  );
+  for (const file of new Set([...callers, ...dangling.map((d) => d.file)])) {
+    // A caller in a removed file went with it; a `__meta__` marker is no file.
+    if (!currentRel.has(file)) continue;
     try {
-      store.deleteFile(oldFile);
-      removed++;
+      const content = readFileSync(join(projectRoot, file), "utf8");
+      extractInto(file, content, sha256Hex(content));
     } catch {
       errors++;
     }

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import type { GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
+import { GIT_HEAD_KEY, type GraphStatistics, type GraphStore, type NeighborOptions, type NeighborResult, type TestTraceRecord, type TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string): any {
@@ -306,7 +306,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   listFiles(): string[] {
-    const rows = this.db.prepare("SELECT file FROM file_hashes ORDER BY file ASC").all() as Array<{ file: string }>;
+    const rows = this.db.prepare("SELECT file FROM file_hashes WHERE file <> ? ORDER BY file ASC").all(GIT_HEAD_KEY) as Array<{ file: string }>;
     return rows.map((row) => row.file);
   }
 
@@ -331,7 +331,7 @@ export class SqliteGraphStore implements GraphStore {
       edges[row.kind][row.provenance_source] = row.cnt;
     }
 
-    const fileRows = (this.db.prepare("SELECT file, hash FROM file_hashes").all() as Array<{ file: string; hash: string }>).filter((r) => !r.file.startsWith("__"));
+    const fileRows = this.db.prepare("SELECT file, hash FROM file_hashes WHERE file <> ?").all(GIT_HEAD_KEY) as Array<{ file: string; hash: string }>;
     const total = fileRows.length;
 
     let stale = 0;

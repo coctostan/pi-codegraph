@@ -25,6 +25,7 @@ function installFakeTsserver(root: string): string {
     "#!/usr/bin/env node",
     "let inFlight = 0;",
     "let maxInFlight = 0;",
+    "const opened = new Set();",
     "function send(msg){ process.stdout.write(JSON.stringify(msg) + '\\n'); }",
     "process.stdin.setEncoding('utf8');",
     "let buffer = '';",
@@ -37,13 +38,15 @@ function installFakeTsserver(root: string): string {
     "    buffer = buffer.slice(nl + 1);",
     "    if (!line) continue;",
     "    let msg; try { msg = JSON.parse(line); } catch { continue; }",
-    "    if (msg.command === 'open') continue;",
+    "    if (msg.command === 'open') { opened.add(msg.arguments.file); continue; }",
     "    if (msg.command === 'exit') process.exit(0);",
     "    inFlight++; if (inFlight > maxInFlight) maxInFlight = inFlight;",
     "    if (msg.command === 'slowDefinition') continue;",
     "    setTimeout(() => {",
     "      inFlight--;",
-    "      if (msg.command === 'definition') send({ type: 'response', request_seq: msg.seq, success: true, body: [{ file: 'src/api.ts', start: { line: 1, offset: 17 } }] });",
+    // As tsserver does, a file no `open` named belongs to no project.
+    "      if (['definition', 'references', 'implementation'].includes(msg.command) && !opened.has(msg.arguments.file)) send({ type: 'response', request_seq: msg.seq, success: false, message: 'No Project.' });",
+    "      else if (msg.command === 'definition') send({ type: 'response', request_seq: msg.seq, success: true, body: [{ file: 'src/api.ts', start: { line: 1, offset: 17 } }] });",
     "      else if (msg.command === 'references') send({ type: 'response', request_seq: msg.seq, success: true, body: { refs: [{ file: 'src/impl.ts', start: { line: 4, offset: 5 } }] } });",
     "      else if (msg.command === 'implementation') send({ type: 'response', request_seq: msg.seq, success: true, body: [{ file: 'src/impl.ts', start: { line: 2, offset: 14 } }] });",
     "      else if (msg.command === 'debugMaxInFlight') send({ type: 'response', request_seq: msg.seq, success: true, body: { maxInFlight } });",
@@ -77,6 +80,12 @@ afterEach(() => {
 test("constructor prefers local node_modules/.bin/tsserver when no override is given", async () => {
   const client = new TsServerClient(projectRoot);
   expect(client.getResolvedTsserverPath()).toContain("node_modules/.bin/tsserver");
+  await client.shutdown();
+});
+
+test("the first request of a process opens its file before asking", async () => {
+  const client = new TsServerClient(projectRoot, { tsserverPath: fakeTsserverPath, timeoutMs: 5_000 });
+  expect((await client.definition("src/impl.ts", 4, 5))?.file).toBe("src/api.ts");
   await client.shutdown();
 });
 

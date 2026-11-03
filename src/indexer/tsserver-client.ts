@@ -169,7 +169,9 @@ export class TsServerClient implements ITsServerClient {
     }, this.idleMs);
   }
 
-  private notify(command: string, args: unknown): void {
+  /** Start tsserver first: an `open` written before it runs is lost, and the request after it fails `No Project.`. */
+  private async notify(command: string, args: unknown): Promise<void> {
+    await this.ensureStarted();
     if (!this.proc?.stdin?.writable) return;
     const payload = JSON.stringify({ seq: ++this.seq, type: "request", command, arguments: args });
     this.proc.stdin.write(payload + "\n");
@@ -204,7 +206,7 @@ export class TsServerClient implements ITsServerClient {
 
   async definition(file: string, line: number, col: number): Promise<LspLocation | null> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<Array<{ file: string; start: { line: number; offset: number } }>>("definition", {
       file: absFile,
       line,
@@ -217,7 +219,7 @@ export class TsServerClient implements ITsServerClient {
 
   async references(file: string, line: number, col: number): Promise<LspLocation[]> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<{ refs: Array<{ file: string; start: { line: number; offset: number } }> }>("references", {
       file: absFile,
       line,
@@ -228,7 +230,7 @@ export class TsServerClient implements ITsServerClient {
 
   async implementations(file: string, line: number, col: number): Promise<LspLocation[]> {
     const absFile = this.toAbsolute(file);
-    this.notify("open", { file: absFile });
+    await this.notify("open", { file: absFile });
     const body = await this.request<Array<{ file: string; start: { line: number; offset: number } }>>("implementation", {
       file: absFile,
       line,
