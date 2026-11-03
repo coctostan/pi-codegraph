@@ -78,6 +78,8 @@ const validStore: GraphStore = {
   queryRows: () => [],
   hasCoverageData: () => false,
   markCoverageIndexed: () => {},
+  getMetadata: () => null,
+  setMetadata: () => {},
   close: () => {},
 };
 

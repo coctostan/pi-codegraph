@@ -40,7 +40,7 @@ export interface GraphStore {
    * their stages rewrite. Other edges into it stay, a vanished target's for the caller to fix.
    */
   clearFile(file: string): void;
-  /** The indexed files, the git stage's head row left out. */
+  /** The indexed files. */
   listFiles(): string[];
   getFileHash(file: string): string | null;
   /** `partial` records that tree-sitter parsed the file with errors. */
@@ -57,5 +57,9 @@ export interface GraphStore {
   hasCoverageData(): boolean;
   /** Set or, with `false`, clear the sentinel `hasCoverageData` reads. */
   markCoverageIndexed(indexed?: boolean): void;
+  /** A `graph_metadata` value, null when unset. */
+  getMetadata(key: string): string | null;
+  /** Set a `graph_metadata` value or, with null, delete it. */
+  setMetadata(key: string, value: string | null): void;
   close(): void;
 }

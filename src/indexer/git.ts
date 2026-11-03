@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { GIT_HEAD_KEY } from "../graph/sqlite.js";
+import { GIT_HEAD_METADATA_KEY } from "../graph/sqlite.js";
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge } from "../graph/types.js";
 export interface GitCoChangeOptions {
@@ -90,7 +90,7 @@ export async function runGitCoChangeStage(
   let errors = 0;
   const head = getCurrentHead(projectRoot);
   if (!head) return errors;
-  const lastHead = store.getFileHash(GIT_HEAD_KEY);
+  const lastHead = store.getMetadata(GIT_HEAD_METADATA_KEY);
   if (lastHead === head) {
     // Re-extraction keeps a module's git edges: restamp those whose source module changed, as a run here would write them.
     const stale = store.queryRows<{ source: string; target: string; confidence: number; evidence: string; hash: string }>(
@@ -120,7 +120,7 @@ export async function runGitCoChangeStage(
   const commits = parseGitLog(projectRoot);
   if (commits.length === 0) {
     try {
-      store.setFileHash(GIT_HEAD_KEY, head);
+      store.setMetadata(GIT_HEAD_METADATA_KEY, head);
     } catch {
       errors++;
     }
@@ -159,7 +159,7 @@ export async function runGitCoChangeStage(
   }
 
   try {
-    store.setFileHash(GIT_HEAD_KEY, head);
+    store.setMetadata(GIT_HEAD_METADATA_KEY, head);
   } catch {
     errors++;
   }

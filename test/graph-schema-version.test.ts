@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
+import { GIT_HEAD_METADATA_KEY, SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 
 function withDb(fn: (dbPath: string) => void): void {
@@ -18,7 +18,7 @@ function withDb(fn: (dbPath: string) => void): void {
 function seed(dbPath: string, sql: string[]): void {
   const old = new SqliteGraphStore(dbPath);
   old.setFileHash("src/x.ts", "h");
-  old.setFileHash("__git_cochange_head__", "abc");
+  old.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
   old.close();
   const raw = new Database(dbPath);
   for (const statement of sql) raw.run(statement);
@@ -44,7 +44,7 @@ test("a db at SCHEMA_VERSION gains a missing partial or call_end column without 
     const store = new SqliteGraphStore(dbPath);
     try {
       expect(store.getFileHash("src/x.ts")).toBe("h");
-      expect(store.getFileHash("__git_cochange_head__")).toBe("abc");
+      expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBe("abc");
       const columns = (table: string) => store.queryRows<{ name: string }>(`SELECT name FROM pragma_table_info('${table}')`).map((c) => c.name);
       expect(columns("file_hashes")).toContain("partial");
       expect(columns("edges")).toEqual(expect.arrayContaining(["call_end_line", "call_end_col"]));
@@ -59,7 +59,7 @@ test("a db above SCHEMA_VERSION, written by a newer release, keeps its hashes an
     seed(dbPath, [`UPDATE schema_version SET version = ${SCHEMA_VERSION + 1}`]);
     const store = new SqliteGraphStore(dbPath);
     expect(store.getFileHash("src/x.ts")).toBe("h");
-    expect(store.getFileHash("__git_cochange_head__")).toBe("abc");
+    expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBe("abc");
     store.close();
     expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION + 1 }]);
   });
@@ -73,7 +73,7 @@ for (const [label, sql] of [
       seed(dbPath, [...sql]);
       const upgraded = new SqliteGraphStore(dbPath);
       expect(upgraded.getFileHash("src/x.ts")).toBe("");
-      expect(upgraded.getFileHash("__git_cochange_head__")).toBe("");
+      expect(upgraded.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
       upgraded.setFileHash("src/x.ts", "h2");
       upgraded.close();
 
@@ -90,7 +90,7 @@ test("a version-2 db, written before index-parity (An incremental index matches 
     seed(dbPath, ["UPDATE schema_version SET version = 2"]);
     const store = new SqliteGraphStore(dbPath);
     expect(store.getFileHash("src/x.ts")).toBe("");
-    expect(store.getFileHash("__git_cochange_head__")).toBe("");
+    expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
     store.close();
     expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION }]);
   });
