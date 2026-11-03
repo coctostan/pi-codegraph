@@ -113,6 +113,8 @@ const EDITS: Array<[name: string, apply: () => void]> = [
   ["callee rename in src/lib.ts", rewrite("src/lib.ts", (t) => t.replace("function helper(", "function helperRenamed("))],
   // Moves the test node a `tested_by` edge from src/lib.ts points at.
   ["line shift in src/lib.test.ts", rewrite("src/lib.test.ts", (t) => `\n${t}`)],
+  // Keeps that test node, but the report's range now maps to the smaller one nested in it.
+  ["nested test in src/lib.test.ts", rewrite("src/lib.test.ts", (t) => t.replace("  helper();\n", '  helper();\n  test("inner", () => {});\n'))],
   // src/use.ts calls into src/lib.ts: its edges dangle, but it is gone, so it is deleted rather than re-extracted.
   ["line shift in src/lib.ts with src/use.ts removed", () => { shiftLib(); rmSync(join(root, "src/use.ts")); }],
 ];
