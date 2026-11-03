@@ -97,11 +97,16 @@ function failedLookups(store: GraphStore, targets: GraphNode[], edges: GraphEdge
 }
 
 function failedResolves(store: GraphStore, targets: GraphNode[]): string[] {
-  return targets.flatMap((node) =>
-    (["callers", "implementations"] as const)
-      .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
-      .map((kind) => `${kind} of ${node.name}`),
-  );
+  try {
+    return targets.flatMap((node) =>
+      (["callers", "implementations"] as const)
+        .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
+        .map((kind) => `${kind} of ${node.name}`),
+    );
+  } catch {
+    // A db opened read-only before `graph_metadata` existed can't gain it, so it records none.
+    return [];
+  }
 }
 
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {
