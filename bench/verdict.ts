@@ -1,10 +1,12 @@
 /**
  * Audit the graded cells under `bench/results/` and print the keep/freeze/retire verdict by `bench/thresholds.json`.
  *
- *   bun bench/verdict.ts [--tasks bench/tasks] [--results bench/results] [--thresholds bench/thresholds.json]
+ *   bun bench/verdict.ts [--tasks bench/tasks] [--results bench/results] [--on-results dir] [--thresholds bench/thresholds.json]
  *
- * Exits 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded cell. Only `*.json` files
- * directly under the results directory count, so `pilot/` and the transcripts are skipped.
+ * With `--on-results`, the on arm comes from that directory and only the off cells of `--results` count.
+ * Exits 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded cell, or cells run on
+ * different pi versions. Only `*.json` files directly under a results directory count, so `pilot/` and the
+ * transcripts are skipped.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -55,6 +57,7 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
   const expected = expectedCells(tasks, thresholds);
   const problems: string[] = tasks.length === 0 ? ["no tasks"] : [];
   for (const name of files.keys()) if (!expected.has(name)) problems.push(`${name}: unexpected cell`);
+  const versions: Record<Arm, Set<string>> = { on: new Set(), off: new Set() };
   for (const [name, want] of expected) {
     const raw = files.get(name);
     if (raw === undefined) {
@@ -75,12 +78,14 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
       count(c.codegraphCalls) &&
       typeof c.grade?.correct === "boolean" &&
       typeof c.finalText === "string" &&
+      typeof c.piVersion === "string" &&
       Array.isArray(c.offeredTools) &&
       c.offeredTools.every((t: unknown) => typeof t === "string");
     if (!typed) {
-      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText or offeredTools missing or ill-typed`);
+      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
       continue;
     }
+    versions[want.arm].add(c.piVersion);
     const identity: Record<string, unknown> = {
       cell: name.slice(0, -".json".length),
       task: want.task.id,
@@ -100,6 +105,10 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
     else if (want.arm === "on" && c.index.errors > 0) problems.push(`${name}: indexing reported ${c.index.errors} errors`);
     const regraded = grade(want.task.key, c.finalText).correct;
     if (regraded !== c.grade.correct) problems.push(`${name}: recorded grade correct=${c.grade.correct}, key gives ${regraded}`);
+  }
+  if (new Set([...versions.on, ...versions.off]).size > 1) {
+    const named = ARMS.filter((a) => versions[a].size > 0);
+    problems.push(`piVersion mismatch: ${named.map((a) => `${a} arm ${[...versions[a]].sort().join("/")}`).join(", ")}`);
   }
   return problems;
 }
@@ -146,6 +155,7 @@ function main(): number {
     options: {
       tasks: { type: "string", default: "bench/tasks" },
       results: { type: "string", default: "bench/results" },
+      "on-results": { type: "string" },
       thresholds: { type: "string", default: "bench/thresholds.json" },
     },
   });
@@ -154,13 +164,21 @@ function main(): number {
     .filter((f) => f.endsWith(".json"))
     .sort()
     .map((f) => JSON.parse(readFileSync(join(values.tasks!, f), "utf8")));
+  const onDir = values["on-results"];
+  const dirs = onDir ? [values.results!, onDir] : [values.results!];
   const files = new Map<string, string>();
-  for (const name of readdirSync(values.results!)) {
-    if (name.endsWith(".json")) files.set(name, readFileSync(join(values.results!, name), "utf8"));
+  const problems: string[] = [];
+  for (const dir of dirs) {
+    for (const name of readdirSync(dir)) {
+      // A cell name is `<task>__<arm>__<model>__r<n>`; with --on-results, --results gives only its off arm.
+      if (!name.endsWith(".json") || (onDir && dir === values.results && name.split("__")[1] !== "off")) continue;
+      if (files.has(name)) problems.push(`${name}: in both ${dirs.join(" and ")}`);
+      files.set(name, readFileSync(join(dir, name), "utf8"));
+    }
   }
-  const problems = auditCells(tasks, thresholds, files);
+  problems.push(...auditCells(tasks, thresholds, files));
   if (problems.length > 0) {
-    console.error(`${problems.length} problems in ${values.results}:\n${problems.join("\n")}`);
+    console.error(`${problems.length} problems in ${dirs.join(" and ")}:\n${problems.join("\n")}`);
     return 1;
   }
   const { verdict, wins, perTask } = decide(tasks, thresholds, [...files.values()].map((s) => JSON.parse(s)));

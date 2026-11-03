@@ -28,6 +28,7 @@ function cell(task: Task, arm: Arm, model: string, repeat: number, opts: { token
     model,
     repeat,
     exitCode: 0,
+    piVersion: "1.0.0",
     index: arm === "on" ? { indexed: 10, errors: 0 } : null,
     offeredTools: arm === "on" ? ["read", "symbol_graph", "impact", "trace"] : ["read"],
     turns: opts.turns ?? 4,
@@ -127,6 +128,13 @@ test("auditCells rejects a recorded grade that its task's key no longer gives", 
   expect(auditCells(tasks, thresholds, files)).toEqual(["t1__off__p_b__r1.json: recorded grade correct=true, key gives false"]);
 });
 
+test("auditCells names a piVersion mismatch between the arms, and needs a piVersion on every cell", () => {
+  const files = fullSet((c) => (c.arm === "on" ? { ...c, piVersion: "2.0.0" } : c));
+  expect(auditCells(tasks, thresholds, files)).toEqual(["piVersion mismatch: on arm 2.0.0, off arm 1.0.0"]);
+  const unversioned = fullSet((c) => (c.task === "t1" && c.arm === "off" && c.model === "p/a" ? { ...c, piVersion: undefined as unknown as string } : c));
+  expect(auditCells(tasks, thresholds, unversioned).join("\n")).toContain("t1__off__p_a__r1.json: malformed");
+});
+
 test("decide keeps when the on arm wins half the tasks without losing correctness", () => {
   const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" ? { ...c, tokens: { total: 750 } } : c)));
   const d = decide(tasks, thresholds, cells);
@@ -217,4 +225,42 @@ test("the CLI skips pilot/, exits 1 listing problems, and prints the verdict on 
   expect(clean.stderr).toBe("");
   expect(clean.status).toBe(0);
   expect(clean.stdout.trim().split("\n").at(-1)).toBe("keep");
+});
+
+test("the CLI's --on-results takes the on arm from that directory and only the off arm from --results", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bench-verdict-"));
+  const tasksDir = join(dir, "tasks");
+  const results = join(dir, "results");
+  const onDir = join(dir, "rerun");
+  for (const d of [tasksDir, results, onDir]) mkdirSync(d);
+  for (const t of tasks) writeFileSync(join(tasksDir, `${t.id}.json`), JSON.stringify(t));
+  writeFileSync(join(dir, "thresholds.json"), JSON.stringify(thresholds));
+  for (const [name, body] of fullSet()) writeFileSync(join(results, name), body);
+  const writeOn = (edit: (c: CellObj) => CellObj) => {
+    for (const [name, body] of fullSet(edit)) if (name.includes("__on__")) writeFileSync(join(onDir, name), body);
+  };
+  const run = () =>
+    spawnSync(
+      "bun",
+      [join(import.meta.dir, "..", "bench", "verdict.ts"), "--tasks", tasksDir, "--results", results, "--on-results", onDir, "--thresholds", join(dir, "thresholds.json")],
+      { encoding: "utf8" },
+    );
+
+  writeOn((c) => ({ ...c, tokens: { total: 600 } }));
+  const clean = run();
+  expect(clean.stderr).toBe("");
+  expect(clean.status).toBe(0);
+  expect(clean.stdout).toContain("t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%");
+  expect(clean.stdout.trim().split("\n").at(-1)).toBe("keep");
+
+  writeOn((c) => ({ ...c, piVersion: "2.0.0" }));
+  const mismatched = run();
+  expect(mismatched.status).toBe(1);
+  expect(mismatched.stderr).toContain("piVersion mismatch: on arm 2.0.0, off arm 1.0.0");
+
+  writeOn((c) => c);
+  writeFileSync(join(onDir, "t1__off__p_a__r1.json"), readFileSync(join(results, "t1__off__p_a__r1.json")));
+  const doubled = run();
+  expect(doubled.status).toBe(1);
+  expect(doubled.stderr).toContain("t1__off__p_a__r1.json: in both");
 });
