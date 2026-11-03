@@ -34,10 +34,11 @@ export interface GraphStore {
   findNodes(name: string, file?: string): GraphNode[];
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
   getNodesByFile(file: string): GraphNode[];
+  /** Delete `file`'s nodes and hash, every edge touching them but agent's and coverage's, and every resolver marker. */
   deleteFile(file: string): void;
   /**
    * Delete what indexing `file` wrote: its nodes and hash, and the edges they source but git's and coverage's, which
-   * their stages rewrite. Other edges into it stay, a vanished target's for the caller to fix.
+   * their stages rewrite, and every resolver marker. Other edges into it stay, a vanished target's for the caller to fix.
    */
   clearFile(file: string): void;
   /** The indexed files. */
