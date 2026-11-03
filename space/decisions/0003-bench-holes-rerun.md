@@ -1,7 +1,7 @@
 ---
 from: space:arcs/bench-holes.md
 ---
-# The bench-holes re-run reads freeze
+# The on-arm re-run reads freeze
 
 On 2026-11-02, 36 on-arm cells in `bench/results/rerun-1/` (decision 0002's 6 tasks, 2 models and 3 repeats, codegraph at `5821256b`, pi 1.5.0) were measured against the 36 off-arm cells stored for decision 0002, and `bun bench/verdict.ts --on-results bench/results/rerun-1` prints `wins 3/6` and `freeze`. The same three tasks win as in 0002, but one on cell answered wrong, so the on arm is correct less often than the off arm. bench-holes (Close the holes the bench exposed) set three targets for this run and misses all three. This record does not overturn decision 0002's `keep` on its own: whether a freeze by one cell supersedes it is the owner's ruling, routed in NOW.md, and 0002 stands until then.
 
