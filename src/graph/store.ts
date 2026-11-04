@@ -63,7 +63,7 @@ export interface GraphStore {
   getMetadata(key: string): string | null;
   /** Set a `graph_metadata` value or, with null, delete it. */
   setMetadata(key: string, value: string | null): void;
-  /** Every tsserver lookup whose last ask timed out or errored. */
+  /** Every tsserver lookup whose last ask timed out or errored, and every failure of the last index run. */
   getFailedLookups(): FailedLookup[];
   /** Record, or with `false` clear, a failed lookup. */
   setLookupFailed(lookup: FailedLookup, failed: boolean): void;
@@ -73,10 +73,11 @@ export interface GraphStore {
 /**
  * A failed tsserver lookup. A `definition` one names a call, by the edge's source and evidence, and every index run asks
  * it again. A `references` or `implementations` one names the symbol `symbol_graph` asked about, at the `file:line:col`
- * it asked, and goes when any file is re-extracted or removed.
+ * it asked, and goes when any file is re-extracted or removed. An `index` one names a file the last index run couldn't
+ * read, extract or remove, or a stage whose writes failed, as `lsp stage`, and what failed; each run replaces them.
  */
 export interface FailedLookup {
-  kind: "definition" | "references" | "implementations";
+  kind: "definition" | "references" | "implementations" | "index";
   source: string;
   evidence: string;
 }

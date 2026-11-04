@@ -26,6 +26,8 @@ export interface FreshnessReport {
   failedLookups: number;
   /** The targets' `symbol_graph` lookups whose last ask timed out or errored, as `callers of b`. */
   failedResolves: string[];
+  /** What the last index run couldn't read, extract, remove or write, as `src/c.ts` or `lsp stage`: any result can miss it. */
+  indexErrors: string[];
   message: string;
   recommendation?: string;
 }
@@ -171,7 +173,8 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
   const failures = params.store.getFailedLookups();
   const failed = failedCalls(failures, params.targetNodes ?? [], params.resultEdges ?? []);
   const resolves = failedResolves(failures, params.targetNodes ?? []);
-  if (failed > 0 || resolves.length > 0) report.localStale = true;
+  const indexErrors = [...new Set(failures.filter((f) => f.kind === "index").map((f) => f.source))];
+  if (failed > 0 || resolves.length > 0 || indexErrors.length > 0) report.localStale = true;
 
   const status: FreshnessStatus = report.unknown
     ? "unknown"
@@ -195,6 +198,7 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     partialFiles: partialFiles(params.store, params.targetNodes ?? [], [...nodesById.values()]),
     failedLookups: failed,
     failedResolves: resolves,
+    indexErrors,
     message,
     recommendation: params.recommendation,
   };
@@ -226,6 +230,9 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
     ...report.failedResolves,
   ];
   if (failedNotes.length > 0) lines.push(`- lookups failed: ${failedNotes.join(", ")} (tsserver timed out or errored)`);
+  const indexErrors = report.indexErrors.slice(0, 5);
+  if (report.indexErrors.length > 5) indexErrors.push(`+${report.indexErrors.length - 5} more`);
+  if (indexErrors.length > 0) lines.push(`- index errors: ${indexErrors.join(", ")}`);
   lines.push(...notes);
   lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
   return lines.join("\n");

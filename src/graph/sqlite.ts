@@ -358,7 +358,7 @@ export class SqliteGraphStore implements GraphStore {
   /** A changed file can add or drop a caller or implementation tsserver found for a symbol anywhere, so all markers go, and every failed query lookup. */
   private clearResolverMarkers(): void {
     this.db.prepare(`DELETE FROM graph_metadata WHERE SUBSTR(key, 1, ?) = ?`).run(RESOLVER_MARKER_PREFIX.length, RESOLVER_MARKER_PREFIX);
-    this.db.prepare(`DELETE FROM failed_lookups WHERE kind <> 'definition'`).run();
+    this.db.prepare(`DELETE FROM failed_lookups WHERE kind IN ('references', 'implementations')`).run();
   }
 
   listFiles(): string[] {
