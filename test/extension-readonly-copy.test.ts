@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import piCodegraph, { resetStoreForTesting, setTsServerClientFactoryForTesting } from "../src/index.js";
+import piCodegraph, { resetStoreForTesting, setIndexProjectForTesting, setTsServerClientFactoryForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
@@ -22,7 +22,8 @@ afterEach(() => {
   cleanup = null;
 });
 
-type Lock = "readonly" | "legacy-readonly" | "unreadable";
+/** `readonly` locks `graph.db` and `.codegraph/`, `readonly-file` the db alone; `wal-readonly` keeps the index in `-wal` only. */
+type Lock = "readonly" | "readonly-file" | "legacy-readonly" | "wal-readonly" | "unreadable";
 
 /** A repo indexed once, then `fresh2` added and its db locked as `lock` says; returns the db's path. */
 async function lockedRepo(lock: Lock): Promise<{ root: string; dbPath: string }> {
@@ -32,23 +33,26 @@ async function lockedRepo(lock: Lock): Promise<{ root: string; dbPath: string }>
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(dbDir);
   writeFileSync(join(root, "src", "a.ts"), "export function alpha() {}\nexport function beta() { alpha(); }\n");
-  const store = new SqliteGraphStore(dbPath);
+  // A WAL db is copied while `raw` holds it open, so closing the store neither checkpoints nor deletes its `-wal`.
+  const staged = lock === "wal-readonly" ? join(mkdtempSync(join(tmpdir(), "pi-cg-wal-")), "graph.db") : dbPath;
+  const { Database } = createRequire(import.meta.url)("bun:sqlite");
+  const raw = new Database(staged);
+  if (lock === "wal-readonly") raw.exec("PRAGMA journal_mode=WAL");
+  const store = new SqliteGraphStore(staged);
   await indexProject(root, store, { lspClientFactory: () => quiet });
   store.close();
-  if (lock === "legacy-readonly") {
-    const { Database } = createRequire(import.meta.url)("bun:sqlite");
-    const raw = new Database(dbPath);
-    raw.exec("DROP TABLE graph_metadata; DROP TABLE failed_lookups;");
-    raw.close();
-  }
+  if (lock === "legacy-readonly") raw.exec("DROP TABLE graph_metadata; DROP TABLE failed_lookups;");
+  const suffixes = lock === "wal-readonly" ? ["", "-wal", "-shm"] : [""];
+  if (lock === "wal-readonly") for (const suffix of suffixes) copyFileSync(staged + suffix, dbPath + suffix);
+  raw.close();
   appendFileSync(join(root, "src", "a.ts"), "export function fresh2() {}\n");
-  chmodSync(dbPath, lock === "unreadable" ? 0o000 : 0o444);
-  chmodSync(dbDir, 0o555);
+  for (const suffix of suffixes) chmodSync(dbPath + suffix, lock === "unreadable" ? 0o000 : 0o444);
+  if (lock !== "readonly-file") chmodSync(dbDir, 0o555);
   cleanup = () => {
     resetStoreForTesting();
     chmodSync(dbDir, 0o755);
-    chmodSync(dbPath, 0o644);
     rmSync(root, { recursive: true, force: true });
+    if (staged !== dbPath) rmSync(join(staged, ".."), { recursive: true, force: true });
   };
   return { root, dbPath };
 }
@@ -81,7 +85,7 @@ function loadExtension(root: string) {
   };
 }
 
-for (const lock of ["readonly", "legacy-readonly"] as const) {
+for (const lock of ["readonly", "readonly-file", "legacy-readonly"] as const) {
   test(`a ${lock} graph.db is indexed on a temp copy, left as it was, and the copy goes at shutdown`, async () => {
     const { root, dbPath } = await lockedRepo(lock);
     const before = sha256(dbPath);
@@ -102,6 +106,17 @@ for (const lock of ["readonly", "legacy-readonly"] as const) {
     expect(existsSync(copy!)).toBe(false);
   });
 }
+
+test("a read-only graph.db's -wal and -shm are copied with it", async () => {
+  const { root } = await lockedRepo("wal-readonly");
+  const ext = loadExtension(root);
+  // Skip indexing, so `alpha` resolves only from the index the copied `-wal` holds.
+  setIndexProjectForTesting(async () => ({ indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} }));
+
+  const { text, isError } = await ext.symbolGraph("alpha");
+  expect(isError, text).toBe(false);
+  expect(await ext.status()).toContain("db: a temp copy at ");
+});
 
 test("a graph.db codegraph can't read or copy is indexed in memory", async () => {
   const { root } = await lockedRepo("unreadable");
