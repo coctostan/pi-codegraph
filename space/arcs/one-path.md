@@ -1,0 +1,49 @@
+---
+status: active
+---
+# The index has one honest path
+
+codegraph's answers carry a trust line, and `Trust: fresh` should mean nothing is missing. Today a file codegraph can't read drops out of the index while every answer still reads `fresh`, and an index file codegraph can't write is served as it was, out of date, through special cases every part of the code has to remember. This arc makes a lost file show on every answer, works on a copy of an index it can't write, and keeps every failure that makes an answer partial in one place.
+
+## Destination
+An index run that loses a file turns every result `Trust: partial` with the file named, until a clean run. A `graph.db` codegraph can't write is copied, or held in memory, and indexed there, so no code path knows a read-only db. Every failure a result reads lives in one store, and `symbol_graph` takes a fake tsserver client in tests.
+
+## Done when
+- [ ] On a fixture whose `src/c.ts` is `chmod 000`, `symbol_graph` `{"name":"b"}`, `trace` `{"entry":"a"}` and `impact` `{"symbols":["b"],"changeType":"behavior_change"}` read `Trust: partial` with a `- index errors:` line naming `src/c.ts`, `symbol_graph` `{"name":"c"}` returns `isError: true` under the same line, and `/codegraph status` names `src/c.ts`. A fixture with 7 unreadable files names 5 and `+2 more`. After `chmod 644` the next call reads `Trust: fresh` and `c` resolves — verified by `bun test test/tool-index-errors.test.ts` · at shape, 2026-11-04, on `29324d9c`: the first fixture's three tools read `Trust: fresh`, `impact` reads `No dependents found`, and `indexProject` returns `errors: 1`
+- [ ] On a fixture indexed once, then its `graph.db` `chmod 444` inside a `chmod 555` `.codegraph/` and a new export `fresh2` added to a source file, `symbol_graph` `{"name":"fresh2"}` returns `isError: false` under `Trust: fresh` with no `indexing-failed` note, `graph.db`'s sha256 is unchanged, and `/codegraph status` says it works on a temp copy. A read-only db from before `graph_metadata` and `failed_lookups` existed answers the same, and so does the extension loaded under `node` — verified by `bun test test/extension-readonly-copy.test.ts test/pi-host-load.test.ts` · at shape, 2026-11-04, on `29324d9c`: `isError: true`, `indexing-failed (0s ago): readonly database` above `Symbol "fresh2" not found`, sha256 unchanged
+- [ ] `git grep -n -i -e isReadonlyError -e "readonly database" -e SQLITE_READONLY -e "opened read-only" -e "readonly DB" -e "read-only DB" -- src` prints nothing — verified by that command · at shape, 2026-11-04: 17 lines
+- [ ] `git grep -n resolverFailedKey -- src` and `git grep -n getMetadata -- src/output` print nothing, and `git grep -c coverage_indexed -- src` prints `src/graph/sqlite.ts:1`, while `bun test test/indexer-lsp-lookup-failure.test.ts test/tool-symbol-graph-lookup-failure.test.ts` passes — verified by those commands · at shape, 2026-11-04: 6 lines, 1 line (`src/output/freshness.ts:103`), `src/graph/sqlite.ts:3`
+- [ ] `test/tool-symbol-graph-lookup-failure.test.ts` drives the `symbol_graph` tool with a fake tsserver client and `git grep -n lsp-resolver -- test/tool-symbol-graph-lookup-failure.test.ts` prints nothing — verified by that command and `bun test test/tool-symbol-graph-lookup-failure.test.ts` · at shape, 2026-11-04: line 8 imports `resolveImplementations` and `resolveMissingCallers`
+- [ ] On the real artifact: `bun run check && bun test` pass. AGENTS.md's loader command, running `symbol_graph` `{"name":"indexProject"}` on this checkout, prints `Trust: fresh` and `path  LINE:HASH` anchors. The same command on a worktree of HEAD indexed once, then its `graph.db` `chmod 444` in a `chmod 555` `.codegraph/`, prints the same with no `indexing-failed` note and leaves `graph.db`'s sha256 unchanged — verified by those commands at close
+
+## Now
+slice 1 (Inject the tsserver client) is next: run `slice` in a fresh session.
+
+## Seams
+- Extension: `piCodegraph`'s tools and `/codegraph` command in `src/index.ts`, driven in-process by a mock `pi` with `setIndexProjectForTesting` and the new tsserver client factory setter; tests in `test/tool-*.test.ts` and `test/extension-*.test.ts`.
+- Open: where `src/index.ts`'s `getOrCreateProject` rules a project's store, writable in place, a temp copy, or `:memory:`; tests in `test/extension-readonly-copy.test.ts` on `chmod` fixtures, which skip nothing as a non-root user (CI's runner is one).
+- Store: `SqliteGraphStore` in `src/graph/sqlite.ts` behind `GraphStore` in `src/graph/store.ts` (failure records, `getMetadata`/`setMetadata`, the coverage sentinel); tests in `test/graph-*.test.ts` on `:memory:` and temp dbs.
+- Pipeline: `indexProject` in `src/indexer/pipeline.ts` and its stages, through a fake `ITsServerClient` passed as `lspClientFactory`; tests in `test/indexer-*.test.ts` on temp repos.
+- Trust: `evaluateFreshness` and `formatFreshnessHeader` in `src/output/freshness.ts`; tests in `test/output-freshness-*.test.ts` and the per-tool trust tests.
+- Node host: `test/pi-host-load.test.ts`, which loads the extension through pi's real loader under Bun and under `node`.
+- Real artifact: AGENTS.md's loader command on this checkout and on a read-only worktree of HEAD.
+
+## Slices
+1. **Inject the tsserver client** — delivers a test-only tsserver client factory setter in `src/index.ts` that feeds both `getClient` and the index run's `lspClientFactory`, so `test/tool-symbol-graph-lookup-failure.test.ts` drives the `symbol_graph` tool, not the resolver · proof that file's 5 cases pass through the tool with its `lsp-resolver` import gone (check 5) · blocked-by — · status next
+2. **Keep the coverage sentinel in the metadata pair** — delivers `hasCoverageData` and `markCoverageIndexed` reading and writing one exported key constant through `getMetadata`/`setMetadata`; `hasCoverageData`'s missing-table catch stays, wrapping `getMetadata`, until slice 4 · proof `bun test test/indexer-coverage-sentinel.test.ts test/graph-store-coverage-metadata-legacy-db.test.ts` stays green and `git grep -c coverage_indexed -- src` prints `src/graph/sqlite.ts:1` · blocked-by — · status next
+3. **Open a read-only database as a copy** — delivers `getOrCreateProject` ruling the store once at open: a `graph.db` or `.codegraph/` codegraph can't write is copied, with any `-wal` and `-shm` beside it, to a temp dir removed at session shutdown, and opened and indexed there; a copy that fails opens `:memory:`; `/codegraph status` names the copy · proof `bun test test/extension-readonly-copy.test.ts` red → green, and a read-only cell in `test/pi-host-load.test.ts` under `node` (check 2) · blocked-by — · status next
+4. **Drop the read-only carve-outs** — delivers every branch a read-only db needed gone: `isReadonlyError`, `initSchema`'s catch and the `callEndColumns` fallback, the missing-table catches in `getFailedLookups`, `hasCoverageData`, `partialFiles` and `failedResolves`, the coverage stage's `return 1`, the `"readonly database"` record in `src/index.ts`, and the tests pinning them rewritten to the copy or deleted · proof check 3's `git grep` prints nothing, and check 2's tests stay green · blocked-by 2, 3 · status next
+5. **Keep every failed lookup in one store** — delivers failed `references` and `implementations` lookups recorded beside failed `definition` lookups through `getFailedLookups`/`setLookupFailed`, each record carrying its kind, the query ones still cleared by any file change, and `resolverFailedKey` gone, so `evaluateFreshness` reads failures through one method · proof check 4's commands, `test/indexer-lsp-lookup-failure.test.ts` and `test/tool-symbol-graph-lookup-failure.test.ts` stay green · blocked-by 1, 4 · status next
+6. **Mark every result an index run lost a file** — delivers `indexProject` recording, in slice 5's store, each file it couldn't read, extract or remove and each stage's failed write, each run replacing the last run's records; every result reads `Trust: partial` with a `- index errors:` line naming up to 5 files, then `+N more`, until a clean run; `/codegraph status` lists them · proof `bun test test/tool-index-errors.test.ts` red → green (check 1), then check 6's real-artifact commands · blocked-by 5 · status next
+
+## Not yet specified
+
+## Out of scope
+- Signals counting unresolved calls (`[leaf]` above a `?` line).
+- Tool-description tuning for pick rate, `trace` from a `file:line`, and any bench run.
+- Python support.
+- Decision 0003's ruling on whether `freeze` supersedes decision 0002's `keep`.
+- Keeping a read-only db's temp copy across sessions.
+
+## Decisions
+- Shape, 2026-11-04 (chat): a `graph.db` codegraph can't write is worked on as a temp copy, or in memory, and nothing persists; answers carry no note of it, only `/codegraph status` does. An index run's errors turn every result `Trust: partial` with the files named, since a lost file can be missing from any answer; a run that throws keeps the `indexing-failed` note. A test-only setter, not a host-visible option, injects the tsserver client.
