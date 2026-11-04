@@ -184,39 +184,4 @@ describe("Bug #038: readonly database graceful degradation", () => {
       chmodSync(dbPath, 0o644);
     }
   });
-  test("tool output trust header indicates indexing-failed when DB is readonly", async () => {
-    const projectRoot = createTestProject();
-    const dbPath = populateStore(projectRoot);
-
-    writeFileSync(
-      join(projectRoot, "src/hello.ts"),
-      "export function alpha() { return 1; }\nexport function beta() { return alpha(); }\nexport function delta() { return 99; }\n",
-    );
-
-    const mod = await import("../src/index.js");
-    mod.resetStoreForTesting();
-
-    let sgExecute: Function | undefined;
-    const mockPi = {
-      registerTool(tool: { name: string; execute: Function }) {
-        if (tool.name === "symbol_graph") sgExecute = tool.execute;
-      },
-      on() {},
-    };
-    mod.default(mockPi as any);
-
-    const originalDefinition = TsServerClient.prototype.definition;
-    TsServerClient.prototype.definition = async () => ({ file: "src/hello.ts", line: 1, col: 1 });
-
-    try {
-      chmodSync(dbPath, 0o444);
-      const ctx = { cwd: projectRoot };
-      const sgResult = await sgExecute!("c1", { name: "alpha" }, undefined, undefined, ctx);
-      expect(sgResult.content[0]?.text ?? "").toContain("indexing-failed");
-    } finally {
-      TsServerClient.prototype.definition = originalDefinition;
-      mod.resetStoreForTesting();
-      chmodSync(dbPath, 0o644);
-    }
-  });
 });

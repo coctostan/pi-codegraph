@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import piCodegraph, { resetStoreForTesting, setIndexProjectForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 function register(): ToolDefinition<any>[] {
@@ -65,11 +65,11 @@ test("impact with suppressTrustHeader:true omits the Trust header on a stale gra
   });
   seed.close();
 
-  // Mutate shared to make files stale, then lock DB readonly.
+  // Mutate shared and skip indexing, so the graph reads stale.
   writeFileSync(join(projectRoot, "src", "shared.ts"), "export function shared() { return 2; }\n");
-  chmodSync(dbPath, 0o444);
 
   const tools = register();
+  setIndexProjectForTesting(async () => ({ indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} }));
   const tool = tools.find((candidate) => candidate.name === "impact");
   if (!tool) throw new Error("impact was not registered");
 
@@ -95,7 +95,6 @@ test("impact with suppressTrustHeader:true omits the Trust header on a stale gra
     expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toContain("caller");
   } finally {
-    chmodSync(dbPath, 0o644);
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
   }
