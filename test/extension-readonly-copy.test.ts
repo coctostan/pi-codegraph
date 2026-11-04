@@ -22,8 +22,8 @@ afterEach(() => {
   cleanup = null;
 });
 
-/** `readonly` locks `graph.db` and `.codegraph/`, `readonly-file` the db alone; `wal-readonly` keeps the index in `-wal` only. */
-type Lock = "readonly" | "readonly-file" | "legacy-readonly" | "wal-readonly" | "unreadable";
+/** `readonly` locks `graph.db` and `.codegraph/`, `readonly-file` the db alone, `readonly-dir` the directory alone; `wal-readonly` keeps the index in `-wal` only. */
+type Lock = "readonly" | "readonly-file" | "readonly-dir" | "legacy-readonly" | "wal-readonly" | "unreadable";
 
 /** A repo indexed once, then `fresh2` added and its db locked as `lock` says; returns the db's path. */
 async function lockedRepo(lock: Lock): Promise<{ root: string; dbPath: string }> {
@@ -46,7 +46,7 @@ async function lockedRepo(lock: Lock): Promise<{ root: string; dbPath: string }>
   if (lock === "wal-readonly") for (const suffix of suffixes) copyFileSync(staged + suffix, dbPath + suffix);
   raw.close();
   appendFileSync(join(root, "src", "a.ts"), "export function fresh2() {}\n");
-  for (const suffix of suffixes) chmodSync(dbPath + suffix, lock === "unreadable" ? 0o000 : 0o444);
+  if (lock !== "readonly-dir") for (const suffix of suffixes) chmodSync(dbPath + suffix, lock === "unreadable" ? 0o000 : 0o444);
   if (lock !== "readonly-file") chmodSync(dbDir, 0o555);
   cleanup = () => {
     resetStoreForTesting();
@@ -85,7 +85,7 @@ function loadExtension(root: string) {
   };
 }
 
-for (const lock of ["readonly", "readonly-file", "legacy-readonly"] as const) {
+for (const lock of ["readonly", "readonly-file", "readonly-dir", "legacy-readonly"] as const) {
   test(`a ${lock} graph.db is indexed on a temp copy, left as it was, and the copy goes at shutdown`, async () => {
     const { root, dbPath } = await lockedRepo(lock);
     const before = sha256(dbPath);
