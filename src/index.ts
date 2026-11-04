@@ -6,7 +6,7 @@ import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
-import { TsServerClient } from "./indexer/tsserver-client.js";
+import { TsServerClient, type ITsServerClient } from "./indexer/tsserver-client.js";
 import { symbolGraphResult } from "./tools/symbol-graph.js";
 import { impactResult } from "./tools/impact.js";
 import { traceResult } from "./tools/trace.js";
@@ -93,7 +93,7 @@ const CODEGRAPH_NAMESPACE = {
 
 interface ProjectState {
   store: GraphStore;
-  client: TsServerClient | null;
+  client: ITsServerClient | null;
   indexing: Promise<void> | null;
   /** In-flight LSP resolutions by node id, so concurrent calls for one symbol share the work. */
   resolving: Map<string, Promise<void>>;
@@ -111,6 +111,9 @@ interface IndexErrorRecord {
 let lastIndexError: IndexErrorRecord | null = null;
 type IndexProjectFn = typeof indexProject;
 let indexProjectImpl: IndexProjectFn = indexProject;
+type TsServerClientFactory = (projectRoot: string) => ITsServerClient;
+const newTsServerClient: TsServerClientFactory = (projectRoot) => new TsServerClient(projectRoot);
+let tsServerClientFactory: TsServerClientFactory = newTsServerClient;
 export function getSharedStoreForTesting(): GraphStore | null {
   return sharedStore;
 }
@@ -130,6 +133,11 @@ export function getIndexingFailedNoteForTesting(now: number = Date.now()): strin
 
 export function setIndexProjectForTesting(fn: IndexProjectFn | null): void {
   indexProjectImpl = fn ?? indexProject;
+}
+
+/** Feeds both the tools' tsserver and the index run's, so a test drives the tools without a real tsserver. */
+export function setTsServerClientFactoryForTesting(fn: TsServerClientFactory | null): void {
+  tsServerClientFactory = fn ?? newTsServerClient;
 }
 
 /** Close every store and tsserver. Idempotent: cancellation, reload and exit can all land here. */
@@ -168,6 +176,7 @@ export function resetStoreForTesting(): void {
   sharedStore = null;
   lastIndexError = null;
   indexProjectImpl = indexProject;
+  tsServerClientFactory = newTsServerClient;
   resetSession();
   _resetSearchCache();
 }
@@ -187,8 +196,8 @@ function getOrCreateProject(projectRoot: string): ProjectState {
 }
 
 /** One tsserver per project, started lazily. It stops itself when idle and is closed on session shutdown. */
-function getClient(projectRoot: string, state: ProjectState): TsServerClient {
-  state.client ??= new TsServerClient(projectRoot);
+function getClient(projectRoot: string, state: ProjectState): ITsServerClient {
+  state.client ??= tsServerClientFactory(projectRoot);
   return state.client;
 }
 
@@ -207,7 +216,7 @@ function ensureIndexed(projectRoot: string, state: ProjectState): Promise<void> 
   if (state.indexing) return state.indexing;
   const run = (async () => {
     try {
-      const result = await indexProjectImpl(projectRoot, state.store);
+      const result = await indexProjectImpl(projectRoot, state.store, { lspClientFactory: tsServerClientFactory });
       if (result.errors > 0 && !dbIsWritable(projectRoot)) {
         lastIndexError = { error: new Error("readonly database"), setAt: Date.now() };
       } else {
