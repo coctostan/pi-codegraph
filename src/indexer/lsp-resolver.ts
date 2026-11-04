@@ -97,13 +97,16 @@ export async function resolveMissingCallers(
     // edges already capture the same information honestly.
     return;
   }
+  const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
   for (const ref of refs) {
     const callerNode = store
       .getNodesByFile(ref.file)
       .find((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line));
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
-    store.setLookupFailed({ kind: "definition", source: callerNode.id, evidence: `${node.name}:${ref.line}:${ref.col}` }, false);
+    for (const f of failedCalls) {
+      if (f.source === callerNode.id && f.evidence === `${node.name}:${ref.line}:${ref.col}`) store.setLookupFailed(f, false);
+    }
     if (callerNode.id === node.id) continue; // self reference/declaration
 
     const exists = store.getEdgesBySource(callerNode.id).some((e) => e.kind === "calls" && e.target === node.id);
