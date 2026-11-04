@@ -34,11 +34,12 @@ export interface GraphStore {
   findNodes(name: string, file?: string): GraphNode[];
   getNeighbors(nodeId: string, options?: NeighborOptions): NeighborResult[];
   getNodesByFile(file: string): GraphNode[];
-  /** Delete `file`'s nodes and hash, every edge touching them but agent's and coverage's, and every resolver marker. */
+  /** Delete `file`'s nodes and hash, every edge touching them but agent's and coverage's, and every resolver marker and failed query lookup. */
   deleteFile(file: string): void;
   /**
    * Delete what indexing `file` wrote: its nodes and hash, and the edges they source but git's and coverage's, which
-   * their stages rewrite, and every resolver marker. Other edges into it stay, a vanished target's for the caller to fix.
+   * their stages rewrite, and every resolver marker and failed query lookup. Other edges into it stay, a vanished
+   * target's for the caller to fix.
    */
   clearFile(file: string): void;
   /** The indexed files. */
@@ -62,14 +63,20 @@ export interface GraphStore {
   getMetadata(key: string): string | null;
   /** Set a `graph_metadata` value or, with null, delete it. */
   setMetadata(key: string, value: string | null): void;
-  /** The calls whose last `definition` lookup timed out or errored, by the edge's source and evidence. */
+  /** Every tsserver lookup whose last ask timed out or errored. */
   getFailedLookups(): FailedLookup[];
-  /** Record, or with `false` clear, a failed lookup for the call `source` makes at `evidence`. */
-  setLookupFailed(source: string, evidence: string, failed: boolean): void;
+  /** Record, or with `false` clear, a failed lookup. */
+  setLookupFailed(lookup: FailedLookup, failed: boolean): void;
   close(): void;
 }
 
+/**
+ * A failed tsserver lookup. A `definition` one names a call, by the edge's source and evidence, and every index run asks
+ * it again. A `references` or `implementations` one names the symbol `symbol_graph` asked about, at the `file:line:col`
+ * it asked, and goes when any file is re-extracted or removed.
+ */
 export interface FailedLookup {
+  kind: "definition" | "references" | "implementations";
   source: string;
   evidence: string;
 }

@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { resolverFailedKey } from "../graph/sqlite.js";
-import type { GraphStore } from "../graph/store.js";
+import type { FailedLookup, GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { sha256Hex } from "../indexer/tree-sitter.js";
 
@@ -81,20 +80,20 @@ function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNod
   return [...targetFiles, ...pick(touched, targetFiles)];
 }
 
-function failedLookups(store: GraphStore, targets: GraphNode[], edges: GraphEdge[]): number {
+function failedCalls(failures: FailedLookup[], targets: GraphNode[], edges: GraphEdge[]): number {
   const rendered = new Set(edges.map((edge) => `${edge.source}\0${edge.provenance.evidence}`));
   const targetNames = new Set(targets.map((node) => node.name));
   // A call's evidence is `<callee>:<line>:<col>`, so a call to a target stays countable while it reads unresolved.
-  return store
-    .getFailedLookups()
+  return failures
+    .filter((f) => f.kind === "definition")
     .filter((f) => rendered.has(`${f.source}\0${f.evidence}`) || targetNames.has(f.evidence.split(":")[0]!)).length;
 }
 
-function failedResolves(store: GraphStore, targets: GraphNode[]): string[] {
+function failedResolves(failures: FailedLookup[], targets: GraphNode[]): string[] {
   return targets.flatMap((node) =>
-    (["callers", "implementations"] as const)
-      .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
-      .map((kind) => `${kind} of ${node.name}`),
+    ([["references", "callers"], ["implementations", "implementations"]] as const)
+      .filter(([kind]) => failures.some((f) => f.kind === kind && f.source === node.id))
+      .map(([, label]) => `${label} of ${node.name}`),
   );
 }
 
@@ -169,8 +168,9 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     report.unknown = true;
     report.localStale = true;
   }
-  const failed = failedLookups(params.store, params.targetNodes ?? [], params.resultEdges ?? []);
-  const resolves = failedResolves(params.store, params.targetNodes ?? []);
+  const failures = params.store.getFailedLookups();
+  const failed = failedCalls(failures, params.targetNodes ?? [], params.resultEdges ?? []);
+  const resolves = failedResolves(failures, params.targetNodes ?? []);
   if (failed > 0 || resolves.length > 0) report.localStale = true;
 
   const status: FreshnessStatus = report.unknown

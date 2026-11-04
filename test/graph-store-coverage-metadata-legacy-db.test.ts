@@ -102,6 +102,29 @@ test("a legacy DB lacking graph_metadata migrates on open and reads as one witho
   });
 });
 
+test("a failed_lookups table from before lookup kinds keeps its rows as failed definition lookups", () => {
+  withLegacyDb((dbPath) => {
+    const raw = openRawDb(dbPath);
+    raw.exec(`
+      CREATE TABLE failed_lookups (source TEXT NOT NULL, evidence TEXT NOT NULL, PRIMARY KEY (source, evidence));
+      INSERT INTO failed_lookups VALUES ('src/a.ts::f:1', 'g:1:20');
+    `);
+    raw.close();
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      expect(store.getFailedLookups()).toEqual([{ kind: "definition", source: "src/a.ts::f:1", evidence: "g:1:20" }]);
+      // The rebuilt table keys on the kind, so a query lookup at the same source and evidence is a row of its own.
+      store.setLookupFailed({ kind: "references", source: "src/a.ts::f:1", evidence: "g:1:20" }, true);
+      expect(store.getFailedLookups().map((f) => f.kind)).toEqual(["definition", "references"]);
+    } finally {
+      store.close();
+    }
+    const reopened = new SqliteGraphStore(dbPath);
+    expect(reopened.getFailedLookups()).toHaveLength(2);
+    reopened.close();
+  });
+});
+
 // pi's host runs on Node, whose node:sqlite runs the migration too.
 test.skipIf(!Bun.which("node"))("SqliteGraphStore migrates a legacy DB under Node", () => {
   withLegacyDb((dbPath) => {

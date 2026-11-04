@@ -57,12 +57,12 @@ export async function runLspIndexStage(
   // Every run asks each call again, so a record is current once this run has asked; one whose call is gone goes now.
   // Each write waits on a change, so an unchanged index writes nothing.
   const key = (source: string, evidence: string) => `${source}\0${evidence}`;
-  const recorded = store.getFailedLookups();
+  const recorded = store.getFailedLookups().filter((f) => f.kind === "definition");
   const failed = new Set(recorded.map((f) => key(f.source, f.evidence)));
   const recordLookup = (source: string, evidence: string, failedNow: boolean) => {
     if (failed.has(key(source, evidence)) === failedNow) return;
     try {
-      store.setLookupFailed(source, evidence, failedNow);
+      store.setLookupFailed({ kind: "definition", source, evidence }, failedNow);
     } catch {
       errors++;
     }

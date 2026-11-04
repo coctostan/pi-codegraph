@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
-import { resolverFailedKey, resolverMarkerKey } from "../graph/sqlite.js";
-import type { GraphStore } from "../graph/store.js";
+import { resolverMarkerKey } from "../graph/sqlite.js";
+import type { FailedLookup, GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
 type ResolverKind = "callers" | "implementations";
@@ -11,18 +11,23 @@ function hasMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode): bo
   return store.getMetadata(resolverMarkerKey(kind, symbol.id)) !== null;
 }
 
-function setMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode): void {
+/** The tsserver lookup `kind` makes for `symbol`, at the column it asks. */
+function queryLookup(kind: ResolverKind, symbol: GraphNode, col: number): FailedLookup {
+  return { kind: kind === "callers" ? "references" : "implementations", source: symbol.id, evidence: `${symbol.file}:${symbol.start_line}:${col}` };
+}
+
+function setMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode, col: number): void {
   store.setMetadata(resolverMarkerKey(kind, symbol.id), "1");
-  store.setMetadata(resolverFailedKey(kind, symbol.id), null);
+  store.setLookupFailed(queryLookup(kind, symbol, col), false);
 }
 
 /**
  * A tsserver that can't start (not installed) never will, so it is marked done rather than retried on every call.
  * A crash or timeout leaves the marker unset for the next call to retry, and a record that turns the result partial.
  */
-function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode, err: unknown): void {
-  if (err instanceof Error && err.message.startsWith("TsServer failed to start:")) setMarker(store, kind, symbol);
-  else store.setMetadata(resolverFailedKey(kind, symbol.id), "1");
+function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode, col: number, err: unknown): void {
+  if (err instanceof Error && err.message.startsWith("TsServer failed to start:")) setMarker(store, kind, symbol, col);
+  else store.setLookupFailed(queryLookup(kind, symbol, col), true);
 }
 
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {
@@ -86,22 +91,19 @@ export async function resolveMissingCallers(
   try {
     refs = await client.references(node.file, node.start_line, col);
   } catch (err) {
-    recordFailure(store, "callers", node, err);
+    recordFailure(store, "callers", node, col, err);
     // Do NOT create edges here — writing lsp-provenance edges from a name-match
     // fallback would misrepresent confidence; the existing unresolved tree-sitter
     // edges already capture the same information honestly.
     return;
   }
-  const failedCalls = store.getFailedLookups();
   for (const ref of refs) {
     const callerNode = store
       .getNodesByFile(ref.file)
       .find((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line));
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
-    for (const f of failedCalls) {
-      if (f.source === callerNode.id && f.evidence === `${node.name}:${ref.line}:${ref.col}`) store.setLookupFailed(f.source, f.evidence, false);
-    }
+    store.setLookupFailed({ kind: "definition", source: callerNode.id, evidence: `${node.name}:${ref.line}:${ref.col}` }, false);
     if (callerNode.id === node.id) continue; // self reference/declaration
 
     const exists = store.getEdgesBySource(callerNode.id).some((e) => e.kind === "calls" && e.target === node.id);
@@ -120,7 +122,7 @@ export async function resolveMissingCallers(
     });
   }
 
-  setMarker(store, "callers", node);
+  setMarker(store, "callers", node, col);
 }
 
 
@@ -178,7 +180,7 @@ export async function resolveImplementations(
     impls = await client.implementations(node.file, node.start_line, col);
   } catch (err) {
     syncDeclaredImplementations();
-    recordFailure(store, "implementations", node, err);
+    recordFailure(store, "implementations", node, col, err);
     return;
   }
   for (const implLoc of impls ?? []) {
@@ -203,5 +205,5 @@ export async function resolveImplementations(
     });
   }
   syncDeclaredImplementations();
-  setMarker(store, "implementations", node);
+  setMarker(store, "implementations", node, col);
 }
