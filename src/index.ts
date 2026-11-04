@@ -135,9 +135,9 @@ export function setIndexProjectForTesting(fn: IndexProjectFn | null): void {
   indexProjectImpl = fn ?? indexProject;
 }
 
-/** Feeds both the tools' tsserver and the index run's, so a test drives the tools without a real tsserver. */
-export function setTsServerClientFactoryForTesting(fn: TsServerClientFactory | null): void {
-  tsServerClientFactory = fn ?? newTsServerClient;
+/** Feeds both the tools' tsserver and the index run's, so a test drives the tools without a real tsserver; `resetStoreForTesting` restores the real one. */
+export function setTsServerClientFactoryForTesting(fn: TsServerClientFactory): void {
+  tsServerClientFactory = fn;
 }
 
 /** Close every store and tsserver. Idempotent: cancellation, reload and exit can all land here. */
