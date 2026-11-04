@@ -17,7 +17,7 @@ An index run that loses a file turns every result `Trust: partial` with the file
 - [ ] On the real artifact: `bun run check && bun test` pass. AGENTS.md's loader command, running `symbol_graph` `{"name":"indexProject"}` on this checkout, prints `Trust: fresh` and `path  LINE:HASH` anchors. The same command on a worktree of HEAD indexed once, then its `graph.db` `chmod 444` in a `chmod 555` `.codegraph/`, prints the same with no `indexing-failed` note and leaves `graph.db`'s sha256 unchanged — verified by those commands at close
 
 ## Now
-slice 6 (Mark every result an index run lost a file) active on `one-path/06-index-errors`. Next: build its reach list.
+slice 6 (Mark every result an index run lost a file) active on `one-path/06-index-errors`, pushed at `da3113a0`, no PR yet. Stopped at review: valid findings rose from 1 to 2 on each axis between rounds 1 and 2; every round-2 finding (medium or low) is fixed and verified on the branch, unreviewed. Next: the human rules whether to land it as converged or run review round 3.
 
 ## Seams
 - Extension: `piCodegraph`'s tools and `/codegraph` command in `src/index.ts`, driven in-process by a mock `pi` with `setIndexProjectForTesting` and the new tsserver client factory setter; tests in `test/tool-*.test.ts` and `test/extension-*.test.ts`.
