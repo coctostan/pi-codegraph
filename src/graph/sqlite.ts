@@ -30,10 +30,7 @@ const RESOLVER_MARKER_PREFIX = "resolver:";
 export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
   return `${RESOLVER_MARKER_PREFIX}${kind}:${symbolId}`;
 }
-/** The `graph_metadata` key recording that `symbolId`'s last `kind` lookup timed out or errored; it goes with the markers. */
-export function resolverFailedKey(kind: "callers" | "implementations", symbolId: string): string {
-  return `${RESOLVER_MARKER_PREFIX}failed:${kind}:${symbolId}`;
-}
+const FAILED_LOOKUPS_COLUMNS = "kind TEXT NOT NULL, source TEXT NOT NULL, evidence TEXT NOT NULL, PRIMARY KEY (kind, source, evidence)";
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 
@@ -114,11 +111,7 @@ export class SqliteGraphStore implements GraphStore {
         value TEXT NOT NULL
       );
 
-      CREATE TABLE IF NOT EXISTS failed_lookups (
-        source TEXT NOT NULL,
-        evidence TEXT NOT NULL,
-        PRIMARY KEY (source, evidence)
-      );
+      CREATE TABLE IF NOT EXISTS failed_lookups (${FAILED_LOOKUPS_COLUMNS});
 
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER NOT NULL
@@ -141,6 +134,24 @@ export class SqliteGraphStore implements GraphStore {
     for (const [table, name, type] of columns) {
       const existingColumns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
       if (!existingColumns.some((column) => column.name === name)) this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
+    }
+    // Before one-path (The index has one honest path), failed_lookups held failed `definition` lookups alone, keyed
+    // without a kind; a key can't change in place, so the table is rebuilt.
+    const lookupColumns = this.db.prepare("PRAGMA table_info(failed_lookups)").all() as Array<{ name: string }>;
+    if (!lookupColumns.some((column) => column.name === "kind")) {
+      this.db.exec("BEGIN");
+      try {
+        this.db.exec(`
+          ALTER TABLE failed_lookups RENAME TO failed_lookups_v1;
+          CREATE TABLE failed_lookups (${FAILED_LOOKUPS_COLUMNS});
+          INSERT INTO failed_lookups (kind, source, evidence) SELECT 'definition', source, evidence FROM failed_lookups_v1;
+          DROP TABLE failed_lookups_v1;
+        `);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
     }
 
     // An index from before index-honesty (The index says when it lost data) kept the git head as a `file_hashes` row.
@@ -344,9 +355,10 @@ export class SqliteGraphStore implements GraphStore {
     }
   }
 
-  /** A changed file can add or drop a caller or implementation tsserver found for a symbol anywhere, so all markers go. */
+  /** A changed file can add or drop a caller or implementation tsserver found for a symbol anywhere, so all markers go, and every failed query lookup. */
   private clearResolverMarkers(): void {
     this.db.prepare(`DELETE FROM graph_metadata WHERE SUBSTR(key, 1, ?) = ?`).run(RESOLVER_MARKER_PREFIX.length, RESOLVER_MARKER_PREFIX);
+    this.db.prepare(`DELETE FROM failed_lookups WHERE kind <> 'definition'`).run();
   }
 
   listFiles(): string[] {
@@ -446,12 +458,12 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getFailedLookups(): FailedLookup[] {
-    return this.db.prepare(`SELECT source, evidence FROM failed_lookups ORDER BY source, evidence`).all() as FailedLookup[];
+    return this.db.prepare(`SELECT kind, source, evidence FROM failed_lookups ORDER BY source, evidence, kind`).all() as FailedLookup[];
   }
 
-  setLookupFailed(source: string, evidence: string, failed: boolean): void {
-    if (failed) this.db.prepare(`INSERT OR IGNORE INTO failed_lookups (source, evidence) VALUES (?, ?)`).run(source, evidence);
-    else this.db.prepare(`DELETE FROM failed_lookups WHERE source = ? AND evidence = ?`).run(source, evidence);
+  setLookupFailed({ kind, source, evidence }: FailedLookup, failed: boolean): void {
+    if (failed) this.db.prepare(`INSERT OR IGNORE INTO failed_lookups (kind, source, evidence) VALUES (?, ?, ?)`).run(kind, source, evidence);
+    else this.db.prepare(`DELETE FROM failed_lookups WHERE kind = ? AND source = ? AND evidence = ?`).run(kind, source, evidence);
   }
   hasCoverageData(): boolean {
     return this.getMetadata(COVERAGE_INDEXED_METADATA_KEY) === "1";

@@ -129,14 +129,32 @@ test("setMetadata with null deletes the key", () => {
   }
 });
 
-test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every resolver marker, other metadata kept", (method) => {
+test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every resolver marker and failed query record, other metadata kept", (method) => {
   const store = new SqliteGraphStore();
   try {
     const kept = "src/kept.ts::shared:1";
     for (const kind of ["callers", "implementations"] as const) store.setMetadata(resolverMarkerKey(kind, kept), "1");
+    for (const kind of ["references", "implementations"] as const) store.setLookupFailed({ kind, source: kept, evidence: "src/kept.ts:1:17" }, true);
+    const call = { kind: "definition", source: kept, evidence: "b:2:3" } as const;
+    store.setLookupFailed(call, true);
     store.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     store[method]("src/other.ts");
     expect(store.queryRows("SELECT key, value FROM graph_metadata WHERE key <> 'schema_version'")).toEqual([{ key: GIT_HEAD_METADATA_KEY, value: "abc" }]);
+    // A `definition` record names one call, which the next index run asks again.
+    expect(store.getFailedLookups()).toEqual([call]);
+  } finally {
+    store.close();
+  }
+});
+
+test("a failed lookup of each kind is kept apart, and cleared alone", () => {
+  const store = new SqliteGraphStore();
+  try {
+    const at = { source: "src/x.ts::I:1", evidence: "src/x.ts:1:18" };
+    store.setLookupFailed({ kind: "references", ...at }, true);
+    store.setLookupFailed({ kind: "implementations", ...at }, true);
+    store.setLookupFailed({ kind: "references", ...at }, false);
+    expect(store.getFailedLookups()).toEqual([{ kind: "implementations", ...at }]);
   } finally {
     store.close();
   }

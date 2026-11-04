@@ -112,6 +112,22 @@ test("an unchanged project's run writes no lookup record", async () => {
   }
 });
 
+test("an index run leaves a failed references or implementations record alone", async () => {
+  await withRepo(async (root, store) => {
+    await indexProject(root, store, { lspClientFactory: answering });
+    const b = store.findNodes("b", "src/main.ts")[0]!;
+    const lookup = { kind: "references", source: b.id, evidence: "src/main.ts:4:17" } as const;
+    store.setLookupFailed(lookup, true);
+    const writes: unknown[] = [];
+    const write = store.setLookupFailed.bind(store);
+    store.setLookupFailed = (...args) => { writes.push(args); write(...args); };
+    await indexProject(root, store, { lspClientFactory: answering });
+    expect(writes).toEqual([]);
+    expect(store.getFailedLookups()).toEqual([lookup]);
+    expect(card(root, store, "b")).toContain("- lookups failed: callers of b (tsserver timed out or errored)");
+  });
+});
+
 // The real client gives its first request a project-load grace, and answers a lookup in a file it has open within
 // 1 ms, so the callers sit in files of their own: each lookup opens one, which takes longer.
 test("the real tsserver at a 1 ms timeout reads partial", async () => {
