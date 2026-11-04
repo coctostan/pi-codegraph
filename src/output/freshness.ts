@@ -74,13 +74,7 @@ function sortedStrings(values: Set<string>): string[] {
 }
 
 function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNode[]): string[] {
-  let partial: Set<string>;
-  try {
-    partial = new Set(store.queryRows<{ file: string }>("SELECT file FROM file_hashes WHERE partial = 1").map((row) => row.file));
-  } catch {
-    // A db opened read-only before the `partial` column existed can't be migrated, so it has none.
-    return [];
-  }
+  const partial = new Set(store.queryRows<{ file: string }>("SELECT file FROM file_hashes WHERE partial = 1").map((row) => row.file));
   const pick = (nodes: GraphNode[], skip: string[] = []) =>
     sortedStrings(new Set(nodes.map((node) => node.file).filter((file) => partial.has(file) && !skip.includes(file))));
   const targetFiles = pick(targets);
@@ -97,16 +91,11 @@ function failedLookups(store: GraphStore, targets: GraphNode[], edges: GraphEdge
 }
 
 function failedResolves(store: GraphStore, targets: GraphNode[]): string[] {
-  try {
-    return targets.flatMap((node) =>
-      (["callers", "implementations"] as const)
-        .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
-        .map((kind) => `${kind} of ${node.name}`),
-    );
-  } catch {
-    // A db opened read-only before `graph_metadata` existed can't gain it, so it records none.
-    return [];
-  }
+  return targets.flatMap((node) =>
+    (["callers", "implementations"] as const)
+      .filter((kind) => store.getMetadata(resolverFailedKey(kind, node.id)) !== null)
+      .map((kind) => `${kind} of ${node.name}`),
+  );
 }
 
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {

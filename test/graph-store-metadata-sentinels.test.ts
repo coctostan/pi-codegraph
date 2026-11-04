@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -127,45 +127,6 @@ test("setMetadata with null deletes the key", () => {
   } finally {
     store.close();
   }
-});
-
-/** A read-only pre-arc db, file and directory locked, so the open writes nothing. */
-function withReadOnlyPreArcDb(fn: (dbPath: string) => void): void {
-  withDir((dir) => {
-    const dbPath = join(dir, "graph.db");
-    seedPreArcDb(dbPath);
-    chmodSync(dbPath, 0o444);
-    chmodSync(dir, 0o555);
-    try {
-      fn(dbPath);
-    } finally {
-      chmodSync(dbPath, 0o644);
-    }
-  });
-}
-
-// Accepted limit: a read-only db can't move the row or drop the markers, so it opens as is, listing the row as a file.
-test("a read-only pre-arc db opens as is", () => {
-  withReadOnlyPreArcDb((dbPath) => {
-    const store = new SqliteGraphStore(dbPath);
-    try {
-      expect(store.listFiles()).toEqual(["__git_cochange_head__", "src/x.ts"]);
-      expect(store.queryRows("SELECT id FROM nodes WHERE content_hash = 'meta'")).toHaveLength(1);
-    } finally {
-      store.close();
-    }
-  });
-});
-
-// pi's host runs on Node, whose node:sqlite reports the read-only error in `errcode`, not Bun's `errno`.
-test.skipIf(!Bun.which("node"))("a read-only pre-arc db opens as is under Node", () => {
-  withReadOnlyPreArcDb((dbPath) => {
-    const script = `const { SqliteGraphStore } = await import(process.argv[1]); const s = new SqliteGraphStore(process.argv[2]); console.log(JSON.stringify(s.listFiles())); s.close();`;
-    const sqliteUrl = new URL("../src/graph/sqlite.ts", import.meta.url).href;
-    const run = spawnSync("node", ["--input-type=module", "-e", script, sqliteUrl, dbPath], { encoding: "utf8" });
-    expect(run.stderr).not.toContain("Error");
-    expect(JSON.parse(run.stdout.trim())).toEqual(["__git_cochange_head__", "src/x.ts"]);
-  });
 });
 
 test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every resolver marker, other metadata kept", (method) => {

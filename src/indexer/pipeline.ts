@@ -179,7 +179,7 @@ export async function indexProject(
   errors += await runAstGrepIndexStage(store, projectRoot, changedFiles);
   timings["ast-grep"] = Math.round(performance.now() - astGrepStart);
   const coverageStart = performance.now();
-  errors += runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
+  runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
   timings["coverage"] = Math.round(performance.now() - coverageStart);
   const gitStart = performance.now();
   errors += await runGitCoChangeStage(store, projectRoot);

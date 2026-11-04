@@ -235,27 +235,12 @@ function getClient(projectRoot: string, state: ProjectState): ITsServerClient {
   return state.client;
 }
 
-function dbIsWritable(projectRoot: string): boolean {
-  const dbDir = join(projectRoot, ".codegraph");
-  try {
-    accessSync(join(dbDir, "graph.db"), constants.W_OK);
-    accessSync(dbDir, constants.W_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function ensureIndexed(projectRoot: string, state: ProjectState): Promise<void> {
   if (state.indexing) return state.indexing;
   const run = (async () => {
     try {
-      const result = await indexProjectImpl(projectRoot, state.store, { lspClientFactory: tsServerClientFactory });
-      if (result.errors > 0 && !dbIsWritable(projectRoot)) {
-        lastIndexError = { error: new Error("readonly database"), setAt: Date.now() };
-      } else {
-        lastIndexError = null;
-      }
+      await indexProjectImpl(projectRoot, state.store, { lspClientFactory: tsServerClientFactory });
+      lastIndexError = null;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       lastIndexError = { error, setAt: Date.now() };
@@ -332,13 +317,7 @@ function finalizeReadOnlyOutput(
   // suppressTrustHeader strips only the shared Trust block; indexingFailedNote()
   // and appendTokenMetaIfEnabled() still wrap the remaining body.
   const withIndexingNote = indexingFailedNote() + afterHeaderStrip;
-  if (
-    lastIndexError &&
-    lastIndexError.error.message !== "readonly database" &&
-    afterHeaderStrip.trim().length > 0
-  ) {
-    lastIndexError = null;
-  }
+  if (lastIndexError && afterHeaderStrip.trim().length > 0) lastIndexError = null;
   return appendTokenMetaIfEnabled(toolName, params, withIndexingNote, store, projectRoot);
 }
 
@@ -481,7 +460,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
           // A cancelled call must surface as cancelled, not as a quietly degraded result.
           signal?.throwIfAborted();
           void error;
-          // Resolver writes failed (likely readonly DB) — continue with existing graph data.
+          // A failed resolve leaves the graph as indexed; answer from it.
         }
       }
 

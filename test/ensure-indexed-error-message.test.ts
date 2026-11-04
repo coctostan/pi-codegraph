@@ -1,12 +1,5 @@
-// Failing test for batch issue 072-harden-ensureindexed-error-path-real-mes.
-// Demonstrates that when ensureIndexed catches a NON-readonly error (e.g. a
-// pipeline stage throwing from store.listFiles), `indexingFailedNote()`
-// still returns the hardcoded "readonly database" string instead of the real
-// error message.
-//
-// Expected after fix: the tool output contains
-//   "indexing-failed: tsserver crashed"
-// (or similar) — never "readonly database" for a writable DB.
+// Batch issue 072-harden-ensureindexed-error-path-real-mes: when ensureIndexed catches an error (e.g. a pipeline
+// stage throwing from store.listFiles), `indexingFailedNote()` carries the real error message.
 import { expect, test, describe, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,7 +22,7 @@ describe("batch 072: indexingFailedNote surfaces the real error message", () => 
     }
     testDirs.length = 0;
   });
-  test("non-readonly indexing failure is reported verbatim in tool output", async () => {
+  test("an indexing failure is reported verbatim in tool output", async () => {
     const projectRoot = createTestProject();
     testDirs.push(projectRoot);
 
@@ -44,7 +37,7 @@ describe("batch 072: indexingFailedNote surfaces the real error message", () => 
     };
     mod.default(mockPi as any);
 
-    // Force a non-readonly error inside the indexing pipeline. `listFiles()`
+    // Force an error inside the indexing pipeline. `listFiles()`
     // is called from `src/indexer/pipeline.ts:96` and `src/indexer/lsp.ts:46`
     // outside any per-item try/catch, so the throw propagates up through
     // `indexProject` into `ensureIndexed`'s catch block, setting
@@ -59,19 +52,9 @@ describe("batch 072: indexingFailedNote surfaces the real error message", () => 
       const ctx = { cwd: projectRoot };
       const sgResult = await sgExecute!("call-1", { name: "alpha" }, undefined, undefined, ctx);
       const sgText: string = sgResult.content[0]?.text ?? "";
-      // "readonly database" regardless of the real cause. These assertions
-      // force two things:
-      //  1) the rendered text must contain the real captured message
-      //     ("tsserver crashed"), proving RC-C is fixed at this call site;
-      //  2) the rendered text must never manufacture "readonly database"
-      //     from a non-readonly failure.
-      //
-      // We use a first-call assertion on purpose: Task 7's clear-on-healthy
-      // reset is reverted to post-prefix (the clear affects the NEXT call),
-      // so the note is still present on this first call where we can assert
-      // its contents directly.
+      // A first-call assertion on purpose: the clear-on-healthy reset runs after
+      // the note is built, so the note is still present on this first call.
       expect(sgText).toContain("tsserver crashed");
-      expect(sgText).not.toContain("readonly database");
       expect(sgText).toContain("alpha");
     } finally {
       SqliteGraphStore.prototype.listFiles = originalListFiles;
