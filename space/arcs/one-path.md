@@ -17,7 +17,7 @@ An index run that loses a file turns every result `Trust: partial` with the file
 - [ ] On the real artifact: `bun run check && bun test` pass. AGENTS.md's loader command, running `symbol_graph` `{"name":"indexProject"}` on this checkout, prints `Trust: fresh` and `path  LINE:HASH` anchors. The same command on a worktree of HEAD indexed once, then its `graph.db` `chmod 444` in a `chmod 555` `.codegraph/`, prints the same with no `indexing-failed` note and leaves `graph.db`'s sha256 unchanged — verified by those commands at close
 
 ## Now
-slice 1 (Inject the tsserver client) is active on branch `one-path/01-inject-tsserver-client`: build, prove, review, land.
+slice 1 (Inject the tsserver client) is built, proven and reviewed (converged) in PR #108 on `one-path/01-inject-tsserver-client`. Its CI run 41861635814 finished every step green, but GitHub still shows the jobs in progress during the 2026-11-04 Actions incident, so `Test & Type-check` never reported. Next: once GitHub recovers, run `pr-checks 108` (push an empty commit if the run stays stuck), then do `slice` step 8's merge and record commit.
 
 ## Seams
 - Extension: `piCodegraph`'s tools and `/codegraph` command in `src/index.ts`, driven in-process by a mock `pi` with `setIndexProjectForTesting` and the new tsserver client factory setter; tests in `test/tool-*.test.ts` and `test/extension-*.test.ts`.
