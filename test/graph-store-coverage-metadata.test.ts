@@ -38,3 +38,18 @@ test("SqliteGraphStore.hasCoverageData persists across close + reopen", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("SqliteGraphStore keeps the coverage sentinel in graph_metadata's coverage_indexed row", () => {
+  const store = new SqliteGraphStore();
+  try {
+    // Dbs already on disk hold this key; renaming it would drop their coverage state.
+    store.setMetadata("coverage_indexed", "1");
+    expect(store.hasCoverageData()).toBe(true);
+    store.markCoverageIndexed(false);
+    expect(store.getMetadata("coverage_indexed")).toBeNull();
+    store.markCoverageIndexed();
+    expect(store.getMetadata("coverage_indexed")).toBe("1");
+  } finally {
+    store.close();
+  }
+});
