@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import piCodegraph, { resetStoreForTesting, setIndexProjectForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 function register(): ToolDefinition<any>[] {
@@ -35,7 +35,7 @@ test("symbol_graph with suppressTrustHeader:true omits the Trust header on a sta
   const original = "export function bar() { return 1; }\nexport function foo() { return bar(); }\n";
   writeFileSync(join(projectRoot, "src", "app.ts"), original);
 
-  // Seed the persisted store so a readonly-DB + mutated-source path produces status: stale.
+  // Seed the persisted store, then mutate the source and skip indexing, so the graph reads stale.
   const dbDir = join(projectRoot, ".codegraph");
   mkdirSync(dbDir, { recursive: true });
   const dbPath = join(dbDir, "graph.db");
@@ -50,9 +50,9 @@ test("symbol_graph with suppressTrustHeader:true omits the Trust header on a sta
     join(projectRoot, "src", "app.ts"),
     "export function bar() { return 2; }\nexport function foo() { return bar(); }\n",
   );
-  chmodSync(dbPath, 0o444);
 
   const tools = register();
+  setIndexProjectForTesting(async () => ({ indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} }));
   const tool = tools.find((candidate) => candidate.name === "symbol_graph");
   if (!tool) throw new Error("symbol_graph was not registered");
 
@@ -78,7 +78,6 @@ test("symbol_graph with suppressTrustHeader:true omits the Trust header on a sta
     expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toContain("## foo (function)");
   } finally {
-    chmodSync(dbPath, 0o644);
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
   }

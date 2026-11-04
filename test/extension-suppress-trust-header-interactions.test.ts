@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import piCodegraph, { resetStoreForTesting, setIndexProjectForTesting } from "../src/index.js";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { extractFile, sha256Hex } from "../src/indexer/tree-sitter.js";
 
@@ -29,7 +29,7 @@ function createProject(slug: string): string {
   return root;
 }
 
-test("suppressTrustHeader:true still renders the indexing-failed note on a readonly stale DB", async () => {
+test("suppressTrustHeader:true still renders the indexing-failed note when indexing fails", async () => {
   const projectRoot = join(tmpdir(), `pi-cg-suppress-idxfail-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(projectRoot, "src"), { recursive: true });
   const original = "export function bar() { return 1; }\nexport function foo() { return bar(); }\n";
@@ -49,8 +49,10 @@ test("suppressTrustHeader:true still renders the indexing-failed note on a reado
     join(projectRoot, "src", "app.ts"),
     "export function bar() { return 2; }\nexport function foo() { return bar(); }\n",
   );
-  chmodSync(dbPath, 0o444);
   const tools = register();
+  setIndexProjectForTesting(async () => {
+    throw new Error("disk full");
+  });
   const tool = tools.find((candidate) => candidate.name === "symbol_graph");
   if (!tool) throw new Error("symbol_graph was not registered");
   try {
@@ -64,10 +66,9 @@ test("suppressTrustHeader:true still renders the indexing-failed note on a reado
     const text = (result.content[0] as any).text as string;
     expect(text.includes("## Trust")).toBe(false);
     expect(text.includes("Trust: ")).toBe(false);
-    expect(text).toMatch(/indexing-failed \(\d+s ago\): readonly database/);
+    expect(text).toMatch(/indexing-failed \(\d+s ago\): disk full/);
     expect(text).toContain("## foo (function)");
   } finally {
-    chmodSync(dbPath, 0o644);
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
   }
@@ -154,9 +155,10 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
     join(projectRoot, "src", "app.ts"),
     "export function bar() { return 2; }\nexport function foo() { return bar(); }\n",
   );
-  chmodSync(dbPath, 0o444);
 
   const tools = register();
+  // Skip indexing, so the seeded graph stays stale.
+  setIndexProjectForTesting(async () => ({ indexed: 0, skipped: 0, removed: 0, errors: 0, partial: [], timings: {} }));
   const tool = tools.find((candidate) => candidate.name === "symbol_graph");
   if (!tool) throw new Error("symbol_graph was not registered");
 
@@ -190,7 +192,6 @@ test("suppressTrustHeader:true preserves body anchors and signals on symbol_grap
     expect(suppressedText.includes("Trust: ")).toBe(false);
     expect(suppressedText).toBe(withoutTrust);
   } finally {
-    chmodSync(dbPath, 0o644);
     resetStoreForTesting();
     rmSync(projectRoot, { recursive: true, force: true });
   }

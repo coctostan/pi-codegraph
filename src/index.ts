@@ -1,6 +1,7 @@
 import { Type, type TSchema } from "typebox";
 import type { ExtensionAPI, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { accessSync, constants, mkdirSync } from "node:fs";
+import { accessSync, chmodSync, constants, copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GraphStore } from "./graph/store.js";
 import { SqliteGraphStore } from "./graph/sqlite.js";
@@ -93,6 +94,8 @@ const CODEGRAPH_NAMESPACE = {
 
 interface ProjectState {
   store: GraphStore;
+  /** Where the store works when codegraph can't write `.codegraph/graph.db`: a temp dir holding its copy, or `:memory:`. */
+  workingCopy: string | null;
   client: ITsServerClient | null;
   indexing: Promise<void> | null;
   /** In-flight LSP resolutions by node id, so concurrent calls for one symbol share the work. */
@@ -154,22 +157,12 @@ async function closeAllProjects(): Promise<void> {
     ]);
   }
   await Promise.allSettled(states.map((s) => s.client?.shutdown()));
-  for (const s of states) {
-    try {
-      s.store.close();
-    } catch {
-      // already closed
-    }
-  }
+  for (const s of states) closeStore(s);
 }
 
 export function resetStoreForTesting(): void {
   for (const s of projects.values()) {
-    try {
-      s.store.close();
-    } catch {
-      // already closed
-    }
+    closeStore(s);
     void s.client?.shutdown().catch(() => {});
   }
   projects.clear();
@@ -187,12 +180,53 @@ function getOrCreateProject(projectRoot: string): ProjectState {
     sharedStore = existing.store;
     return existing;
   }
-  const dbDir = join(projectRoot, ".codegraph");
-  mkdirSync(dbDir, { recursive: true });
-  const state: ProjectState = { store: new SqliteGraphStore(join(dbDir, "graph.db")), client: null, indexing: null, resolving: new Map() };
+  const state: ProjectState = { ...openProjectStore(projectRoot), client: null, indexing: null, resolving: new Map() };
   projects.set(projectRoot, state);
   sharedStore = state.store;
   return state;
+}
+
+/**
+ * Rule a project's store once, at open: `graph.db` in place when codegraph can write it and its directory; else a
+ * temp copy of it, with any `-wal` and `-shm`, removed at shutdown; else, when even the copy fails, memory.
+ */
+function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "workingCopy"> {
+  const dbDir = join(projectRoot, ".codegraph");
+  const dbPath = join(dbDir, "graph.db");
+  let writable = true;
+  try {
+    mkdirSync(dbDir, { recursive: true });
+    accessSync(dbDir, constants.W_OK);
+    if (existsSync(dbPath)) accessSync(dbPath, constants.W_OK);
+  } catch {
+    writable = false;
+  }
+  if (writable) return { store: new SqliteGraphStore(dbPath), workingCopy: null };
+  let copyDir: string | null = null;
+  try {
+    copyDir = mkdtempSync(join(tmpdir(), "codegraph-"));
+    for (const suffix of ["", "-wal", "-shm"]) {
+      if (!existsSync(dbPath + suffix)) continue;
+      const copy = join(copyDir, "graph.db" + suffix);
+      copyFileSync(dbPath + suffix, copy);
+      // The copy keeps the original's read-only mode.
+      chmodSync(copy, 0o600);
+    }
+    return { store: new SqliteGraphStore(join(copyDir, "graph.db")), workingCopy: copyDir };
+  } catch {
+    if (copyDir) rmSync(copyDir, { recursive: true, force: true });
+    return { store: new SqliteGraphStore(":memory:"), workingCopy: ":memory:" };
+  }
+}
+
+/** Close a project's store and remove its temp copy, if it has one. */
+function closeStore(state: ProjectState): void {
+  try {
+    state.store.close();
+  } catch {
+    // already closed
+  }
+  if (state.workingCopy && state.workingCopy !== ":memory:") rmSync(state.workingCopy, { recursive: true, force: true });
 }
 
 /** One tsserver per project, started lazily. It stops itself when idle and is closed on session shutdown. */
@@ -375,6 +409,8 @@ function formatStatus(projectRoot: string, state: ProjectState | undefined): { t
     `nodes: ${nodeTotal}  edges: ${edgeTotal}  files: ${stats.files.total} (${stats.files.stale} stale)`,
     state.indexing ? "indexing: in progress" : "indexing: idle",
   ];
+  if (state.workingCopy === ":memory:") lines.push("db: in memory, since codegraph can't write or copy .codegraph/graph.db");
+  else if (state.workingCopy) lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since codegraph can't write .codegraph/graph.db`);
   if (lastIndexError) lines.push(getIndexingFailedNoteForTesting().trimEnd());
   return { text: lines.join("\n"), level: lastIndexError ? "warning" : "info" };
 }
