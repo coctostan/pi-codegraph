@@ -1,0 +1,51 @@
+---
+status: active
+---
+# Agents reach for the right tool
+
+codegraph gives coding agents three tools that answer questions about code with less reading than grep and files. A benchmark showed one model skipping them on "what runs here" questions and, on "which tests cover this" questions, reaching for the tool with the longest answer and sifting it by hand; one wrong answer then moved the verdict on keeping codegraph from keep to freeze. This arc makes each tool say plainly what it answers, lets tracing start from an unnamed function, puts the tests a question asks for first, judges each model on its own, and runs the benchmark once more to settle the verdict.
+
+## Destination
+Opus calls a codegraph tool on trace questions and answers test-mapping questions from the direct test callers; `trace` starts from a `file` + `line`, `impact` lists direct test callers apart, and `bench/verdict.ts` judges each task and model apart. One on-arm run on pi 1.5.0 is graded, and decision 0004 records its verdict, whichever way it reads.
+
+## Done when
+- [ ] `trace` takes an optional `line` with `file` and starts at the innermost function holding that line, an object method or an anonymous callback included: `bun bench/probe.ts trace-line` traces pi-codegraph's `execute` handler at `cb5f75f8` `src/index.ts:414` to `prepare`, `getOrCreateProject`, `ensureIndexed`, `ensureHashInit`, `finalizeReadOnlyOutput` and `toolResult` in that order, without `formatStatus`, and pi-claude-header's `onPayload` callback at `4c15f289` `src/anthropic-cc/stream.ts:55` to cc-payload-trace's 5 key functions in their order — verified by `bun bench/probe.ts trace-line` and `bun test test/tool-trace-line.test.ts` · at shape, 2026-11-04: `TraceParams` has no `line` (`src/index.ts:61-67`); `bun bench/probe.ts` passes 8/8, none named `trace-line`
+- [ ] `impact` lists the tests that call a changed symbol directly apart from, and before, those it reaches only through other callers: `bun bench/probe.ts impact-direct` shows `buildAnthropicCcHeaders` at `4c15f289` with a direct list `… in 5 files)` holding cc-headers-tests's 5 key files, and `findEnclosingSgSymbols` at `756406f2` with one `… in 4 files)` holding enclosing-sg-symbols-tests's 4 — verified by `bun bench/probe.ts impact-direct` and `bun test test/tool-impact-tests-reached.test.ts` · at shape, 2026-11-04: one `Tests reached` list, of 31 files and of 12 (decision 0003)
+- [ ] `bun bench/verdict.ts` judges each task and model apart: a pair wins by the unchanged `minCut` and correctness test, and `keep` needs the on arm correct at least as often overall and wins on at least `keepWinFraction` of the 12 pairs; each pair's row prints how many of its on cells called codegraph, and the pooled verdict prints beside it. `bench/thresholds.json`'s `rule` says so, in a commit before any file under `bench/results/rerun-2/` — verified by `bun test test/bench-verdict.test.ts`, `bun bench/verdict.ts` printing `wins 7/12` and `keep`, `bun bench/verdict.ts --on-results bench/results/rerun-1` printing `wins 7/12` and `freeze`, and `git log --reverse --format=%h --name-only -- bench/thresholds.json bench/results/rerun-2` · at shape, 2026-11-04: they print `wins 3/6` `keep` and `wins 3/6` `freeze`; per pair, both stored on arms read 7/12 (computed from the stored cells)
+- [ ] `bench/results/rerun-2/` holds 36 on-arm cells, decision 0002's 6 tasks × 2 models × 3 repeats, each with `codegraphCommit` the default branch's head after slice 4 (Tune the tool descriptions) lands and `piVersion` 1.5.0, and `bun bench/verdict.ts --on-results bench/results/rerun-2` exits 0 with a verdict; the arc's bench spend stays under $15 — verified by that command and the cells' fields · at shape, 2026-11-04: no `rerun-2/`; `pi --version` prints 1.5.0
+- [ ] In that run, Opus calls a codegraph tool on at least 5 of its 6 trace cells (tool-call-path, cc-payload-trace) — verified by `bun bench/verdict.ts --on-results bench/results/rerun-2`'s per-pair rows · at shape, 2026-11-04: 1 of 6 in `rerun-1`
+- [ ] In that run, Opus's on cells cut median tokens by at least 25% against its off cells on both test-mapping tasks (cc-headers-tests, enclosing-sg-symbols-tests) — verified by the same rows · at shape, 2026-11-04: 24% and -127% in `rerun-1`
+- [ ] `space/decisions/0004-*.md` records the run's per-pair and pooled verdicts, its per-pair rows, the Opus pick and cut lines and its spend; on `freeze` or `retire` it supersedes decision 0002 and `NOW.md` drops its Python line — verified by a read against `bun bench/verdict.ts --on-results bench/results/rerun-2`'s output · at shape, 2026-11-04: decisions 0001–0003 only
+
+## Now
+slice 1 (Judge each model on its own) is next, no branch yet; next action: run `slice` in a fresh session.
+
+## Seams
+- Verdict: `decide` and `auditCells` in `bench/verdict.ts`, the rule text in `bench/thresholds.json`; tests in `test/bench-verdict.test.ts` on synthetic cells, the stored cells in `bench/results/` and `bench/results/rerun-1/` as its real artifact.
+- Trace: `traceResult` in `src/tools/trace.ts` and `TraceParams` in `src/index.ts`; tests in `test/tool-trace-line.test.ts` on temp repos, through the registered tool.
+- Impact: `formatTestsReached` and `impactResult` in `src/tools/impact.ts`; tests in `test/tool-impact-tests-reached.test.ts`.
+- Descriptions: the three `registerReadOnlyTool` calls in `src/index.ts`; tests in `test/extension-tool-descriptions.test.ts`, `test/tool-descriptions-style-guard.test.ts` and `test/docs-tool-surface.test.ts`.
+- Probes: `bench/probes.json`, run by `bun bench/probe.ts` through each tool's registered `execute()` on the bench repos at their pinned commits: the real artifact for `trace` and `impact`.
+- Bench: `bench/run.ts` cells under `bench/results/rerun-2/`, judged by `bench/verdict.ts`: the real artifact for the descriptions.
+
+## Slices
+1. **Judge each model on its own** — delivers `decide` over 12 task-model pairs with each pair's codegraph-pick count, the pooled verdict printed beside it, and `bench/thresholds.json`'s `rule` rewritten to say so, before any new result · proof `bun test test/bench-verdict.test.ts`; `bun bench/verdict.ts` prints `wins 7/12` and `keep`, and with `--on-results bench/results/rerun-1` `wins 7/12` and `freeze` (check 3) · blocked-by — · status next
+2. **Start trace at a file line** — delivers `trace`'s optional `line` beside `file`, `entry` optional when both are given, starting at the innermost function holding the line, an object method or anonymous callback included, and probes `trace-line-execute` and `trace-line-payload` in `bench/probes.json` · proof `bun test test/tool-trace-line.test.ts`; `bun bench/probe.ts trace-line` passes (check 1) · blocked-by — · status next
+3. **List direct test callers first in impact** — delivers `impact`'s tests split into those calling a changed symbol directly, listed first, and those reached only through other callers, and probes `impact-direct-cc-headers` and `impact-direct-enclosing-sg` · proof `bun test test/tool-impact-tests-reached.test.ts`; `bun bench/probe.ts impact-direct` passes and `bun bench/probe.ts` passes every probe (check 2) · blocked-by — · status next
+4. **Tune the tool descriptions** — delivers each tool's `description`, `promptSnippet` and `promptGuidelines` naming the questions it answers: "what runs" to `trace`, an unnamed handler by `file` + `line`; "which tests" to `symbol_graph`'s test callers or `impact`'s direct list; README's tool section to match · proof the description, style-guard and docs-surface tests pass; AGENTS.md's loader command prints the three tool definitions; check 5 and 6 are this slice's measure, read in slice 5 (Run the on arm once) · blocked-by 2, 3 · status next
+5. **Run the on arm once** — delivers 36 on-arm cells under `bench/results/rerun-2/` from `bun bench/run.ts --out bench/results/rerun-2` at the default branch's head after slice 4 (Tune the tool descriptions), on pi 1.5.0, about $4.50 · proof `bun bench/verdict.ts --on-results bench/results/rerun-2` exits 0 and its rows (checks 4, 5, 6) · blocked-by 1, 4 · status next
+6. **Record the verdict in decision 0004** — delivers `space/decisions/0004-*.md` with the rows, verdicts, pick and cut lines and spend, superseding decision 0002 on `freeze` or `retire`, and `NOW.md` routing what it finds · proof a read of the decision against `bun bench/verdict.ts --on-results bench/results/rerun-2`'s output (check 7) · blocked-by 5 · status next
+
+## Not yet specified
+- How `trace` finds an anonymous callback's span: its calls are attributed today to the enclosing named function, with `line:col` evidence (`src/indexer/tree-sitter.ts:545-599`). A query-time parse of the file, or a span stored at index time, which bumps `SCHEMA_VERSION` and re-extracts a whole repo once (13.2 s here, index-parity (An incremental index matches a fresh one)); slice 2 (Start trace at a file line)'s plan picks.
+- The descriptions' wording: slice 4 (Tune the tool descriptions)'s plan sets it against decision 0003's transcripts.
+
+## Out of scope
+- Changing the correctness test, `minCut` or `keepWinFraction`; re-running the off arm; a second on-arm run to tell the changes apart.
+- A new tool (decision 0001), and a `file` + `line` start for `symbol_graph` or `impact`.
+- Python support, the honest-output cleanup routed in `NOW.md`, and custom TUI renderers.
+- What happens to the repo on `freeze` or `retire`: the owner's call after the arc.
+
+## Decisions
+- [0001](../decisions/0001-three-tool-public-surface.md): `line` extends `trace`, no new tool.
+- [0002](../decisions/0002-keep-codegraph.md) `keep` stands until this arc's run: owner ruling 2026-11-04 (chat) that [0003](../decisions/0003-bench-holes-rerun.md)'s `freeze` does not supersede it before then.
