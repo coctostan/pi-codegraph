@@ -191,7 +191,10 @@ export async function indexProject(
   }
   timings["lsp"] = Math.round(performance.now() - lspStart);
   const astGrepStart = performance.now();
-  lose("ast-grep stage", "write", await runAstGrepIndexStage(store, projectRoot, changedFiles));
+  const astGrepErrors = await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  // The stage scans changed files alone, so blank their hashes for the next run to scan them again.
+  if (astGrepErrors > 0) for (const file of changedFiles) store.setFileHash(file, "");
+  lose("ast-grep stage", "write", astGrepErrors);
   timings["ast-grep"] = Math.round(performance.now() - astGrepStart);
   const coverageStart = performance.now();
   runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));

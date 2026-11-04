@@ -90,8 +90,9 @@ export async function runLspIndexStage(
         .find((n) => n.name === parsed.name && n.start_line === loc.line);
       if (!targetNode) continue;
       try {
-        store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
+        // Add before delete: a failed add keeps the call for the next run to resolve.
         store.addEdge(makeLspEdge(edge, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+        store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
       } catch {
         errors++;
       }
@@ -102,8 +103,8 @@ export async function runLspIndexStage(
     const sameTarget = existingTarget.file === loc.file && existingTarget.start_line === loc.line;
     if (!sameTarget) continue;
     try {
-      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
       store.addEdge(makeLspEdge(edge, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
     } catch {
       errors++;
     }

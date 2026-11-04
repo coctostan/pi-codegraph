@@ -158,6 +158,8 @@ export async function runGitCoChangeStage(
     }
   }
 
+  // A run whose writes failed leaves HEAD unrecorded, so the next run rebuilds the edges again.
+  if (errors > 0) return errors;
   try {
     store.setMetadata(GIT_HEAD_METADATA_KEY, head);
   } catch {

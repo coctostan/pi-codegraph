@@ -99,6 +99,15 @@ function failedResolves(failures: FailedLookup[], targets: GraphNode[]): string[
   );
 }
 
+/** A file's current hash, null when it can't be read: the index run that couldn't read it names it. */
+function hashOf(fullPath: string): string | null {
+  try {
+    return sha256Hex(readFileSync(fullPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report: MutableReport, isTarget: boolean): void {
   const fullPath = join(params.projectRoot, node.file);
   if (!existsSync(fullPath)) {
@@ -109,7 +118,11 @@ function inspectNode(node: GraphNode, params: FreshnessEvaluationParams, report:
     return;
   }
 
-  const currentHash = sha256Hex(readFileSync(fullPath, "utf8"));
+  const currentHash = hashOf(fullPath);
+  if (currentHash === null) {
+    report.localStale = true;
+    return;
+  }
   if (currentHash !== node.content_hash) {
     report.changedFiles.set(node.file, fileDetail(params.store, node.file));
     report.affectedSymbols.add(node.name);
@@ -136,7 +149,11 @@ function inspectEdge(edge: GraphEdge, params: FreshnessEvaluationParams, report:
     return;
   }
 
-  const currentHash = sha256Hex(readFileSync(fullPath, "utf8"));
+  const currentHash = hashOf(fullPath);
+  if (currentHash === null) {
+    report.localStale = true;
+    return;
+  }
   if (currentHash !== edge.provenance.content_hash) {
     report.staleEdgeCount++;
     report.changedFiles.set(sourceNode.file, fileDetail(params.store, sourceNode.file));

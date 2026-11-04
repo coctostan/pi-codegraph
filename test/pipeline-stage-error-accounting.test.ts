@@ -49,6 +49,13 @@ describe("RC-A accounting: stage write failures bump result.errors", () => {
       expect(result).toBeDefined();
       // Every failed guarded write bumps errors.
       expect(result.errors).toBeGreaterThanOrEqual(lspWrites);
+      expect(store.getFailedLookups()).toEqual([{ kind: "index", source: "lsp stage", evidence: "write" }]);
+
+      // The call a failed write left alone resolves on the next run, which clears the record.
+      await indexProject(dir, store, { lspClientFactory: () => fakeClient });
+      const beta = store.findNodes("beta", "src/hello.ts")[0]!;
+      expect(store.getEdgesBySource(beta.id).filter((e) => e.kind === "calls").map((e) => e.provenance.source)).toEqual(["lsp"]);
+      expect(store.getFailedLookups()).toEqual([]);
 
       store.close();
     } finally {

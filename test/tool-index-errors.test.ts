@@ -49,6 +49,7 @@ function fixture(unreadable: string[]) {
   } as never);
   return {
     readable: (file: string) => chmodSync(join(root, "src", file), 0o644),
+    unreadable: (file: string) => chmodSync(join(root, "src", file), 0o000),
     call: async (tool: string, params: unknown) => {
       const result = await tools.get(tool)!.execute("c", params, undefined, undefined, { cwd: root });
       return { text: result.content[0]!.text, isError: result.isError };
@@ -87,6 +88,21 @@ test("every result reads partial and names an unreadable file until a clean run"
   expect(found.text).toStartWith("Trust: fresh");
   expect(found.text).not.toContain("index errors");
   expect(await status()).not.toContain("index errors");
+});
+
+test("a file that turns unreadable after it was indexed reads partial, not a thrown call", async () => {
+  const { call, readable, unreadable } = fixture([]);
+  expect((await call("symbol_graph", { name: "b" })).text).toStartWith("Trust: fresh");
+  unreadable("a.ts");
+  // `b`'s card holds a's call to it; `a`'s holds a's own node and source.
+  for (const params of [{ name: "b" }, { name: "a", include: ["source"] }]) {
+    const { text, isError } = await call("symbol_graph", params);
+    expect(text).toStartWith("Trust: partial\n");
+    expect(text).toContain("\n- index errors: src/a.ts\n");
+    expect(isError).toBe(false);
+  }
+  readable("a.ts");
+  expect((await call("symbol_graph", { name: "b" })).text).toStartWith("Trust: fresh");
 });
 
 test("the line names 5 lost files, then counts the rest", async () => {

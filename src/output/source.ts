@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode } from "../graph/types.js";
 import { computeLineHash } from "./anchoring.js";
@@ -27,9 +27,12 @@ export function readSourceSnippet(
   if (node.end_line == null) return null;
 
   const fullPath = join(projectRoot, node.file);
-  if (!existsSync(fullPath)) return null;
-
-  const fileContent = readFileSync(fullPath, "utf-8");
+  let fileContent: string;
+  try {
+    fileContent = readFileSync(fullPath, "utf-8");
+  } catch {
+    return null;
+  }
   const currentHash = sha256Hex(fileContent);
   const stale = currentHash !== node.content_hash;
 
