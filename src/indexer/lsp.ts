@@ -55,7 +55,7 @@ export async function runLspIndexStage(
   }
   const work = [...unresolved, ...confirmed];
   // Every run asks each call again, so a record is current once this run has asked; one whose call is gone goes now.
-  // Each write waits on a change, so an unchanged index on a read-only db writes nothing.
+  // Each write waits on a change, so an unchanged index writes nothing.
   const key = (source: string, evidence: string) => `${source}\0${evidence}`;
   const recorded = store.getFailedLookups();
   const failed = new Set(recorded.map((f) => key(f.source, f.evidence)));

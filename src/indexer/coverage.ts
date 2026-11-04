@@ -3,7 +3,6 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { GraphStore, TestTraceRecord } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
-import { isReadonlyError } from "../graph/sqlite.js";
 
 export interface NormalizedCoverageRecord {
   reportFile: string;
@@ -195,21 +194,10 @@ function writeCoverage(store: GraphStore, mapped: MappedCoverageRecord[]): void 
   }
 }
 
-/** Replace every coverage edge and test trace with what the reports now back; returns the error count, as the other stages do. */
-export function runCoverageIndexStage(store: GraphStore, projectRoot: string, coverageDir: string): number {
+/** Replace every coverage edge and test trace with what the reports now back. */
+export function runCoverageIndexStage(store: GraphStore, projectRoot: string, coverageDir: string): void {
   const mapped = mapCoverageToNodes(store, parseCoverageReports(projectRoot, coverageDir));
-  try {
-    store.clearCoverage();
-    writeCoverage(store, mapped);
-  } catch (error) {
-    // A readonly DB keeps the coverage it has: its first write fails, and the tools say so.
-    if (!isReadonlyError(error)) throw error;
-    return 1;
-  }
-  try {
-    store.markCoverageIndexed(mapped.length > 0);
-  } catch {
-    // readonly DB or other write failure: leave the sentinel as it was
-  }
-  return 0;
+  store.clearCoverage();
+  writeCoverage(store, mapped);
+  store.markCoverageIndexed(mapped.length > 0);
 }

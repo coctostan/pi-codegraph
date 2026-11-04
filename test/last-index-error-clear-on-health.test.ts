@@ -32,7 +32,7 @@ describe("RC-D: lastIndexError clears on store-health evidence", () => {
     dirs.length = 0;
   });
 
-  test("finalizeReadOnlyOutput clears transient lastIndexError but preserves 'readonly database'", async () => {
+  test("finalizeReadOnlyOutput clears lastIndexError once its note is rendered", async () => {
     const root = createTestProject();
     dirs.push(root);
     populateStore(root);
@@ -62,7 +62,7 @@ describe("RC-D: lastIndexError clears on store-health evidence", () => {
 
     try {
       const ctx = { cwd: root };
-      // --- Phase 1: transient non-readonly error ---
+      // --- Phase 1: transient error ---
       // The hook must clear lastIndexError AFTER the note is rendered.
       pendingMessage = "transient scan failure";
       const r1 = await sgExecute!("c1", { name: "alpha" }, undefined, undefined, ctx);
@@ -74,17 +74,7 @@ describe("RC-D: lastIndexError clears on store-health evidence", () => {
       expect(t1).toContain("transient scan failure");
       // Post-prefix hook must have wiped the flag by the time the call returns.
       expect(mod.getLastIndexErrorForTesting()).toBeNull();
-      // --- Phase 2: verified-readonly literal ---
-      // The hook must NOT clear when the message is exactly "readonly database".
-      pendingMessage = "readonly database";
-      const r2 = await sgExecute!("c2", { name: "alpha" }, undefined, undefined, ctx);
-      const t2: string = r2.content[0]?.text ?? "";
-      expect(t2).toContain("alpha");
-      expect(t2).toContain("indexing-failed");
-      expect(t2).toContain("readonly database");
-      // Flag survives — the "readonly database" literal is verified-persistent.
-      expect(mod.getLastIndexErrorForTesting()?.message).toBe("readonly database");
-      // --- Phase 3: sanity check via the test setter ---
+      // --- Phase 2: sanity check via the test setter ---
       // Confirm the new setter is callable and can reset state.
       mod.setLastIndexErrorForTesting(null);
       expect(mod.getLastIndexErrorForTesting()).toBeNull();

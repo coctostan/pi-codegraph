@@ -37,12 +37,6 @@ export function resolverFailedKey(kind: "callers" | "implementations", symbolId:
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 
-/** SQLITE_READONLY is primary code 8: Bun reports the extended code in `errno`, Node the primary one in `errcode`. */
-export function isReadonlyError(error: unknown): boolean {
-  const { errno, errcode } = (error ?? {}) as { errno?: number; errcode?: number };
-  return ((errno ?? errcode ?? 0) & 0xff) === 8;
-}
-
 interface NeighborRow {
   id: string;
   kind: GraphNode["kind"];
@@ -67,19 +61,10 @@ interface NeighborRow {
 
 export class SqliteGraphStore implements GraphStore {
   private db: any;
-  private callEndColumns = "call_end_line, call_end_col";
 
   constructor(dbPath: string = ":memory:") {
     this.db = openDb(dbPath);
-    try {
-      this.initSchema();
-    } catch (error) {
-      // A read-only DB can't migrate (`IF NOT EXISTS` on a missing table is a write) and can't be indexed either, so serve it as is.
-      if (!isReadonlyError(error)) throw error;
-      const edgeColumns = this.db.prepare("PRAGMA table_info(edges)").all() as Array<{ name: string }>;
-      // Nor can it gain `edges.call_end_*`: its edges read back without a call site.
-      if (!edgeColumns.some((column) => column.name === "call_end_line")) this.callEndColumns = "NULL AS call_end_line, NULL AS call_end_col";
-    }
+    this.initSchema();
   }
 
   private initSchema(): void {
@@ -266,7 +251,7 @@ export class SqliteGraphStore implements GraphStore {
       SELECT n.id, n.kind, n.name, n.file, n.start_line, n.end_line, n.content_hash, n.is_exported, n.signature,
              e.source, e.target, e.kind as edge_kind,
              e.provenance_source, e.confidence, e.evidence,
-             e.content_hash as edge_hash, e.created_at, ${this.callEndColumns}
+             e.content_hash as edge_hash, e.created_at, e.call_end_line, e.call_end_col
       FROM edges e
       JOIN nodes n ON n.id = ${joinOn}
       WHERE ${whereField} = ?`;
@@ -313,12 +298,12 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getUnresolvedEdges(): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
   getEdgesBySource(sourceId: string): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, ${this.callEndColumns} FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE source = ? ORDER BY created_at ASC`).all(sourceId) as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
@@ -410,9 +395,6 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   clearCoverage(): void {
-    // Nothing to clear writes nothing, so a readonly DB without coverage indexes clean.
-    const held = this.db.prepare(`SELECT 1 FROM edges WHERE provenance_source = 'coverage' UNION ALL SELECT 1 FROM test_trace_steps LIMIT 1`).get();
-    if (!held) return;
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`DELETE FROM edges WHERE provenance_source = 'coverage'`).run();
@@ -464,12 +446,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getFailedLookups(): FailedLookup[] {
-    try {
-      return this.db.prepare(`SELECT source, evidence FROM failed_lookups ORDER BY source, evidence`).all() as FailedLookup[];
-    } catch {
-      // A db opened read-only before the table existed can't gain it, so it records none.
-      return [];
-    }
+    return this.db.prepare(`SELECT source, evidence FROM failed_lookups ORDER BY source, evidence`).all() as FailedLookup[];
   }
 
   setLookupFailed(source: string, evidence: string, failed: boolean): void {
@@ -477,15 +454,7 @@ export class SqliteGraphStore implements GraphStore {
     else this.db.prepare(`DELETE FROM failed_lookups WHERE source = ? AND evidence = ?`).run(source, evidence);
   }
   hasCoverageData(): boolean {
-    try {
-      return this.getMetadata(COVERAGE_INDEXED_METADATA_KEY) === "1";
-    } catch {
-      // Pre-#082 DBs opened read-only skip the migration, so graph_metadata
-      // may be missing: "no such table". Treat that as 'coverage state
-      // unknown' so signal-rendering tools omit the coverage tag
-      // instead of crashing on legacy graph databases.
-      return false;
-    }
+    return this.getMetadata(COVERAGE_INDEXED_METADATA_KEY) === "1";
   }
 
   markCoverageIndexed(indexed = true): void {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -97,30 +97,18 @@ test("a failed lookup whose call is edited away leaves no record", async () => {
   });
 });
 
-// Root writes any file, so the read-only db below would take writes.
-test.skipIf(process.getuid?.() === 0)("an unchanged project on a read-only db writes no lookup record", async () => {
+test("an unchanged project's run writes no lookup record", async () => {
   for (const client of [throwing("TsServer request timed out: definition"), fakeClient(async () => null)]) {
-    const root = mkdtempSync(join(tmpdir(), "pi-cg-lookup-failure-ro-"));
-    const dbPath = join(root, "graph.db");
-    mkdirSync(join(root, "src"));
-    writeFileSync(join(root, "src", "main.ts"), SOURCE);
-    try {
-      const seed = new SqliteGraphStore(dbPath);
-      await indexProject(root, seed, { lspClientFactory: client });
-      const records = seed.getFailedLookups();
-      seed.close();
-      chmodSync(dbPath, 0o444);
-      const store = new SqliteGraphStore(dbPath);
-      try {
-        expect((await indexProject(root, store, { lspClientFactory: client })).errors).toBe(0);
-        expect(store.getFailedLookups()).toEqual(records);
-      } finally {
-        store.close();
-      }
-    } finally {
-      chmodSync(dbPath, 0o644);
-      rmSync(root, { recursive: true, force: true });
-    }
+    await withRepo(async (root, store) => {
+      await indexProject(root, store, { lspClientFactory: client });
+      const records = store.getFailedLookups();
+      const writes: unknown[] = [];
+      const write = store.setLookupFailed.bind(store);
+      store.setLookupFailed = (...args) => { writes.push(args); write(...args); };
+      expect((await indexProject(root, store, { lspClientFactory: client })).errors).toBe(0);
+      expect(writes).toEqual([]);
+      expect(store.getFailedLookups()).toEqual(records);
+    });
   }
 });
 
