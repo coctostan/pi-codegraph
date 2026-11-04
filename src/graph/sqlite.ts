@@ -23,6 +23,8 @@ function openDb(path: string): any {
 export const SCHEMA_VERSION = 3;
 /** The `graph_metadata` key holding the git stage's last-seen HEAD. */
 export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
+/** The `graph_metadata` key `markCoverageIndexed` sets once a coverage report maps to a node. */
+export const COVERAGE_INDEXED_METADATA_KEY = "coverage_indexed";
 const RESOLVER_MARKER_PREFIX = "resolver:";
 /** The `graph_metadata` key marking `symbolId`'s `kind` resolved, so `symbol_graph` asks tsserver once; every one goes when any file is re-extracted or removed. */
 export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
@@ -476,10 +478,7 @@ export class SqliteGraphStore implements GraphStore {
   }
   hasCoverageData(): boolean {
     try {
-      const row = this.db
-        .prepare(`SELECT value FROM graph_metadata WHERE key = ?`)
-        .get("coverage_indexed") as { value: string } | null;
-      return row?.value === "1";
+      return this.getMetadata(COVERAGE_INDEXED_METADATA_KEY) === "1";
     } catch {
       // Pre-#082 DBs opened read-only skip the migration, so graph_metadata
       // may be missing: "no such table". Treat that as 'coverage state
@@ -490,13 +489,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   markCoverageIndexed(indexed = true): void {
-    if (!indexed) {
-      this.db.prepare(`DELETE FROM graph_metadata WHERE key = ?`).run("coverage_indexed");
-      return;
-    }
-    this.db
-      .prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`)
-      .run("coverage_indexed", "1");
+    this.setMetadata(COVERAGE_INDEXED_METADATA_KEY, indexed ? "1" : null);
   }
 
   close(): void {
