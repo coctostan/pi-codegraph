@@ -59,6 +59,7 @@ const ext = result.extensions[0];
 const sg = ext.tools.get("symbol_graph");
 const out = await (sg.definition ?? sg).execute("c1", { name }, undefined, undefined, { cwd });
 console.log(JSON.stringify({ errors: result.errors, tools: [...ext.tools.keys()].sort(), isError: out.isError ?? false, anchors: out.structuredContent.anchors.length, text: out.content[0].text }));
+for (const shutdown of ext.handlers.get("session_shutdown")) await shutdown({}, {});
 process.exit(0);
 `;
 
