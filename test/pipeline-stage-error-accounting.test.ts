@@ -62,4 +62,44 @@ describe("RC-A accounting: stage write failures bump result.errors", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("a file the run couldn't extract or remove is recorded, and retried by the next run", async () => {
+    const dir = join(tmpdir(), `pi-cg-pipeline-lost-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/a.ts"), "export function a() {}\n");
+    writeFileSync(join(dir, "src/b.ts"), "export function b() {}\n");
+    const client: ITsServerClient = {
+      async definition() { return null; },
+      async references() { return []; },
+      async implementations() { return []; },
+      async shutdown() {},
+    };
+    const store = new SqliteGraphStore(join(dir, "graph.db"));
+    const { addNode, deleteFile } = SqliteGraphStore.prototype;
+    try {
+      await indexProject(dir, store, { lspClientFactory: () => client });
+      writeFileSync(join(dir, "src/a.ts"), "export function a2() {}\n");
+      rmSync(join(dir, "src/b.ts"));
+      SqliteGraphStore.prototype.addNode = function (node) {
+        if (node.file === "src/a.ts") throw new Error("SQLITE_FULL: database or disk is full");
+        return addNode.call(this, node);
+      };
+      SqliteGraphStore.prototype.deleteFile = () => { throw new Error("SQLITE_FULL: database or disk is full"); };
+      await indexProject(dir, store, { lspClientFactory: () => client });
+      Object.assign(SqliteGraphStore.prototype, { addNode, deleteFile });
+      expect(store.getFailedLookups()).toEqual([
+        { kind: "index", source: "src/a.ts", evidence: "extract" },
+        { kind: "index", source: "src/b.ts", evidence: "remove" },
+      ]);
+
+      await indexProject(dir, store, { lspClientFactory: () => client });
+      expect(store.getFailedLookups()).toEqual([]);
+      expect(store.findNodes("a2", "src/a.ts")).toHaveLength(1);
+      expect(store.listFiles()).toEqual(["src/a.ts"]);
+    } finally {
+      Object.assign(SqliteGraphStore.prototype, { addNode, deleteFile });
+      store.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

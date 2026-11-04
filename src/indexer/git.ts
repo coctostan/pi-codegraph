@@ -118,14 +118,6 @@ export async function runGitCoChangeStage(
   const minCount = options.minCoChangeCount ?? 2;
   const windowDays = options.windowDays ?? 365;
   const commits = parseGitLog(projectRoot);
-  if (commits.length === 0) {
-    try {
-      store.setMetadata(GIT_HEAD_METADATA_KEY, head);
-    } catch {
-      errors++;
-    }
-    return errors;
-  }
   const now = Date.now();
   const halfLifeDays = windowDays / 4;
   const trackedFiles = new Set(store.listFiles());

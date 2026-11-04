@@ -203,12 +203,13 @@ export async function indexProject(
   lose("git stage", "write", await runGitCoChangeStage(store, projectRoot));
   timings["git"] = Math.round(performance.now() - gitStart);
 
-  // This run's failures replace the last run's; a run that throws before here keeps the last run's.
+  // This run's failures replace the last run's; a run that throws before here keeps the last run's, and one that
+  // throws while replacing keeps more, as this run's go in before the last run's go out.
   const key = (f: FailedLookup) => `${f.source}\0${f.evidence}`;
   const now = new Set(lost.map(key));
   const before = store.getFailedLookups().filter((f) => f.kind === "index");
-  for (const f of before) if (!now.has(key(f))) store.setLookupFailed(f, false);
   for (const f of lost) store.setLookupFailed(f, true);
+  for (const f of before) if (!now.has(key(f))) store.setLookupFailed(f, false);
 
   return { indexed, skipped, removed, errors, partial, timings };
 }
