@@ -137,11 +137,13 @@ test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every reso
     for (const kind of ["references", "implementations"] as const) store.setLookupFailed({ kind, source: kept, evidence: "src/kept.ts:1:17" }, true);
     const call = { kind: "definition", source: kept, evidence: "b:2:3" } as const;
     store.setLookupFailed(call, true);
+    const lost = { kind: "index", source: "src/lost.ts", evidence: "read" } as const;
+    store.setLookupFailed(lost, true);
     store.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     store[method]("src/other.ts");
     expect(store.queryRows("SELECT key, value FROM graph_metadata WHERE key <> 'schema_version'")).toEqual([{ key: GIT_HEAD_METADATA_KEY, value: "abc" }]);
-    // A `definition` record names one call, which the next index run asks again.
-    expect(store.getFailedLookups()).toEqual([call]);
+    // A `definition` record names one call, which the next index run asks again; an `index` one waits for the run's end.
+    expect(store.getFailedLookups()).toEqual([call, lost]);
   } finally {
     store.close();
   }

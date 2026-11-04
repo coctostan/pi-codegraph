@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-import type { GraphStore } from "../graph/store.js";
+import type { FailedLookup, GraphStore } from "../graph/store.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
 import { runLspIndexStage } from "./lsp.js";
 import { runAstGrepIndexStage } from "./ast-grep.js";
@@ -100,6 +100,11 @@ export async function indexProject(
   let skipped = 0;
   let removed = 0;
   let errors = 0;
+  const lost: FailedLookup[] = [];
+  const lose = (source: string, evidence: string, count = 1) => {
+    errors += count;
+    if (count > 0) lost.push({ kind: "index", source, evidence });
+  };
   const partial: string[] = [];
   const changedFiles: string[] = [];
 
@@ -132,13 +137,22 @@ export async function indexProject(
       store.deleteFile(oldFile);
       removed++;
     } catch {
-      errors++;
+      lose(oldFile, "remove");
     }
   }
+  const read = (rel: string): string | null => {
+    try {
+      return readFileSync(join(projectRoot, rel), "utf8");
+    } catch {
+      lose(rel, "read");
+      return null;
+    }
+  };
   for (const absPath of files) {
     const rel = toPosixPath(relative(projectRoot, absPath));
+    const content = read(rel);
+    if (content === null) continue;
     try {
-      const content = readFileSync(absPath, "utf8");
       const hash = sha256Hex(content);
       if (store.getFileHash(rel) === hash) {
         skipped++;
@@ -147,7 +161,7 @@ export async function indexProject(
       extractInto(rel, content, hash);
       indexed++;
     } catch {
-      errors++;
+      lose(rel, "extract");
     }
   }
 
@@ -158,11 +172,12 @@ export async function indexProject(
     "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source <> 'coverage' AND SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND e.target NOT IN (SELECT id FROM nodes)",
   );
   for (const { file } of dangling) {
+    const content = read(file);
+    if (content === null) continue;
     try {
-      const content = readFileSync(join(projectRoot, file), "utf8");
       extractInto(file, content, sha256Hex(content));
     } catch {
-      errors++;
+      lose(file, "extract");
     }
   }
   timings["tree-sitter"] = Math.round(performance.now() - tsStart);
@@ -170,20 +185,31 @@ export async function indexProject(
   const lspStart = performance.now();
   const client = options.lspClientFactory ? options.lspClientFactory(projectRoot) : new TsServerClient(projectRoot);
   try {
-    errors += await runLspIndexStage(store, projectRoot, client);
+    lose("lsp stage", "write", await runLspIndexStage(store, projectRoot, client));
   } finally {
     await client.shutdown().catch(() => {});
   }
   timings["lsp"] = Math.round(performance.now() - lspStart);
   const astGrepStart = performance.now();
-  errors += await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  const astGrepErrors = await runAstGrepIndexStage(store, projectRoot, changedFiles);
+  // The stage scans changed files alone, so blank their hashes for the next run to scan them again.
+  if (astGrepErrors > 0) for (const file of changedFiles) store.setFileHash(file, "");
+  lose("ast-grep stage", "write", astGrepErrors);
   timings["ast-grep"] = Math.round(performance.now() - astGrepStart);
   const coverageStart = performance.now();
   runCoverageIndexStage(store, projectRoot, options.coverageDir ?? join(projectRoot, ".codegraph", "coverage"));
   timings["coverage"] = Math.round(performance.now() - coverageStart);
   const gitStart = performance.now();
-  errors += await runGitCoChangeStage(store, projectRoot);
+  lose("git stage", "write", await runGitCoChangeStage(store, projectRoot));
   timings["git"] = Math.round(performance.now() - gitStart);
+
+  // This run's failures replace the last run's; a run that throws before here keeps the last run's, and one that
+  // throws while replacing keeps more, as this run's go in before the last run's go out.
+  const key = (f: FailedLookup) => `${f.source}\0${f.evidence}`;
+  const now = new Set(lost.map(key));
+  const before = store.getFailedLookups().filter((f) => f.kind === "index");
+  for (const f of lost) store.setLookupFailed(f, true);
+  for (const f of before) if (!now.has(key(f))) store.setLookupFailed(f, false);
 
   return { indexed, skipped, removed, errors, partial, timings };
 }

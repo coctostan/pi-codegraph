@@ -75,6 +75,9 @@ describe("RC-A/git: runGitCoChangeStage writes are guarded", () => {
         "SELECT source, target FROM edges WHERE kind = 'co_changes_with' AND provenance_source = 'git'",
       );
       expect(coEdges.length).toBeGreaterThanOrEqual(2);
+      // The next run at the same HEAD writes the pair that failed.
+      await runGitCoChangeStage(store, dir);
+      expect(store.queryRows("SELECT 1 FROM edges WHERE kind = 'co_changes_with' AND provenance_source = 'git'")).toHaveLength(3);
       store.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });

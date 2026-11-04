@@ -116,6 +116,32 @@ test("pipeline Stage 3 minimal Express integration creates endpoint node id and 
   }
 });
 
+test("a failed route write is written by the next run, its index record kept until then", async () => {
+  const root = join(tmpdir(), `pi-cg-express-retry-${Date.now()}`);
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "api.ts"), "export function handler() { return 1; }\napp.get('/users', handler);\n");
+  const store = new SqliteGraphStore();
+  const addEdge = SqliteGraphStore.prototype.addEdge;
+  try {
+    SqliteGraphStore.prototype.addEdge = function (edge) {
+      if (edge.provenance.source === "ast-grep") throw new Error("SQLITE_BUSY: database is locked");
+      return addEdge.call(this, edge);
+    };
+    await indexProject(root, store, { lspClientFactory: () => fakeClient });
+    SqliteGraphStore.prototype.addEdge = addEdge;
+    expect(store.getFailedLookups()).toEqual([{ kind: "index", source: "ast-grep stage", evidence: "write" }]);
+
+    await indexProject(root, store, { lspClientFactory: () => fakeClient });
+    const handler = store.findNodes("handler", "src/api.ts")[0]!;
+    expect(store.getNeighbors(handler.id, { direction: "out", kind: "routes_to" }).map((r) => r.node.id)).toEqual(["endpoint:GET:/users"]);
+    expect(store.getFailedLookups()).toEqual([]);
+  } finally {
+    SqliteGraphStore.prototype.addEdge = addEdge;
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("pipeline Stage 3 indexes express routes, replaces changed matches, keeps unchanged reruns stable, and cleans removed-file artifacts", async () => {
   const root = join(tmpdir(), `pi-cg-express-stage3-${Date.now()}`);
   mkdirSync(join(root, "src"), { recursive: true });

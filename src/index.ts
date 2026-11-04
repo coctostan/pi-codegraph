@@ -390,8 +390,10 @@ function formatStatus(projectRoot: string, state: ProjectState | undefined): { t
   ];
   if (state.workingCopy === ":memory:") lines.push("db: in memory, since codegraph can't write or copy .codegraph/graph.db");
   else if (state.workingCopy) lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since codegraph can't write .codegraph/graph.db`);
+  const indexErrors = state.store.getFailedLookups().filter((f) => f.kind === "index");
+  if (indexErrors.length > 0) lines.push(`index errors: ${indexErrors.map((f) => `${f.source} (${f.evidence})`).join(", ")}`);
   if (lastIndexError) lines.push(getIndexingFailedNoteForTesting().trimEnd());
-  return { text: lines.join("\n"), level: lastIndexError ? "warning" : "info" };
+  return { text: lines.join("\n"), level: lastIndexError || indexErrors.length > 0 ? "warning" : "info" };
 }
 
 export default function piCodegraph(pi: ExtensionAPI): void {

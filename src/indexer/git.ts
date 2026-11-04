@@ -118,14 +118,6 @@ export async function runGitCoChangeStage(
   const minCount = options.minCoChangeCount ?? 2;
   const windowDays = options.windowDays ?? 365;
   const commits = parseGitLog(projectRoot);
-  if (commits.length === 0) {
-    try {
-      store.setMetadata(GIT_HEAD_METADATA_KEY, head);
-    } catch {
-      errors++;
-    }
-    return errors;
-  }
   const now = Date.now();
   const halfLifeDays = windowDays / 4;
   const trackedFiles = new Set(store.listFiles());
@@ -158,6 +150,8 @@ export async function runGitCoChangeStage(
     }
   }
 
+  // A run whose writes failed leaves HEAD unrecorded, so the next run rebuilds the edges again.
+  if (errors > 0) return errors;
   try {
     store.setMetadata(GIT_HEAD_METADATA_KEY, head);
   } catch {
