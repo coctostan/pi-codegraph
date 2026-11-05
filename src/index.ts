@@ -59,8 +59,11 @@ const ImpactParams = Type.Object({
 });
 
 const TraceParams = Type.Object({
-  entry: Type.String({ description: "Entry symbol, endpoint, or test case." }),
+  entry: Type.Optional(Type.String({ description: "Entry symbol, endpoint, or test case." })),
   file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
+  line: Type.Optional(
+    Type.Number({ description: "With file: start at the innermost function holding this line, a method or callback included, instead of entry." }),
+  ),
   suppressTrustHeader: Type.Optional(
     Type.Boolean({ description: "Omit the Trust header." }),
   ),
@@ -530,10 +533,10 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     parameters: TraceParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const { projectRoot, store } = await prepare(ctx, signal);
-      const { text, resolved } = traceResult({ entry: params.entry, file: params.file, store, projectRoot });
+      const { text, resolved } = traceResult({ entry: params.entry, file: params.file, line: params.line, store, projectRoot });
       const output = finalizeReadOnlyOutput(
         "trace",
-        { entry: params.entry, file: params.file },
+        { entry: params.entry, file: params.file, line: params.line },
         text,
         store,
         projectRoot,
