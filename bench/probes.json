@@ -144,5 +144,35 @@
       "ordered": ["Tests reached", "\ntest/"],
       "none": ["renderSymbolContractBody", "symbolContract", "fan-in", "chain-confidence", "untested"]
     }
+  },
+  {
+    "id": "impact-direct-cc-headers",
+    "repo": "pi-claude-header",
+    "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+    "tool": "impact",
+    "params": { "symbols": ["buildAnthropicCcHeaders"], "changeType": "behavior_change" },
+    "expect": {
+      "resolves": true,
+      "ordered": [
+        "Tests reached directly (5 cases in 5 files):\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n\n",
+        "Tests reached through other callers ("
+      ],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "impact-direct-enclosing-sg",
+    "repo": "pi-hashline-readmap",
+    "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+    "tool": "impact",
+    "params": { "symbols": ["findEnclosingSgSymbols"], "changeType": "behavior_change" },
+    "expect": {
+      "resolves": true,
+      "ordered": [
+        "Tests reached directly (4 cases in 4 files):\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\ntests/json-mapper-root-array-sg.test.ts\n\n",
+        "Tests reached through other callers ("
+      ],
+      "none": ["untested"]
+    }
   }
 ]

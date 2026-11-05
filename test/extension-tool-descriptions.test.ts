@@ -71,8 +71,8 @@ test("impact's metadata names callers reached directly or indirectly, the defaul
   expectClaims(
     "impact",
     impact.claims,
-    [/directly (or|and) indirectly/, /entry points/, /`maxDepth`[^\n]*default 5/, /breaking/, /behavioral/, /Tests reached/],
-    [/\bsafe\b/],
+    [/directly (or|and) indirectly/, /entry points/, /`maxDepth`[^\n]*default 5/, /breaking/, /behavioral/, /`Tests reached directly`[^\n]*`Tests reached through other callers`/],
+    [/\bsafe\b/, /one `Tests reached` list/],
   );
   expectClaims("impact.maxDepth", impact.parameters.properties.maxDepth.description, [/default 5/]);
 });

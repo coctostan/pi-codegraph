@@ -85,7 +85,7 @@ function plural(count: number, word: string): string {
 }
 
 /** The heading, then each test file reached, sorted, with its case count when above one. */
-function formatTestsReached(tests: GraphNode[]): string[] {
+function formatTestsReached(heading: string, tests: GraphNode[]): string[] {
   const casesByFile = new Map<string, number>();
   for (const node of tests) {
     casesByFile.set(node.file, (casesByFile.get(node.file) ?? 0) + (node.kind === "test" ? 1 : 0));
@@ -93,7 +93,7 @@ function formatTestsReached(tests: GraphNode[]): string[] {
   const files = [...casesByFile.keys()].sort();
   const caseCount = tests.filter((node) => node.kind === "test").length;
   return [
-    `Tests reached (${plural(caseCount, "case")} in ${plural(files.length, "file")}):`,
+    `${heading} (${plural(caseCount, "case")} in ${plural(files.length, "file")}):`,
     ...files.map((file) => (casesByFile.get(file)! > 1 ? `${file} (${casesByFile.get(file)})` : file)),
   ];
 }
@@ -186,8 +186,17 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
     const anchor = computeAnchor(hit.node, params.projectRoot);
     return `${formatAnchorLocation(anchor)}  ${hit.node.name}  ${hit.classification}  depth:${hit.depth}${anchor.stale ? " [stale]" : ""}`;
   });
-  const tests = hits.map((hit) => hit.node).filter(isTest);
-  if (tests.length > 0) lines.push(...(lines.length > 0 ? [""] : []), ...formatTestsReached(tests));
+  const tests = hits.filter((hit) => isTest(hit.node));
+  // Depth is the shallowest, so depth 1 is a test calling a changed symbol itself.
+  const testGroups = Object.entries({
+    "Tests reached directly": tests.filter((hit) => hit.depth === 1),
+    "Tests reached through other callers": tests.filter((hit) => hit.depth > 1),
+  });
+  for (const [heading, group] of testGroups) {
+    if (group.length === 0) continue;
+    if (lines.length > 0) lines.push("");
+    lines.push(...formatTestsReached(heading, group.map((hit) => hit.node)));
+  }
 
   const hitNodes = hits.map((hit) => hit.node);
   return withFreshness(`${lines.join("\n")}\n`, [...targetNodes, ...hitNodes], hits.map((hit) => hit.edge));
