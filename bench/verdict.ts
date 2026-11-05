@@ -1,5 +1,6 @@
 /**
- * Audit the graded cells under `bench/results/` and print the keep/freeze/retire verdict by `bench/thresholds.json`.
+ * Audit the graded cells under `bench/results/` and print the keep/freeze/retire verdict by `bench/thresholds.json`,
+ * judged per task-model pair, with the verdict over both models pooled per task beside it.
  *
  *   bun bench/verdict.ts [--tasks bench/tasks] [--results bench/results] [--on-results dir] [--thresholds bench/thresholds.json]
  *
@@ -21,8 +22,10 @@ export interface Thresholds {
   keepWinFraction: number;
 }
 
+/** One task's arms compared, for one model, or both pooled when `model` is absent. */
 export interface TaskResult {
   task: string;
+  model?: string;
   correctOn: number;
   correctOff: number;
   tokensOn: number;
@@ -31,6 +34,9 @@ export interface TaskResult {
   turnsOn: number;
   turnsOff: number;
   turnsCut: number;
+  /** On cells that called a codegraph tool, of `onCells`. */
+  picks: number;
+  onCells: number;
   win: boolean;
 }
 
@@ -121,33 +127,47 @@ function median(xs: number[]): number {
 
 const cut = (on: number, off: number) => (off > 0 ? (off - on) / off : 0);
 
-/** The verdict over audited cells, both models pooled per task. */
-export function decide(tasks: Task[], t: Thresholds, cells: any[]): { verdict: Verdict; wins: number; perTask: TaskResult[] } {
-  const perTask = tasks.map((task): TaskResult => {
-    const arm = (a: Arm) => cells.filter((c) => c.task === task.id && c.arm === a);
-    const [on, off] = [arm("on"), arm("off")];
-    const correct = (cs: any[]) => cs.filter((c) => c.grade.correct).length;
-    const tokens = (cs: any[]) => median(cs.map((c) => c.tokens.total));
-    const turns = (cs: any[]) => median(cs.map((c) => c.turns));
-    const r = {
-      task: task.id,
-      correctOn: correct(on),
-      correctOff: correct(off),
-      tokensOn: tokens(on),
-      tokensOff: tokens(off),
-      turnsOn: turns(on),
-      turnsOff: turns(off),
-    };
-    const tokensCut = cut(r.tokensOn, r.tokensOff);
-    const turnsCut = cut(r.turnsOn, r.turnsOff);
-    const win = r.correctOn >= r.correctOff && (tokensCut >= t.minCut || turnsCut >= t.minCut);
-    return { ...r, tokensCut, turnsCut, win };
-  });
-  const wins = perTask.filter((r) => r.win).length;
-  const sum = (k: "correctOn" | "correctOff") => perTask.reduce((n, r) => n + r[k], 0);
+function compare(task: string, model: string | undefined, on: any[], off: any[], t: Thresholds): TaskResult {
+  const correct = (cs: any[]) => cs.filter((c) => c.grade.correct).length;
+  const tokens = (cs: any[]) => median(cs.map((c) => c.tokens.total));
+  const turns = (cs: any[]) => median(cs.map((c) => c.turns));
+  const r = {
+    task,
+    ...(model === undefined ? {} : { model }),
+    correctOn: correct(on),
+    correctOff: correct(off),
+    tokensOn: tokens(on),
+    tokensOff: tokens(off),
+    turnsOn: turns(on),
+    turnsOff: turns(off),
+    picks: on.filter((c) => c.codegraphCalls > 0).length,
+    onCells: on.length,
+  };
+  const tokensCut = cut(r.tokensOn, r.tokensOff);
+  const turnsCut = cut(r.turnsOn, r.turnsOff);
+  const win = r.correctOn >= r.correctOff && (tokensCut >= t.minCut || turnsCut >= t.minCut);
+  return { ...r, tokensCut, turnsCut, win };
+}
+
+function verdictOf(results: TaskResult[], t: Thresholds): { verdict: Verdict; wins: number } {
+  const wins = results.filter((r) => r.win).length;
+  const sum = (k: "correctOn" | "correctOff") => results.reduce((n, r) => n + r[k], 0);
   const verdict: Verdict =
-    sum("correctOn") >= sum("correctOff") && wins >= t.keepWinFraction * tasks.length ? "keep" : wins === 0 ? "retire" : "freeze";
-  return { verdict, wins, perTask };
+    sum("correctOn") >= sum("correctOff") && wins >= t.keepWinFraction * results.length ? "keep" : wins === 0 ? "retire" : "freeze";
+  return { verdict, wins };
+}
+
+/** The verdict over audited cells, judged per task-model pair, with the per-task verdict, both models pooled, beside it. */
+export function decide(
+  tasks: Task[],
+  t: Thresholds,
+  cells: any[],
+): { verdict: Verdict; wins: number; perPair: TaskResult[]; pooled: { verdict: Verdict; wins: number; perTask: TaskResult[] } } {
+  const arm = (task: Task, a: Arm, model?: string) =>
+    cells.filter((c) => c.task === task.id && c.arm === a && (model === undefined || c.model === model));
+  const perPair = tasks.flatMap((task) => t.models.map((m) => compare(task.id, m, arm(task, "on", m), arm(task, "off", m), t)));
+  const perTask = tasks.map((task) => compare(task.id, undefined, arm(task, "on"), arm(task, "off"), t));
+  return { ...verdictOf(perPair, t), perPair, pooled: { ...verdictOf(perTask, t), perTask } };
 }
 
 function main(): number {
@@ -181,14 +201,14 @@ function main(): number {
     console.error(`${problems.length} problems in ${dirs.join(" and ")}:\n${problems.join("\n")}`);
     return 1;
   }
-  const { verdict, wins, perTask } = decide(tasks, thresholds, [...files.values()].map((s) => JSON.parse(s)));
+  const { verdict, wins, perPair, pooled } = decide(tasks, thresholds, [...files.values()].map((s) => JSON.parse(s)));
   const pct = (x: number) => `${Math.round(x * 100)}%`;
-  for (const r of perTask) {
-    console.log(
-      `${r.task}  correct on ${r.correctOn} off ${r.correctOff}  tokens on ${r.tokensOn} off ${r.tokensOff} cut ${pct(r.tokensCut)}  turns on ${r.turnsOn} off ${r.turnsOff} cut ${pct(r.turnsCut)}  ${r.win ? "win" : "-"}`,
-    );
-  }
-  console.log(`wins ${wins}/${tasks.length}`);
+  const row = (r: TaskResult) =>
+    `correct on ${r.correctOn} off ${r.correctOff}  tokens on ${r.tokensOn} off ${r.tokensOff} cut ${pct(r.tokensCut)}  turns on ${r.turnsOn} off ${r.turnsOff} cut ${pct(r.turnsCut)}  picks ${r.picks}/${r.onCells}  ${r.win ? "win" : "-"}`;
+  for (const r of perPair) console.log(`${r.task}  ${r.model}  ${row(r)}`);
+  for (const r of pooled.perTask) console.log(`pooled  ${r.task}  ${row(r)}`);
+  console.log(`pooled wins ${pooled.wins}/${pooled.perTask.length} ${pooled.verdict}`);
+  console.log(`wins ${wins}/${perPair.length}`);
   console.log(verdict);
   return 0;
 }
