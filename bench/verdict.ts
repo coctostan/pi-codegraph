@@ -133,7 +133,7 @@ function compare(task: string, model: string | undefined, on: any[], off: any[],
   const turns = (cs: any[]) => median(cs.map((c) => c.turns));
   const r = {
     task,
-    ...(model === undefined ? {} : { model }),
+    model,
     correctOn: correct(on),
     correctOff: correct(off),
     tokensOn: tokens(on),
