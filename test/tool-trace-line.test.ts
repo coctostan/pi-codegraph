@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
-import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import piCodegraph, { resetStoreForTesting, setTsServerClientFactoryForTesting } from "../src/index.js";
+import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 import { traceResult } from "../src/tools/trace.js";
 
 const APP = [
@@ -34,10 +35,23 @@ const APP = [
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
+/** A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` declaring it there, so no test waits on a real one. */
+const sameFileDefinitions: ITsServerClient = {
+  definition: async (file, line, col) => {
+    const name = /^\w+/.exec(APP[line - 1]?.slice(col - 1) ?? "")?.[0];
+    const at = file === "src/app.ts" && name ? APP.findIndex((l) => l.includes(`function ${name}(`)) : -1;
+    return at < 0 ? null : { file, line: at + 1, col: 1 };
+  },
+  references: async () => [],
+  implementations: async () => [],
+  shutdown: async () => {},
+};
+
 const roots: string[] = [];
 
 function setup() {
   resetStoreForTesting();
+  setTsServerClientFactoryForTesting(() => sameFileDefinitions);
   const root = mkdtempSync(join(tmpdir(), "pi-cg-trace-line-"));
   roots.push(root);
   mkdirSync(join(root, "src"), { recursive: true });
