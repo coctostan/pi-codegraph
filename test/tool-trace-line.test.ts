@@ -25,6 +25,10 @@ const APP = [
   "}",
   "export const arrow = () => deep();",
   "export default { start() { helper(); } };",
+  "export function tail(items: number[]) {",
+  "  other();",
+  "  return items.map(() => helper()); }",
+  "export const pair = [() => helper(), () => deep()];",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
@@ -36,6 +40,10 @@ function setup() {
   roots.push(root);
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src", "app.ts"), `${APP.join("\n")}\n`);
+  writeFileSync(
+    join(root, "src", "app.test.ts"),
+    'import { test } from "bun:test";\nimport { helper } from "./app";\ntest("calls helper", () => {\n  helper();\n});\n',
+  );
   const tools = new Map<string, any>();
   piCodegraph({ registerTool: (tool: any) => void tools.set(tool.name, tool) } as any);
   return {
@@ -91,11 +99,32 @@ test("a line in an arrow bound to a property traces that arrow alone", async () 
   expect(tree(out.text)).toEqual(["onDone (in setup)", "  helper [leaf]"]);
 });
 
+test("a callback ending on its enclosing function's last line traces the callback, not that function", async () => {
+  const { trace } = setup();
+  const out = await trace({ file: "src/app.ts", line: lineOf("items.map") });
+  expect(tree(out.text)).toEqual(["<anonymous> (in tail)", "  helper [leaf]"]);
+});
+
+test("a line holding two functions side by side is an error naming both", async () => {
+  const { trace } = setup();
+  const line = lineOf("pair = ");
+  const out = await trace({ file: "src/app.ts", line });
+  expect(out.isError).toBe(true);
+  expect(out.text).toContain(`Several functions hold line ${line} of src/app.ts`);
+  expect(out.text).toContain(`<anonymous> (src/app.ts:${line}:22)`);
+  expect(out.text).toContain(`<anonymous> (src/app.ts:${line}:38)`);
+});
+
 test("a line in an indexed function traces it as trace by entry does", async () => {
   const { trace } = setup();
-  for (const [text, entry] of [["arrow = ", "arrow"], ["other();", "setup"]] as const) {
-    const byLine = await trace({ file: "src/app.ts", line: lineOf(text) });
-    expect(byLine).toEqual(await trace({ entry, file: "src/app.ts" }));
+  for (const [file, line, entry] of [
+    ["src/app.ts", lineOf("arrow = "), "arrow"],
+    ["src/app.ts", lineOf("other();"), "setup"],
+    ["src/app.test.ts", 4, "src/app.test.ts > calls helper"],
+  ] as const) {
+    const byLine = await trace({ file, line });
+    expect(byLine.text).toContain(entry.split(" > ").at(-1)!);
+    expect(byLine).toEqual(await trace({ entry, file }));
   }
 });
 

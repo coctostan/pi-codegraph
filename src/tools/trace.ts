@@ -292,8 +292,13 @@ function traceAtLine(params: TraceParams, file: string, line: number): { text: s
   } catch {
     return traceMiss(params, `File ${file} could not be read\n`);
   }
-  const fn = extractFunctionAt(file, content, line);
-  if (!fn) return traceMiss(params, `No function holds line ${line} of ${file}\n`);
+  const at = extractFunctionAt(file, content, line);
+  if (at.kind === "none") return traceMiss(params, `No function holds line ${line} of ${file}\n`);
+  if (at.kind === "several") {
+    const fns = at.fns.map((f) => `  ${f.name} (${file}:${f.line}:${f.column})`);
+    return traceMiss(params, [`Several functions hold line ${line} of ${file}, side by side:`, "", ...fns, ""].join("\n"));
+  }
+  const fn = at.fn;
   const owner = fn.ownerId ? (params.store.getNode(fn.ownerId) ?? null) : null;
   if (fn.own && owner) return { text: renderTrace({ ...params, entry: owner.name }, { kind: "unique", node: owner }), resolved: true };
   return { text: renderSpanTrace(params, file, fn, owner), resolved: true };
