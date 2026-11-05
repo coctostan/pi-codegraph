@@ -37,6 +37,7 @@ function withGraph(run: (store: SqliteGraphStore, projectRoot: string) => void) 
     store.addNode(node("beta", "function", "beta", "src/a.ts", 2));
     store.addNode(node("far", "function", "far", "src/a.ts", 1));
     store.addNode(node("leafUtil", "function", "leafUtil", "src/c.ts", 1));
+    store.addNode(node("inner", "function", "inner", "src/c.ts", 2));
     store.addNode(node("case1", "test", "test/shared.test.ts > shared works", "test/shared.test.ts", 1));
     store.addNode(node("case2", "test", "test/shared.test.ts > bCaller works", "test/shared.test.ts", 2));
     store.addNode(node("helper", "function", "setup", "test/helper.spec.ts", 1));
@@ -47,6 +48,7 @@ function withGraph(run: (store: SqliteGraphStore, projectRoot: string) => void) 
     call(store, "alpha", "shared");
     call(store, "beta", "shared");
     call(store, "far", "bCaller");
+    call(store, "bCaller", "inner");
     call(store, "case1", "shared");
     call(store, "case1", "leafUtil");
     call(store, "case2", "bCaller");
@@ -75,12 +77,14 @@ test("impact rows carry class and depth only, by depth then file then line", () 
   });
 });
 
-test("impact lists the test files and test cases reached apart from the rows, by file", () => {
+test("impact lists the tests calling a changed symbol directly, then those reached through other callers, by file", () => {
   withGraph((store, projectRoot) => {
     const out = impactResult({ symbols: ["shared"], changeType: "behavior_change", store, projectRoot }).text;
     // The body, past the stale Trust header that names every affected symbol.
     const body = out.slice(out.indexOf("\nsrc/") + 1);
-    expect(body).toMatch(/far  behavioral  depth:2( \[stale\])?\n\nTests reached \(4 cases in 3 files\):\ntest\/helper\.spec\.ts\ntest\/inline\.ts\ntest\/shared\.test\.ts \(2\)\n$/);
+    expect(body).toMatch(
+      /far  behavioral  depth:2( \[stale\])?\n\nTests reached directly \(3 cases in 3 files\):\ntest\/helper\.spec\.ts\ntest\/inline\.ts\ntest\/shared\.test\.ts\n\nTests reached through other callers \(1 case in 1 file\):\ntest\/shared\.test\.ts\n$/,
+    );
     expect(body).not.toContain("works");
     expect(body).not.toContain("setup");
   });
@@ -90,14 +94,25 @@ test("impact's test list counts one case and one file in the singular", () => {
   withGraph((store, projectRoot) => {
     const out = impactResult({ symbols: ["bCaller"], changeType: "behavior_change", store, projectRoot, maxDepth: 1 }).text;
     expect(out).toContain("src/a.ts  1:");
-    expect(out).toContain("Tests reached (1 case in 1 file):\ntest/shared.test.ts\n");
+    expect(out).toContain("Tests reached directly (1 case in 1 file):\ntest/shared.test.ts\n");
+    expect(out).not.toContain("through other callers");
   });
 });
 
-test("impact with only tests reached prints the list without a leading blank line", () => {
+test("impact with only direct tests prints the list without a leading blank line", () => {
   withGraph((store, projectRoot) => {
     const out = impactResult({ symbols: ["leafUtil"], changeType: "behavior_change", store, projectRoot }).text;
-    expect(out).toContain("\nTests reached (1 case in 1 file):\ntest/shared.test.ts\n");
+    expect(out).toContain("\nTests reached directly (1 case in 1 file):\ntest/shared.test.ts\n");
     expect(out).not.toContain("\n\nTests reached");
+    expect(out).not.toContain("through other callers");
+  });
+});
+
+test("impact with no direct test prints only the list reached through other callers", () => {
+  withGraph((store, projectRoot) => {
+    const out = impactResult({ symbols: ["inner"], changeType: "behavior_change", store, projectRoot }).text;
+    expect(out).toContain("bCaller  behavioral  depth:1");
+    expect(out).toContain("\n\nTests reached through other callers (1 case in 1 file):\ntest/shared.test.ts\n");
+    expect(out).not.toContain("Tests reached directly");
   });
 });

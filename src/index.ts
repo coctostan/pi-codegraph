@@ -497,7 +497,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     promptSnippet: "List the callers a TypeScript symbol change reaches, directly or indirectly, each breaking or behavioral, then the tests reached",
     promptGuidelines: [
       "Run impact on the symbols you are about to change before editing a shared function, class, or interface.",
-      "impact follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5): a direct dependent of a `signature_change` or `removal` is breaking, every other dependent behavioral, and the test files and cases reached come last in one `Tests reached` list.",
+      "impact follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5): a direct dependent of a `signature_change` or `removal` is breaking, every other dependent behavioral; the test files and cases come last, those calling a changed symbol directly in a `Tests reached directly` list, then the rest in a `Tests reached through other callers` list.",
     ],
     parameters: ImpactParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
