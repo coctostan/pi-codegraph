@@ -135,21 +135,35 @@ test("auditCells names a piVersion mismatch between the arms, and needs a piVers
   expect(auditCells(tasks, thresholds, unversioned).join("\n")).toContain("t1__off__p_a__r1.json: malformed");
 });
 
-test("decide keeps when the on arm wins half the tasks without losing correctness", () => {
+test("decide keeps when the on arm wins half the pairs without losing correctness", () => {
   const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" ? { ...c, tokens: { total: 750 } } : c)));
   const d = decide(tasks, thresholds, cells);
   expect(d.verdict).toBe("keep");
-  expect(d.perTask.map((t) => t.win)).toEqual([true, false]);
-  expect(d.perTask[0]).toMatchObject({ task: "t1", correctOn: 2, correctOff: 2, tokensOn: 750, tokensOff: 1000, tokensCut: 0.25 });
+  expect(d.wins).toBe(2);
+  expect(d.perPair.map((p) => `${p.task} ${p.model} ${p.win}`)).toEqual(["t1 p/a true", "t1 p/b true", "t2 p/a false", "t2 p/b false"]);
+  expect(d.perPair[0]).toMatchObject({ correctOn: 1, correctOff: 1, tokensOn: 750, tokensOff: 1000, tokensCut: 0.25, picks: 1, onCells: 1 });
 });
 
-test("decide counts a turns cut as a win and pools both models by median", () => {
-  const cells = parsed(
-    fullSet((c) => (c.task === "t2" && c.arm === "on" ? { ...c, turns: c.model === "p/a" ? 2 : 4 } : c)),
-  );
+test("decide judges each model apart where pooling would hide a pair's win", () => {
+  // p/a halves its turns on t2 and p/b doubles them: the pooled median (5 vs 4) loses; per pair, p/a wins.
+  const cells = parsed(fullSet((c) => (c.task === "t2" && c.arm === "on" ? { ...c, turns: c.model === "p/a" ? 2 : 8 } : c)));
   const d = decide(tasks, thresholds, cells);
-  expect(d.perTask[1]).toMatchObject({ turnsOn: 3, turnsOff: 4, turnsCut: 0.25, win: true });
-  expect(d.verdict).toBe("keep");
+  expect(d.perPair.filter((p) => p.task === "t2").map((p) => [p.model, p.turnsCut, p.win])).toEqual([
+    ["p/a", 0.5, true],
+    ["p/b", -1, false],
+  ]);
+  expect(d.pooled.perTask[1]).toMatchObject({ task: "t2", turnsOn: 5, turnsOff: 4, win: false });
+  expect(d.pooled.wins).toBe(0);
+  expect(d.pooled.verdict).toBe("retire");
+  expect(d.wins).toBe(1);
+  expect(d.verdict).toBe("freeze");
+});
+
+test("decide counts a pair's on cells that called codegraph", () => {
+  const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" && c.model === "p/b" ? { ...c, codegraphCalls: 0 } : c)));
+  const d = decide(tasks, thresholds, cells);
+  expect(d.perPair.map((p) => p.picks)).toEqual([1, 0, 1, 1]);
+  expect(d.pooled.perTask.map((p) => p.picks)).toEqual([1, 2]);
 });
 
 test("decide freezes when a win costs correctness overall, and a cut just under the threshold is no win", () => {
@@ -165,14 +179,14 @@ test("decide freezes when a win costs correctness overall, and a cut just under 
   expect(decide(tasks, thresholds, near).verdict).toBe("retire");
 });
 
-test("decide freezes when the on arm wins some tasks but fewer than keepWinFraction of them", () => {
-  const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" ? { ...c, tokens: { total: 500 } } : c)));
-  const d = decide(tasks, { ...thresholds, keepWinFraction: 1 }, cells);
+test("decide freezes when the on arm wins some pairs but fewer than keepWinFraction of them", () => {
+  const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" && c.model === "p/a" ? { ...c, tokens: { total: 500 } } : c)));
+  const d = decide(tasks, thresholds, cells);
   expect(d.wins).toBe(1);
   expect(d.verdict).toBe("freeze");
 });
 
-test("decide gives no win on a task where the on arm is cheaper but less often correct", () => {
+test("decide gives no win on a pair where the on arm is cheaper but less often correct", () => {
   const cells = parsed(
     fullSet((c) => {
       if (c.task !== "t1" || c.arm !== "on") return c;
@@ -180,8 +194,12 @@ test("decide gives no win on a task where the on arm is cheaper but less often c
     }),
   );
   const d = decide(tasks, thresholds, cells);
-  expect(d.perTask[0]).toMatchObject({ correctOn: 1, correctOff: 2, win: false });
-  expect(d.verdict).toBe("retire");
+  expect(d.perPair.slice(0, 2).map((p) => [p.model, p.correctOn, p.correctOff, p.win])).toEqual([
+    ["p/a", 1, 1, true],
+    ["p/b", 0, 1, false],
+  ]);
+  expect(d.pooled.perTask[0]).toMatchObject({ correctOn: 1, correctOff: 2, win: false });
+  expect(d.verdict).toBe("freeze");
 });
 
 test("the frozen task set holds 2 impact, 2 test-mapping and 2 trace questions, two per repo, each pinned and key-checked", () => {
@@ -250,8 +268,9 @@ test("the CLI's --on-results takes the on arm from that directory and only the o
   const clean = run();
   expect(clean.stderr).toBe("");
   expect(clean.status).toBe(0);
-  expect(clean.stdout).toContain("t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%");
-  expect(clean.stdout.trim().split("\n").at(-1)).toBe("keep");
+  expect(clean.stdout).toContain("t1  p/a  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  win");
+  expect(clean.stdout).toContain("pooled  t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 2/2  win");
+  expect(clean.stdout.trim().split("\n").slice(-3)).toEqual(["pooled wins 2/2 keep", "wins 4/4", "keep"]);
 
   writeOn((c) => ({ ...c, piVersion: "2.0.0" }));
   const mismatched = run();
