@@ -6,6 +6,7 @@ import piCodegraph, { resetStoreForTesting } from "../src/index.js";
 
 const APP = [
   "const VERSION = 1;",
+  "declare function log(): void;",
   "export function helper() { return VERSION; }",
   "export function other() { return 2; }",
   "export function deep() { return 3; }",
@@ -14,6 +15,7 @@ const APP = [
   "  register({",
   "    run() {",
   "      helper();",
+  "      log();",
   "      [1].forEach(() => other());",
   "      function inner() { return deep(); }",
   "      return inner();",
@@ -73,11 +75,14 @@ test("a line in an object method traces that method's calls, a nested callback's
   expect(tree(out.text)).toEqual([
     "run (in setup)",
     "  helper [leaf]",
+    `  ? log (unresolved, src/app.ts:${lineOf("log();")})`,
     "  other [leaf]",
     "  inner",
     "    deep [leaf]",
   ]);
   expect(out.text).toContain(`src/app.ts  ${lineOf("run() {")}:`);
+  // `log` reads unresolved as the index stored it under `setup`, so the result stays fresh.
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
 });
 
 test("a line in an arrow bound to a property traces that arrow alone", async () => {
