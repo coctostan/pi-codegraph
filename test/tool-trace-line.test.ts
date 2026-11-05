@@ -2,7 +2,9 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import { traceResult } from "../src/tools/trace.js";
 
 const APP = [
   "const VERSION = 1;",
@@ -134,6 +136,22 @@ test("a line in a module-level method prints its calls unresolved, since the ind
   expect(out.isError).toBe(false);
   expect(tree(out.text)).toEqual(["start", `  ? helper (unresolved, src/app.ts:${lineOf("start()")})`]);
   expect(out.text.startsWith("Trust: fresh")).toBe(false);
+});
+
+test("a module-level method's trace reads stale when its file changed since indexing, though it makes no calls", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-trace-line-stale-"));
+  roots.push(projectRoot);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, "src", "mod.ts"), "export default { start() {} };\n");
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode({ id: "src/mod.ts::src/mod.ts:1", kind: "module", name: "src/mod.ts", file: "src/mod.ts", start_line: 1, end_line: 2, content_hash: "old" });
+    const { text, resolved } = traceResult({ file: "src/mod.ts", line: 1, store, projectRoot });
+    expect(resolved).toBe(true);
+    expect(text.startsWith("Trust: stale")).toBe(true);
+  } finally {
+    store.close();
+  }
 });
 
 test("a line in no function, a line without file, and no entry or line are errors", async () => {

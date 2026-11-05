@@ -310,7 +310,8 @@ function traceAtLine(params: TraceParams, file: string, line: number): { text: s
  */
 function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owner: GraphNode | null): string {
   const { store } = params;
-  const hashOf = owner ?? store.getNode(nodeId(file, file, 1));
+  // The node whose hash the entry's freshness rides on: its owner's, or its module's at module level.
+  const source = owner ?? store.getNode(nodeId(file, file, 1)) ?? null;
   const entry: GraphNode = {
     id: nodeId(file, fn.name, fn.startLine),
     kind: "function",
@@ -318,7 +319,7 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
     file,
     start_line: fn.startLine,
     end_line: fn.startLine,
-    content_hash: hashOf?.content_hash ?? "",
+    content_hash: source?.content_hash ?? "",
     is_exported: false,
   };
   const ownerCalls = owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : [];
@@ -338,7 +339,7 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
       return unresolvedCallee(stored ?? call, file, call);
     })
     .sort(byCallOrder);
-  return renderStatic(params, entry, owner, { callees, edges: resolvedEdges, unindexed });
+  return renderStatic(params, entry, source, { callees, edges: resolvedEdges, unindexed });
 }
 
 function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
