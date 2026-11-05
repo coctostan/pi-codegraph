@@ -39,6 +39,7 @@ test("pi extension registers trace tool with correct schema", async () => {
   const schema = traceTool!.parameters as any;
   expect(schema.properties.entry).toBeDefined();
   expect(schema.properties.file).toBeDefined();
-  expect(schema.required).toContain("entry");
-  expect(schema.required).not.toContain("file");
+  expect(schema.properties.line).toBeDefined();
+  // `entry` is optional since `file` + `line` can start a trace instead.
+  expect(schema.required ?? []).toEqual([]);
 });

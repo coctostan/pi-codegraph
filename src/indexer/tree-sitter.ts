@@ -248,8 +248,73 @@ function extractInterfaceSignature(node: SyntaxNode, name: string): string {
   return members.length > 0 ? [header, ...members].join("\n") : header;
 }
 
+const FUNCTION_TYPES = new Set([
+  "function_declaration",
+  "generator_function_declaration",
+  "function_expression",
+  "generator_function",
+  "arrow_function",
+  "method_definition",
+]);
 
-export function extractFile(file: string, content: string): ExtractionResult {
+/** The innermost functions whose spans hold 0-based `row`: one holding no other that holds it; several only side by side. */
+function innermostFunctionsAt(root: SyntaxNode, row: number): SyntaxNode[] {
+  const holders: SyntaxNode[] = [];
+  walk(root, (n) => {
+    if (FUNCTION_TYPES.has(n.type) && n.startPosition.row <= row && n.endPosition.row >= row) holders.push(n);
+  });
+  return holders.filter((h) => !holders.some((o) => o !== h && o.startIndex >= h.startIndex && o.endIndex <= h.endIndex));
+}
+
+/** A function's own name, else the variable, property or assignee it is bound to, else `<anonymous>`. */
+function functionName(fn: SyntaxNode): string {
+  const parent = fn.parent;
+  const named =
+    fn.childForFieldName("name") ??
+    (parent?.type === "variable_declarator" ? parent.childForFieldName("name") : null) ??
+    (parent?.type === "pair" ? parent.childForFieldName("key") : null) ??
+    (parent?.type === "assignment_expression" ? parent.childForFieldName("left") : null);
+  return named?.text ?? "<anonymous>";
+}
+
+/** The function `extractFunctionAt` found, and the calls the index files under its owner from inside it. */
+export interface FunctionAt {
+  name: string;
+  startLine: number;
+  /** The node the index files its calls under: its own, or the enclosing function's or test's; null at module level. */
+  ownerId: string | null;
+  /** True when `ownerId` is the function's own node. */
+  own: boolean;
+  /** Its calls, each callee once at its first call to end, sourced at `nodeId(file, name, startLine)`. */
+  calls: GraphEdge[];
+}
+
+/** What a line holds: no function, one innermost function, or several side by side, each by name and 1-based position. */
+export type FunctionsAt =
+  | { kind: "none" }
+  | { kind: "one"; fn: FunctionAt }
+  | { kind: "several"; fns: Array<{ name: string; line: number; column: number }> };
+
+/** A push that keeps one edge per source, target, kind and provenance; of a callee's calls, the first to end, the first to run. */
+function edgeSink(edges: GraphEdge[]): (edge: GraphEdge) => void {
+  const edgeIndex = new Map<string, number>();
+  return (edge) => {
+    const key = edge.call_end
+      ? `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}`
+      : `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
+    const at = edgeIndex.get(key);
+    if (at === undefined) {
+      edgeIndex.set(key, edges.length);
+      edges.push(edge);
+      return;
+    }
+    const end = edge.call_end;
+    const kept = edges[at]!.call_end;
+    if (end && kept && (end.line < kept.line || (end.line === kept.line && end.col < kept.col))) edges[at] = edge;
+  };
+}
+
+function extract(file: string, content: string, entryLine?: number): ExtractionResult & { functionsAt: FunctionsAt } {
   const contentHash = sha256Hex(content);
 
   const moduleNode: GraphNode = {
@@ -265,23 +330,8 @@ export function extractFile(file: string, content: string): ExtractionResult {
 
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
-
-  const edgeIndex = new Map<string, number>();
-  const pushEdge = (edge: GraphEdge) => {
-    // The store keeps one edge per source, target, kind and provenance; of a callee's calls, keep the first to end, the first to run.
-    const key = edge.call_end
-      ? `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}`
-      : `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
-    const at = edgeIndex.get(key);
-    if (at === undefined) {
-      edgeIndex.set(key, edges.length);
-      edges.push(edge);
-      return;
-    }
-    const end = edge.call_end;
-    const kept = edges[at]!.call_end;
-    if (end && kept && (end.line < kept.line || (end.line === kept.line && end.col < kept.col))) edges[at] = edge;
-  };
+  const pushEdge = edgeSink(edges);
+  let functionsAt: FunctionsAt = { kind: "none" };
 
   const aliasToOriginal = new Map<string, string>();
   const namespaceImports = new Set<string>();
@@ -542,91 +592,105 @@ export function extractFile(file: string, content: string): ExtractionResult {
     }
     // `endPosition` sits just past the call's last character, so its 0-based column is that character's 1-based one.
     const callEnd = (call: SyntaxNode) => ({ line: call.endPosition.row + 1, col: call.endPosition.column });
-    const visitCalls = (n: SyntaxNode, currentFunctionId: string | null): void => {
-      let nextFunctionId = callbackOwners.get(n.startIndex) ?? currentFunctionId;
-
-      if (n.type === "function_declaration") {
-        const nameNode = n.childForFieldName("name");
-        if (nameNode) {
-          nextFunctionId = nodeId(file, nameNode.text, n.startPosition.row + 1);
-        }
-      }
-
-      if (n.type === "variable_declarator") {
-        const nameNode = n.childForFieldName("name");
-        const valueNode = n.childForFieldName("value");
-        if (nameNode?.type === "identifier" && valueNode?.type === "arrow_function") {
-          nextFunctionId = nodeId(file, nameNode.text, n.startPosition.row + 1);
-        }
-      }
-
-      if (nextFunctionId && n.type === "call_expression") {
-        const callee = n.childForFieldName("function");
-        if (callee?.type === "identifier" && !isExternalCallee(callee.text)) {
-          pushEdge({
-            source: nextFunctionId,
-            target: unresolvedId(aliasToOriginal.get(callee.text) ?? callee.text),
-            kind: "calls",
-            provenance: {
-              source: "tree-sitter",
-              confidence: 0.5,
-              evidence: callEvidence(callee),
-              content_hash: contentHash,
-            },
-            created_at: Date.now(),
-            call_end: callEnd(n),
-          });
-        }
-        if (callee?.type === "member_expression") {
-          const obj = callee.childForFieldName("object");
-          const prop = callee.childForFieldName("property");
-          if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text) && !isExternalCallee(obj.text)) {
-            pushEdge({
-              source: nextFunctionId,
-              target: unresolvedId(prop.text),
-              kind: "calls",
-              provenance: {
-                source: "tree-sitter",
-                confidence: 0.5,
-                evidence: callEvidence(prop),
-                content_hash: contentHash,
-              },
-              created_at: Date.now(),
-              call_end: callEnd(n),
-            });
-          }
-        }
-      }
-
-      if (nextFunctionId && n.type === "new_expression") {
+    // The project callee `n` calls itself, by the name its edge targets, and the node its evidence points at.
+    const calleeOf = (n: SyntaxNode): { name: string; at: SyntaxNode } | null => {
+      if (n.type === "new_expression") {
         const ctor = n.childForFieldName("constructor");
-        if (ctor?.type === "identifier" && !isExternalCallee(ctor.text)) {
-          pushEdge({
-            source: nextFunctionId,
-            target: unresolvedId(ctor.text),
-            kind: "calls",
-            provenance: {
-              source: "tree-sitter",
-              confidence: 0.5,
-              evidence: callEvidence(ctor),
-              content_hash: contentHash,
-            },
-            created_at: Date.now(),
-            call_end: callEnd(n),
-          });
+        return ctor?.type === "identifier" && !isExternalCallee(ctor.text) ? { name: ctor.text, at: ctor } : null;
+      }
+      if (n.type !== "call_expression") return null;
+      const callee = n.childForFieldName("function");
+      if (callee?.type === "identifier" && !isExternalCallee(callee.text)) {
+        return { name: aliasToOriginal.get(callee.text) ?? callee.text, at: callee };
+      }
+      if (callee?.type === "member_expression") {
+        const obj = callee.childForFieldName("object");
+        const prop = callee.childForFieldName("property");
+        if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text) && !isExternalCallee(obj.text)) {
+          return { name: prop.text, at: prop };
         }
       }
+      return null;
+    };
+    const callEdge = (source: string, callee: { name: string; at: SyntaxNode }, call: SyntaxNode): GraphEdge => ({
+      source,
+      target: unresolvedId(callee.name),
+      kind: "calls",
+      provenance: { source: "tree-sitter", confidence: 0.5, evidence: callEvidence(callee.at), content_hash: contentHash },
+      created_at: Date.now(),
+      call_end: callEnd(call),
+    });
 
-      for (const child of n.namedChildren) visitCalls(child, nextFunctionId);
+    // The node `n` files its own calls under when it starts one: a test callback's, a named declaration's, a named arrow's.
+    const ownId = (n: SyntaxNode): string | null => {
+      const test = callbackOwners.get(n.startIndex);
+      if (test) return test;
+      const name = n.childForFieldName("name");
+      if (n.type === "function_declaration" && name) return nodeId(file, name.text, n.startPosition.row + 1);
+      if (n.type === "variable_declarator" && name?.type === "identifier" && n.childForFieldName("value")?.type === "arrow_function") {
+        return nodeId(file, name.text, n.startPosition.row + 1);
+      }
+      return null;
     };
 
-    visitCalls(tree.rootNode, null);
+    const held = entryLine === undefined ? [] : innermostFunctionsAt(tree.rootNode, entryLine - 1);
+    const entryFn = held.length === 1 ? held[0]! : null;
+    const entryEdges: GraphEdge[] = [];
+    const pushEntryEdge = edgeSink(entryEdges);
+    const entryId = entryFn ? nodeId(file, functionName(entryFn), entryFn.startPosition.row + 1) : "";
+    let entryOwner: string | null = null;
+
+    const visitCalls = (n: SyntaxNode, currentFunctionId: string | null, inEntry: boolean): void => {
+      const nextFunctionId = ownId(n) ?? currentFunctionId;
+
+      if (entryFn && n.startIndex === entryFn.startIndex && n.type === entryFn.type) {
+        entryOwner = nextFunctionId;
+        inEntry = true;
+      }
+
+      const callee = calleeOf(n);
+      if (callee && nextFunctionId) pushEdge(callEdge(nextFunctionId, callee, n));
+      // The entry's calls are those the index files under its owner: a nested callback's, not a nested named function's.
+      if (callee && inEntry && nextFunctionId === entryOwner) pushEntryEdge(callEdge(entryId, callee, n));
+
+      for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry);
+    };
+
+    visitCalls(tree.rootNode, null, false);
+    if (entryFn) {
+      // A named arrow's node starts at its declarator, the arrow's parent.
+      const own = ownId(entryFn) ?? (entryFn.parent?.type === "variable_declarator" ? ownId(entryFn.parent) : null);
+      const fn: FunctionAt = {
+        name: functionName(entryFn),
+        startLine: entryFn.startPosition.row + 1,
+        ownerId: entryOwner,
+        // A test callback with no literal title files its calls under the module, which no function is.
+        own: own !== null && own === entryOwner && nodes.some((node) => node.id === own),
+        calls: entryEdges,
+      };
+      functionsAt = { kind: "one", fn };
+    } else if (held.length > 1) {
+      functionsAt = {
+        kind: "several",
+        fns: held.map((h) => ({ name: functionName(h), line: h.startPosition.row + 1, column: h.startPosition.column + 1 })),
+      };
+    }
   } catch {
     // If parser initialization fails, return only the module node; a walk that throws on a recovered tree stays partial.
-    return { module: moduleNode, nodes: [], edges: [], partial };
+    return { module: moduleNode, nodes: [], edges: [], partial, functionsAt: { kind: "none" } };
   }
 
-  return { module: moduleNode, nodes, edges, partial };
+  return { module: moduleNode, nodes, edges, partial, functionsAt };
+}
+
+export function extractFile(file: string, content: string): ExtractionResult {
+  const { functionsAt: _functionsAt, ...result } = extract(file, content);
+  return result;
+}
+
+/** The innermost function holding 1-based `line` and the calls it makes, as `extractFile` reads them. */
+export function extractFunctionAt(file: string, content: string, line: number): FunctionsAt {
+  return extract(file, content, line).functionsAt;
 }
 
 // Back-compat with the existing placeholder export test

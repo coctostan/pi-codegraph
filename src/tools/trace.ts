@@ -1,13 +1,20 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
+import { nodeId } from "../graph/types.js";
+import { extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
 import { resolveUniqueSymbol, type SymbolResolution } from "./symbol-resolution.js";
 
 export interface TraceParams {
-  entry: string;
+  entry?: string;
   file?: string;
+  /** With `file`, start at the innermost function holding this 1-based line instead of looking `entry` up. */
+  line?: number;
   store: GraphStore;
   projectRoot: string;
 }
@@ -55,6 +62,22 @@ function endsBefore(a: CallEnd, b: CallEnd): boolean {
   return !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
 }
 
+const unresolvedName = (edge: GraphEdge) => edge.target.slice(UNRESOLVED.length, edge.target.lastIndexOf(":"));
+
+/** An unresolved call's callee, printed at `at`'s call: `edge` itself unless a stored edge stands for a call it read. */
+function unresolvedCallee(edge: GraphEdge, file: string, at: GraphEdge = edge): Callee {
+  // Tree-sitter's evidence is `<callee>:<line>:<col>`, the callee's start.
+  const evidenceLine = Number(at.provenance.evidence.split(":").at(-2));
+  const line = Number.isInteger(evidenceLine) ? evidenceLine : (at.call_end?.line ?? 0);
+  return { unresolved: { edge, line: `? ${unresolvedName(edge)} (unresolved, ${file}:${line})` }, end: at.call_end, file, line };
+}
+
+const byCallOrder = (a: Callee, b: Callee): number =>
+  (endsBefore(a.end, b.end) ? -1 : endsBefore(b.end, a.end) ? 1 : 0) ||
+  a.file.localeCompare(b.file) ||
+  a.line - b.line ||
+  (a.node?.id ?? a.unresolved!.line).localeCompare(b.node?.id ?? b.unresolved!.line);
+
 /** `caller`'s callees in the order their calls end, the first call to end placing a callee; one without a call end last. */
 function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
   const byId = new Map<string, Callee>();
@@ -65,20 +88,8 @@ function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
   const unresolved = store
     .getEdgesBySource(caller.id)
     .filter((edge) => edge.kind === "calls" && edge.target.startsWith(UNRESOLVED))
-    .map((edge): Callee => {
-      const name = edge.target.slice(UNRESOLVED.length, edge.target.lastIndexOf(":"));
-      // Tree-sitter's evidence is `<callee>:<line>:<col>`, the callee's start.
-      const evidenceLine = Number(edge.provenance.evidence.split(":").at(-2));
-      const line = Number.isInteger(evidenceLine) ? evidenceLine : (edge.call_end?.line ?? 0);
-      return { unresolved: { edge, line: `? ${name} (unresolved, ${caller.file}:${line})` }, end: edge.call_end, file: caller.file, line };
-    });
-  return [...byId.values(), ...unresolved].sort(
-    (a, b) =>
-      (endsBefore(a.end, b.end) ? -1 : endsBefore(b.end, a.end) ? 1 : 0) ||
-      a.file.localeCompare(b.file) ||
-      a.line - b.line ||
-      (a.node?.id ?? a.unresolved!.line).localeCompare(b.node?.id ?? b.unresolved!.line),
-  );
+    .map((edge) => unresolvedCallee(edge, caller.file));
+  return [...byId.values(), ...unresolved].sort(byCallOrder);
 }
 
 interface StaticTrace {
@@ -89,8 +100,17 @@ interface StaticTrace {
   unresolvedEdges: GraphEdge[];
 }
 
-/** The call tree below `entry`: each node printed once, a repeat as a reference, and a count of the callees cut at the depth cap. */
-function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: string, signalComputer: SignalComputer): StaticTrace {
+/**
+ * The call tree below `entry`: each node printed once, a repeat as a reference, and a count of the callees cut at the depth cap.
+ * `entryCallees`, when given, stand for the entry's own, for an entry the graph holds no node for.
+ */
+function buildStaticTrace(
+  store: GraphStore,
+  entry: GraphNode,
+  projectRoot: string,
+  signalComputer: SignalComputer,
+  entryCallees?: Callee[],
+): StaticTrace {
   const printed = new Set<string>();
   const lines: StaticTrace["lines"] = [];
   const cut: GraphNode[] = [];
@@ -108,7 +128,7 @@ function buildStaticTrace(store: GraphStore, entry: GraphNode, projectRoot: stri
       cut.push(node);
       return;
     }
-    for (const callee of orderedCallees(store, node)) {
+    for (const callee of depth === 0 && entryCallees ? entryCallees : orderedCallees(store, node)) {
       if (callee.node) visit(callee.node, depth + 1);
       else {
         lines.push({ line: `${indent}  ${callee.unresolved!.line}`, stale: false });
@@ -233,8 +253,27 @@ function collectStaticTraceEdges(store: GraphStore, nodeIds: string[]): GraphEdg
   return edges;
 }
 
-/** The rendered trace plus whether `entry` (scoped by `file`) resolved to exactly one node. */
+type EntryParams = TraceParams & { entry: string };
+
+const traceMiss = (params: TraceParams, text: string) => ({
+  text: prependFreshnessHeader(
+    text,
+    evaluateFreshness({
+      store: params.store,
+      projectRoot: params.projectRoot,
+      recommendation: "trace path may be unreliable; refresh index before relying on this result",
+    }),
+  ),
+  resolved: false,
+});
+
+/** The rendered trace plus whether `entry` (scoped by `file`), or `file` + `line`, resolved to exactly one starting point. */
 export function traceResult(params: TraceParams): { text: string; resolved: boolean } {
+  if (params.line !== undefined) {
+    if (!params.file) return traceMiss(params, "`line` needs `file`\n");
+    return traceAtLine(params, params.file, params.line);
+  }
+  if (!params.entry) return traceMiss(params, "trace needs `entry`, or `file` with `line`\n");
   const resolved = resolveUniqueSymbol({
     name: params.entry,
     file: params.file,
@@ -242,10 +281,68 @@ export function traceResult(params: TraceParams): { text: string; resolved: bool
     projectRoot: params.projectRoot,
     notFoundLabel: "Symbol",
   });
-  return { text: renderTrace(params, resolved), resolved: resolved.kind === "unique" };
+  return { text: renderTrace({ ...params, entry: params.entry }, resolved), resolved: resolved.kind === "unique" };
 }
 
-function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
+/** The trace from the innermost function holding `line`: its node's when the graph holds one, else its own calls'. */
+function traceAtLine(params: TraceParams, file: string, line: number): { text: string; resolved: boolean } {
+  let content: string;
+  try {
+    content = readFileSync(join(params.projectRoot, file), "utf8");
+  } catch {
+    return traceMiss(params, `File ${file} could not be read\n`);
+  }
+  const at = extractFunctionAt(file, content, line);
+  if (at.kind === "none") return traceMiss(params, `No function holds line ${line} of ${file}\n`);
+  if (at.kind === "several") {
+    const fns = at.fns.map((f) => `  ${f.name} (${file}:${f.line}:${f.column})`);
+    return traceMiss(params, [`Several functions hold line ${line} of ${file}, side by side:`, "", ...fns, ""].join("\n"));
+  }
+  const fn = at.fn;
+  const owner = fn.ownerId ? (params.store.getNode(fn.ownerId) ?? null) : null;
+  if (fn.own && owner) return { text: renderTrace({ ...params, entry: owner.name }, { kind: "unique", node: owner }), resolved: true };
+  return { text: renderSpanTrace(params, file, fn, owner), resolved: true };
+}
+
+/**
+ * A function the graph holds no node for, an object method or a callback: its calls, read from the file now, each
+ * resolved as its owner's stored call to that name resolves; a name the owner's stored calls lack prints unresolved.
+ */
+function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owner: GraphNode | null): string {
+  const { store } = params;
+  // The node whose hash the entry's freshness rides on: its owner's, or its module's at module level.
+  const source = owner ?? store.getNode(nodeId(file, file, 1)) ?? null;
+  const entry: GraphNode = {
+    id: nodeId(file, fn.name, fn.startLine),
+    kind: "function",
+    name: owner ? `${fn.name} (in ${owner.name})` : fn.name,
+    file,
+    start_line: fn.startLine,
+    end_line: fn.startLine,
+    content_hash: source?.content_hash ?? "",
+    is_exported: false,
+  };
+  const ownerCalls = owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : [];
+  const ownerUnresolved = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls" && e.target.startsWith(UNRESOLVED)) : [];
+  const resolvedEdges: GraphEdge[] = [];
+  const unindexed: string[] = [];
+  const callees = fn.calls
+    .map((call): Callee => {
+      const name = unresolvedName(call);
+      const hit = ownerCalls.find((n) => n.node.name === name);
+      if (hit) {
+        resolvedEdges.push(hit.edge);
+        return { node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line };
+      }
+      const stored = ownerUnresolved.find((e) => unresolvedName(e) === name);
+      if (!stored) unindexed.push(`${file}:${name}`);
+      return unresolvedCallee(stored ?? call, file, call);
+    })
+    .sort(byCallOrder);
+  return renderStatic(params, entry, source, { callees, edges: resolvedEdges, unindexed });
+}
+
+function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
   const emptyFreshness = evaluateFreshness({
     store: params.store,
     projectRoot: params.projectRoot,
@@ -310,9 +407,27 @@ function renderTrace(params: TraceParams, resolved: SymbolResolution): string {
     return prependFreshnessHeader(body, freshness);
   }
 
-  const staticTrace = buildStaticTrace(params.store, node, params.projectRoot, signalComputer);
-  const staticEdges = [...collectStaticTraceEdges(params.store, staticTrace.nodeIds), ...staticTrace.unresolvedEdges];
-  const freshness = traceFreshness(params, node, staticTrace.nodeIds, [], staticEdges);
+  return renderStatic(params, node, node);
+}
+
+/**
+ * The static tree below `entry`, judged fresh against `target`. A `span` entry has no node: its callees, the stored edges
+ * they resolved by, and each call the index holds no edge for.
+ */
+function renderStatic(
+  params: TraceParams,
+  entry: GraphNode,
+  target: GraphNode | null,
+  span?: { callees: Callee[]; edges: GraphEdge[]; unindexed: string[] },
+): string {
+  const staticTrace = buildStaticTrace(params.store, entry, params.projectRoot, createSignalComputer(params.store), span?.callees);
+  const staticEdges = [
+    ...collectStaticTraceEdges(params.store, staticTrace.nodeIds),
+    ...(span?.edges ?? []),
+    // A span's unindexed call has no stored edge to judge; `unindexed` names it instead.
+    ...staticTrace.unresolvedEdges.filter((edge) => !span || edge.source !== entry.id),
+  ];
+  const freshness = traceFreshness(params, target, staticTrace.nodeIds, span?.unindexed ?? [], staticEdges);
   const staticStale = staticTrace.lines.some((step) => step.stale) || freshness.status !== "fresh";
   const body = `${[formatModeHeader("static", staticStale), ...staticTrace.lines.map((step) => step.line)].join("\n")}\n`;
   return prependFreshnessHeader(body, freshness);

@@ -128,9 +128,10 @@ impact({ symbols: ["validateToken"], changeType: "behavior_change", maxDepth: 2 
 
 #### `trace`
 Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.
-The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a coverage report covers the entry, `trace` prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list. The entry is a function, endpoint or test case.
+The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a coverage report covers the entry, `trace` prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list. The entry is a function, endpoint or test case, or, by `file` and `line`, the innermost function holding that line: an object method or anonymous callback the graph holds no node for starts a tree of its own calls, its line naming the enclosing function, as `execute (in setup)`.
 ```
 trace({ entry: "loginHandler" })
+trace({ file: "src/routes.ts", line: 42 })
 ```
 
 ### Internal

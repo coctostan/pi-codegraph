@@ -90,6 +90,36 @@
     }
   },
   {
+    "id": "trace-line-execute",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "trace",
+    "params": { "file": "src/index.ts", "line": 414 },
+    "expect": {
+      "resolves": true,
+      "ordered": ["prepare", "getOrCreateProject", "ensureIndexed", "ensureHashInit", "finalizeReadOnlyOutput", "toolResult"],
+      "none": ["formatStatus", "untested"]
+    }
+  },
+  {
+    "id": "trace-line-payload",
+    "repo": "pi-claude-header",
+    "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+    "tool": "trace",
+    "params": { "file": "src/anthropic-cc/stream.ts", "line": 55 },
+    "expect": {
+      "resolves": true,
+      "ordered": [
+        "applyAnthropicCcBodyOverrides",
+        "applyAnthropicCcIdentityOverrides",
+        "buildAnthropicCcSystemPrelude",
+        "applyAnthropicCcToolPolicy",
+        "sanitizeAnthropicCcRequestParams"
+      ],
+      "none": ["buildAnthropicCcHeaders", "streamSimpleAnthropic", "untested"]
+    }
+  },
+  {
     "id": "impact-compact-diff",
     "repo": "pi-hashline-readmap",
     "commit": "756406f281f96221ae143424f918dbdc02da93b3",
