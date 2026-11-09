@@ -437,7 +437,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     promptSnippet: "Look up a TypeScript symbol: who calls it, which tests call it (test cases listed by file), what it calls, its contract and anchored source",
     promptGuidelines: [
       "Use symbol_graph to find who calls a symbol instead of chaining grep and read: it lists the test cases among its callers by file, and `include: [\"neighborhood\"]` adds implementors and importers.",
-      "Asked which tests exercise or cover a symbol, or which to rerun after changing it, answer from symbol_graph's `Test callers (<n> in <m> files)`, the test files that call it directly, instead of grepping the tests.",
+      "Asked which tests exercise or cover a symbol, or which to rerun after changing it, answer from symbol_graph's `Test callers (<n> in <m> files)`, the test files that call it directly, instead of grepping the tests; it names 10 files at most, then `(+N more files)`, which impact's `Tests reached directly` lists in full.",
     ],
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {

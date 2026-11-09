@@ -91,6 +91,6 @@ test("each tool's metadata names the questions it answers", async () => {
   expectClaims("trace.description", trace.description, [/file line/]);
   expectClaims("impact", impact.claims, [/which tests exercise/, /answer from `Tests reached directly`/, /not a list to prune by hand/]);
   expectClaims("impact.promptSnippet", impact.promptSnippet, [/tests calling it directly, before those reached through other callers/], [/then the tests reached$/]);
-  expectClaims("symbol_graph", symbolGraph.claims, [/which tests exercise or cover/, /which to rerun/, /`Test callers \(<n> in <m> files\)`/]);
+  expectClaims("symbol_graph", symbolGraph.claims, [/which tests exercise or cover/, /which to rerun/, /`Test callers \(<n> in <m> files\)`/, /10 files at most/]);
   expectClaims("symbol_graph.promptSnippet", symbolGraph.promptSnippet, [/which tests call it/]);
 });
