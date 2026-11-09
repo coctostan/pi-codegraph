@@ -6,7 +6,7 @@ test("public docs explain symbol_graph include values without implying tests is 
   const readme = read("README.md");
   const architecture = read("ARCHITECTURE.md");
   const guide = read("docs/tool-descriptions.md");
-  const expectedDescription = "Summarize a symbol with relationships, tests, and key metadata.";
+  const expectedDescription = "Summarize a symbol: who calls it, which tests call it, what it calls, and key metadata.";
   const expectedIncludeGuidance =
     'Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.';
   const expectedDefaultGuidance =

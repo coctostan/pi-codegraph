@@ -2,9 +2,9 @@ import { test } from "bun:test";
 
 test("pi extension registers the approved descriptions for the default public tools", async () => {
   const expected = new Map([
-    ["symbol_graph", "Summarize a symbol with relationships, tests, and key metadata."],
-    ["impact", "Classify blast radius for changed symbols."],
-    ["trace", "Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered."],
+    ["symbol_graph", "Summarize a symbol: who calls it, which tests call it, what it calls, and key metadata."],
+    ["impact", "Classify blast radius for changed symbols, then list the tests calling them directly before those reached through other callers."],
+    ["trace", "Return the call tree below an entry point or the function holding a file line, or, when coverage has one, the functions a covering test's report covered."],
   ]);
   const expectedIncludeDescription = "Extra sections to include.";
   const registeredTools: Array<{ name: string; description: string; parameters?: any }> = [];
@@ -80,4 +80,17 @@ test("impact's metadata names callers reached directly or indirectly, the defaul
 test("symbol_graph's metadata names test cases among the callers and claims no edit without a read", async () => {
   const symbolGraph = await registeredTool("symbol_graph");
   expectClaims("symbol_graph", symbolGraph.claims, [/callers[^\n]*test cases|test cases[^\n]*callers/], [/without re-reading/]);
+});
+
+// The questions each tool answers, worded against decision 0003's transcripts: Opus skipped trace on "what runs"
+// questions starting at an unnamed handler, and pruned impact's full test list on "which tests" questions.
+test("each tool's metadata names the questions it answers", async () => {
+  const [trace, impact, symbolGraph] = await Promise.all([registeredTool("trace"), registeredTool("impact"), registeredTool("symbol_graph")]);
+  expectClaims("trace", trace.claims, [/what runs/, /in what order/, /handler or callback/, /`file` (\+|and) `line`/, /innermost function holding that line/]);
+  expectClaims("trace.promptSnippet", trace.promptSnippet, [/what runs/, /`file` \+ `line`/]);
+  expectClaims("trace.description", trace.description, [/file line/]);
+  expectClaims("impact", impact.claims, [/which tests exercise/, /answer from `Tests reached directly`/, /not a list to prune by hand/]);
+  expectClaims("impact.promptSnippet", impact.promptSnippet, [/tests calling it directly, before those reached through other callers/], [/then the tests reached$/]);
+  expectClaims("symbol_graph", symbolGraph.claims, [/which tests exercise or cover/, /which to rerun/, /`Test callers \(<n> in <m> files\)`/, /10 files at most/]);
+  expectClaims("symbol_graph.promptSnippet", symbolGraph.promptSnippet, [/which tests call it/]);
 });
