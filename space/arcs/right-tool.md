@@ -18,7 +18,7 @@ Opus calls a codegraph tool on trace questions and answers test-mapping question
 - [ ] `space/decisions/0004-*.md` records the run's per-pair and pooled verdicts, its per-pair rows, the Opus pick and cut lines and its spend; on `freeze` or `retire` it supersedes decision 0002 and `NOW.md` drops its Python line — verified by a read against `bun bench/verdict.ts --on-results bench/results/rerun-2`'s output · at shape, 2026-11-04: decisions 0001–0003 only
 
 ## Now
-slice 5 (Run the on arm once) is active, branch `right-tool/05-run-on-arm`, about $4.50 of bench spend; next action: run the 36 on-arm cells.
+slice 5 (Run the on arm once) is active, stopped before any cell, no branch: the anthropic-cc provider the stored off arm and rerun-1 ran on (pi-claude-header `4c15f28`, both runs 2026-11-02) is now refused, `400 claude_code_version_too_old` (sends 2.1.261, 2.1.280 required), and its `main` changes the Opus wire (effort defaults, betas, cache markers), so an Opus on cell now can't share a provider with its stored off cell. Spend $0. Next action: the owner picks a route; a reshape that re-runs Opus's off arm (about $4.41 at rerun-1 prices) or changes the provider runs by `shape` in a fresh session.
 
 ## Seams
 - Verdict: `decide` and `auditCells` in `bench/verdict.ts`, the rule text in `bench/thresholds.json`; tests in `test/bench-verdict.test.ts` on synthetic cells, the stored cells in `bench/results/` and `bench/results/rerun-1/` as its real artifact.
