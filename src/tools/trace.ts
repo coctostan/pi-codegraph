@@ -324,11 +324,15 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
     is_exported: false,
   };
   const ownerCalls = owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : [];
-  const ownerUnresolved = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls" && e.target.startsWith(UNRESOLVED)) : [];
+  const ownerEdges = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls") : [];
+  const ownerUnresolved = ownerEdges.filter((e) => e.target.startsWith(UNRESOLVED));
+  // The `obj.m()` calls the LSP stage left unresolved, by call site: no project call, so they print nothing.
+  const hidden = new Set(ownerEdges.filter((e) => isMemberCall(e.target)).map((e) => e.provenance.evidence));
   const resolvedEdges: GraphEdge[] = [];
   const unindexed: string[] = [];
   const callees = fn.calls
     .flatMap((call): Callee[] => {
+      if (isMemberCall(call.target) && hidden.has(call.provenance.evidence)) return [];
       const name = calleeName(call);
       // A member call resolves to `Class.<name>`: an exact name first, else a member by its bare name.
       const hit = ownerCalls.find((n) => n.node.name === name) ?? ownerCalls.find((n) => n.node.kind === "function" && n.node.name.endsWith(`.${name}`));
@@ -336,7 +340,6 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
         resolvedEdges.push(hit.edge);
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
-      // An `obj.m()` the LSP stage left unresolved is no project call, so it prints nothing.
       if (isMemberCall(call.target)) return [];
       const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
