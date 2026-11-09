@@ -22,6 +22,7 @@ const SRC = [
   "    return [1].map(function () { return this.load(1); }).length;",
   "  }",
   "  [\"computed\"]() { helper(); }",
+  "  label = String(1);",
   "  overload(): void;",
   "  overload(a?: number) {}",
   "}",
@@ -29,6 +30,8 @@ const SRC = [
   "  class Inner { run() { helper(); } }",
   "  helper();",
   "}",
+  "export const Anon = class { run() { helper(); } };",
+  "export abstract class Base { run() { helper(); } }",
 ];
 const content = SRC.join("\n");
 const lineOf = (text: string) => SRC.findIndex((l) => l.includes(text)) + 1;

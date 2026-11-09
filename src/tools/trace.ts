@@ -62,7 +62,7 @@ function endsBefore(a: CallEnd, b: CallEnd): boolean {
   return !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
 }
 
-// A callee's name from its edge's target id, `<file>::<name>:<line>`: an unresolved one's, or a resolved `this.m()`'s a span read.
+// A callee's name from its edge's target id, `<file>::<name>:<line>`: an unresolved call's, or a `this.m()` the index resolved.
 const calleeName = (edge: GraphEdge) => edge.target.slice(edge.target.indexOf("::") + 2, edge.target.lastIndexOf(":"));
 
 /** An unresolved call's callee, printed at `at`'s call: `edge` itself unless a stored edge stands for a call it read. */

@@ -650,13 +650,13 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       created_at: Date.now(),
       call_end: callEnd(call),
     });
-    /** A class's members by their bare name, each to its node; of two sharing one, a getter and setter, the first. */
+    /** A class's members by their bare name, each to its node; of two sharing one, a getter and setter, the last. */
     const membersOf = (cls: SyntaxNode): Map<string, string> => {
       const members = new Map<string, string>();
       for (const m of cls.childForFieldName("body")?.namedChildren ?? []) {
         const name = memberName(m);
         const bare = m.childForFieldName("name")?.text;
-        if (name && bare && !members.has(bare)) members.set(bare, nodeId(file, name, m.startPosition.row + 1));
+        if (name && bare) members.set(bare, nodeId(file, name, m.startPosition.row + 1));
       }
       return members;
     };
