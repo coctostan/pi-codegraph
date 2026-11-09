@@ -198,5 +198,29 @@
       "ordered": ["mode: static", "SqliteGraphStore.getNeighbors", "\n  src/graph/sqlite.ts  178:", "SqliteGraphStore.fetchNeighborRows"],
       "none": ["untested"]
     }
+  },
+  {
+    "id": "class-graph-bare",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "symbol_graph",
+    "params": { "name": "addEdge", "file": "src/graph/sqlite.ts" },
+    "expect": {
+      "resolves": true,
+      "ordered": ["## SqliteGraphStore.addEdge (function)", "\nsrc/graph/sqlite.ts  "],
+      "none": ["not found", "Multiple matches"]
+    }
+  },
+  {
+    "id": "class-graph-qualified",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "symbol_graph",
+    "params": { "name": "SqliteGraphStore.addEdge" },
+    "expect": {
+      "resolves": true,
+      "ordered": ["## SqliteGraphStore.addEdge (function)", "\nsrc/graph/sqlite.ts  "],
+      "none": ["not found", "Multiple matches"]
+    }
   }
 ]

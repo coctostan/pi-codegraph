@@ -13,6 +13,7 @@ import { impactResult } from "./tools/impact.js";
 import { traceResult } from "./tools/trace.js";
 import { resetSearchCacheForTesting as _resetSearchCache } from "./tools/symbol-search.js";
 import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js";
+import { findSymbolNodes } from "./tools/symbol-resolution.js";
 import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-ceremony.js";
 import { ensureHashInit } from "./output/anchoring.js";
 
@@ -442,7 +443,7 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const { projectRoot, state, store } = await prepare(ctx, signal);
-      const nodes = store.findNodes(params.name, params.file);
+      const nodes = findSymbolNodes(store, params.name, params.file);
       if (nodes.length === 1) {
         const resolvedNode = nodes[0]!;
         try {
