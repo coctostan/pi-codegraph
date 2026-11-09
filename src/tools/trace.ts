@@ -340,6 +340,8 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
         resolvedEdges.push(hit.edge);
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
+      // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
+      if (isMemberCall(call.target)) return [];
       const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
       return [unresolvedCallee(stored ?? call, file, call)];

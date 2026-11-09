@@ -27,7 +27,7 @@ const APP = [
   "  });",
   "}",
   "export const arrow = () => deep();",
-  "export default { start() { helper(); } };",
+  "export default { start() { helper(); VERSION.toFixed(); } };",
   "export function tail(items: number[]) {",
   "  other();",
   "  return items.map(() => helper()); }",
@@ -188,7 +188,7 @@ test("a line in an indexed function traces it as trace by entry does", async () 
   }
 });
 
-test("a line in a module-level method prints its calls unresolved, since the index files them under no function", async () => {
+test("a line in a module-level method prints its calls unresolved, since the index files them under no function, and no obj.m() call", async () => {
   const { trace } = setup();
   const out = await trace({ file: "src/app.ts", line: lineOf("start()") });
   expect(out.isError).toBe(false);
