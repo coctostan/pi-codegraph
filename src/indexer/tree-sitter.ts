@@ -619,7 +619,7 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     const callEnd = (call: SyntaxNode) => ({ line: call.endPosition.row + 1, col: call.endPosition.column });
     type Callee = { name: string; at: SyntaxNode; target?: string };
     // The project callee `n` calls itself, by the name its edge targets, and the node its evidence points at; `members`
-    // are the enclosing class's by name when `this` is that class's, a `this.m()` to one of them resolved to its node.
+    // are the class members `this` reaches here, by name, a `this.m()` to one of them resolved to its node.
     const calleeOf = (n: SyntaxNode, members: Map<string, string> | null): Callee | null => {
       if (n.type === "new_expression") {
         const ctor = n.childForFieldName("constructor");
@@ -650,15 +650,17 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       created_at: Date.now(),
       call_end: callEnd(call),
     });
-    /** A class's members by their bare name, each to its node; of two sharing one, a getter and setter, the last. */
-    const membersOf = (cls: SyntaxNode): Map<string, string> => {
-      const members = new Map<string, string>();
+    type ClassMembers = Record<"static" | "instance", Map<string, string>>;
+    const isStatic = (member: SyntaxNode) => member.children.some((c) => c.type === "static");
+    /** A class's static and instance members, apart, by their bare name, each to its node; of a getter and setter, the last. */
+    const membersOf = (cls: SyntaxNode): ClassMembers => {
+      const sides: ClassMembers = { static: new Map(), instance: new Map() };
       for (const m of cls.childForFieldName("body")?.namedChildren ?? []) {
         const name = memberName(m);
         const bare = m.childForFieldName("name")?.text;
-        if (name && bare) members.set(bare, nodeId(file, name, m.startPosition.row + 1));
+        if (name && bare) sides[isStatic(m) ? "static" : "instance"].set(bare, nodeId(file, name, m.startPosition.row + 1));
       }
-      return members;
+      return sides;
     };
 
     // The node `n` files its own calls under when it starts one: a test callback's, a named declaration's, a named arrow's, a member's.
@@ -681,9 +683,18 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     const entryId = entryFn ? nodeId(file, functionName(entryFn), entryFn.startPosition.row + 1) : "";
     let entryOwner: string | null = null;
 
-    const visitCalls = (n: SyntaxNode, currentFunctionId: string | null, inEntry: boolean, members: Map<string, string> | null): void => {
+    /** `cls` holds the enclosing class's members, `members` the side of them `this` reaches here: a static member's or an instance one's. */
+    const visitCalls = (
+      n: SyntaxNode,
+      currentFunctionId: string | null,
+      inEntry: boolean,
+      cls: ClassMembers | null,
+      members: Map<string, string> | null,
+    ): void => {
       const nextFunctionId = ownId(n) ?? currentFunctionId;
-      const nextMembers = n.type === "class_declaration" ? membersOf(n) : THIS_BINDERS.has(n.type) && !memberName(n) ? null : members;
+      const rebinds = n.type === "class_declaration" || (THIS_BINDERS.has(n.type) && !memberName(n));
+      const nextCls = n.type === "class_declaration" ? membersOf(n) : rebinds ? null : cls;
+      const nextMembers = rebinds ? null : memberName(n) && nextCls ? nextCls[isStatic(n) ? "static" : "instance"] : members;
 
       if (entryFn && n.startIndex === entryFn.startIndex && n.type === entryFn.type) {
         entryOwner = nextFunctionId;
@@ -695,10 +706,10 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       // The entry's calls are those the index files under its owner: a nested callback's, not a nested named function's.
       if (callee && inEntry && nextFunctionId === entryOwner) pushEntryEdge(callEdge(entryId, callee, n));
 
-      for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry, nextMembers);
+      for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry, nextCls, nextMembers);
     };
 
-    visitCalls(tree.rootNode, null, false, null);
+    visitCalls(tree.rootNode, null, false, null, null);
     if (entryFn) {
       // A named arrow's node starts at its declarator or field, the arrow's parent.
       const own = ownId(entryFn) ?? (entryFn.parent && /^(variable_declarator|public_field_definition)$/.test(entryFn.parent.type) ? ownId(entryFn.parent) : null);

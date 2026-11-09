@@ -70,6 +70,15 @@ test("a member's calls are filed under it, a this-call to a member its class dec
   expect(calls(id("Store.size", "get size"))).toEqual([id("Store.count", "count() {")]);
 });
 
+test("a static member's this-call reaches the static side, an instance member's the instance side", () => {
+  const pair = ["class Pair {", "  static m() {}", "  m() {}", "  static run() { this.m(); }", "  run() { this.m(); }", "}"].join("\n");
+  const edges = extractFile(FILE, pair).edges.filter((e) => e.kind === "calls");
+  expect(edges.map((e) => [e.source, e.target])).toEqual([
+    [nodeId(FILE, "Pair.run", 4), nodeId(FILE, "Pair.m", 2)],
+    [nodeId(FILE, "Pair.run", 5), nodeId(FILE, "Pair.m", 3)],
+  ]);
+});
+
 test("this inside a plain function is no class's, so its call is dropped as any other object's", () => {
   expect(calls(id("Store.count", "count() {"))).toEqual([]);
 });

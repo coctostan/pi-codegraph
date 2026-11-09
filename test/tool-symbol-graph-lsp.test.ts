@@ -62,15 +62,16 @@ test("resolveMissingCallers persists callers and writes marker; second run skips
 test("resolveMissingCallers files a reference under the innermost node holding it, a method over its class, and asks a member at its bare name", async () => {
   const root = join(tmpdir(), `pi-cg-lsp-member-${process.pid}`);
   mkdirSync(join(root, "src"), { recursive: true });
-  writeFileSync(join(root, "src", "api.ts"), "export class Api {\n  shared() {}\n}\n");
+  writeFileSync(join(root, "src", "api.ts"), "export class Api {\n  static at() { return 1; }\n  get get() { return this.at; }\n}\n");
   const store = new SqliteGraphStore();
   const node = (file: string, name: string, kind: "function" | "class", start: number, end: number) => ({
     id: nodeId(file, name, start), kind, name, file, start_line: start, end_line: end, content_hash: `h-${file}`,
   });
-  const target = node("src/api.ts", "Api.shared", "function", 2, 2);
+  const target = node("src/api.ts", "Api.at", "function", 2, 2);
+  const getter = node("src/api.ts", "Api.get", "function", 3, 3);
   const cls = node("src/impl.ts", "Impl", "class", 1, 10);
   const method = node("src/impl.ts", "Impl.run", "function", 3, 6);
-  for (const n of [target, cls, method]) store.addNode(n);
+  for (const n of [target, getter, cls, method]) store.addNode(n);
   const asked: number[] = [];
   const client: ITsServerClient = {
     async references(_file, _line, col): Promise<LspLocation[]> {
@@ -83,7 +84,9 @@ test("resolveMissingCallers files a reference under the innermost node holding i
   };
   try {
     await resolveMissingCallers(target, store, root, client);
-    expect(asked).toEqual([3]);
+    await resolveMissingCallers(getter, store, root, client);
+    // The name's own token, not the `at` inside `static` nor the `get` keyword.
+    expect(asked).toEqual([10, 7]);
     expect(store.getNeighbors(target.id, { direction: "in", kind: "calls" }).map((n) => n.node.name)).toEqual(["Impl.run"]);
   } finally {
     store.close();

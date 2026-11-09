@@ -30,11 +30,16 @@ function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode,
   else store.setLookupFailed(queryLookup(kind, symbol, col), true);
 }
 
+/**
+ * The 1-based column of `symbolName`'s declaration on `line`: a member, `Class.member`, by its bare name. It takes the
+ * name a `(`, `<`, `=`, `:`, `?` or `!` follows, so not a keyword holding it (`static at()`, `get get()`); else the first.
+ */
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {
   try {
-    const lines = readFileSync(join(projectRoot, file), "utf8").split(/\r?\n/);
-    // A member, `Class.member`, is declared by its bare name.
-    const idx = (lines[line - 1] ?? "").indexOf(symbolName.slice(symbolName.lastIndexOf(".") + 1));
+    const text = readFileSync(join(projectRoot, file), "utf8").split(/\r?\n/)[line - 1] ?? "";
+    const bare = symbolName.slice(symbolName.lastIndexOf(".") + 1);
+    const token = new RegExp(`(?<![\\w$#])${escapeRegex(bare)}(?=\\s*[(<=:?!])`).exec(text);
+    const idx = token ? token.index : text.indexOf(symbolName);
     return idx >= 0 ? idx + 1 : 1;
   } catch {
     return 1;
