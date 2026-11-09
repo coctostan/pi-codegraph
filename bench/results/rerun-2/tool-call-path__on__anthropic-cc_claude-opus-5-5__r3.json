@@ -1,0 +1,66 @@
+{
+  "cell": "tool-call-path__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T17:15:16.192Z",
+  "wallMs": 37372,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 1982,
+      "lsp": 4041,
+      "ast-grep": 175,
+      "coverage": 1,
+      "git": 215
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 3328,
+    "cacheRead": 53597,
+    "cacheWrite": 14638,
+    "total": 71577
+  },
+  "costUsd": 0.19443939999999998,
+  "toolCalls": {
+    "bash": 3,
+    "read": 2,
+    "trace": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "All three tools (`symbol_graph`, `impact`, `trace`) follow the same path, defined in `src/index.ts`. The indexing pipeline is in `src/indexer/pipeline.ts`.\n\n**1. `execute` → `prepare(ctx, signal)`**\n- `signal?.throwIfAborted()` stops early if the call was already cancelled.\n- `getOrCreateProject(ctx.cwd)`: on the first call there's no state for this project root yet. It creates `.codegraph/`, opens a `SqliteGraphStore` on `.codegraph/graph.db`, and stores the project's state (`client: null`, `indexing: null`, an empty `resolving` map). It also sets this as the shared store.\n- `setStatus(ctx, \"codegraph: indexing…\")`\n- `raceAbort(ensureIndexed(projectRoot, state), signal)`: `ensureIndexed` starts one indexing run and saves it as `state.indexing`, so calls that arrive at the same time wait on the same run. `raceAbort` lets this call give up if it's cancelled, while indexing keeps going for other callers.\n  - **`indexProject(projectRoot, store)`** (called through `indexProjectImpl`) runs these steps in order:\n    1. `walkTsFiles` → `walk`: finds every `.ts`/`.tsx` file, skipping `node_modules`, `.git` and `.megapowers`.\n    2. For each file: `toPosixPath`, `readFileSync`, `sha256Hex`, then `store.getFileHash`. A file whose hash hasn't changed is skipped; a changed file is first removed with `store.deleteFile`. Then `extractFile` parses it with tree-sitter into nodes and edges, which are saved with `store.addNode` / `store.addEdge` and `store.setFileHash`. On the first run, every file is new.\n    3. Files the store lists (`store.listFiles`) that are no longer on disk are removed with `store.deleteFile`.\n    4. `new TsServerClient(projectRoot)` → `runLspIndexStage` (resolves calls through tsserver) → `client.shutdown()`\n    5. `runAstGrepIndexStage`: `loadRules`, the scan, then `applyRuleMatches` (routes and renders)\n    6. `runCoverageIndexStage`: `parseCoverageReports` → `mapCoverageToNodes`\n    7. `runGitCoChangeStage`: `getCurrentHead`, `parseGitLog`, `computeDecayWeight`\n  - Back in `ensureIndexed`: if there were errors and the database isn't writable (`dbIsWritable`), `lastIndexError` is set to \"readonly database\". Otherwise it's cleared. If indexing threw, the error is recorded instead. Either way, `state.indexing` is reset to `null` at the end.\n- `setStatus(ctx, …)` clears the status, or shows \"codegraph: indexing failed\".\n- `ensureHashInit()` loads the xxhash wasm module once; it's used for the `LINE:HASH` anchors.\n\n**2. The tool's own work**\n- `symbol_graph`:\n  1. `store.findNodes`.\n  2. If exactly one node matches: `getClient` lazily starts the tsserver client, then `resolveMissingCallers` runs, plus `resolveImplementations` for interfaces. This work is shared through `state.resolving` and wrapped in `raceAbort`.\n  3. `symbolGraph(...)`\n- `impact`: `impact(...)`\n- `trace`: `trace(...)`\n\n**3. `finalizeReadOnlyOutput(...)`**\n1. `suppressFreshTrustHeader` drops the Trust header when the graph is fresh.\n2. `stripTrustHeader` removes it entirely, only if the caller set `suppressTrustHeader`.\n3. `indexingFailedNote()` adds an \"indexing-failed\" prefix if the last index failed. A failure other than \"readonly database\" is then cleared if the output has content.\n4. `appendTokenMetaIfEnabled` adds token stats only when dev metadata is turned on.\n\n**4. Building the result**\n- `impact` and `trace` call `store.findNodes` again to decide `isError`. `symbol_graph` reuses its earlier match count.\n- `toolResult(output, isError)` → `extractAnchors` builds `{ content, isError, structuredContent: { text, anchors, indexingFailed } }`.\n\n<answer>\nAll three tools follow the same path in `src/index.ts`; indexing is in `src/indexer/pipeline.ts`.\n\n1. `execute` → `prepare(ctx, signal)`:\n   - `signal?.throwIfAborted()`\n   - `getOrCreateProject(ctx.cwd)`: on the first call this creates `.codegraph/`, opens a `SqliteGraphStore` on `.codegraph/graph.db`, and stores the project's state.\n   - `setStatus(ctx, \"codegraph: indexing…\")`\n   - `raceAbort(ensureIndexed(projectRoot, state), signal)`: `ensureIndexed` starts one shared run, saved as `state.indexing`. It calls `indexProjectImpl`, which is `indexProject(projectRoot, store)`:\n     a. `walkTsFiles` → `walk` collects the `.ts`/`.tsx` files.\n     b. For each file: `toPosixPath`, `readFileSync`, `sha256Hex`, `store.getFileHash` (skip if unchanged; `store.deleteFile` if changed), then `extractFile` (tree-sitter), `store.addNode`/`store.addEdge`, `store.setFileHash`.\n     c. `store.listFiles` → `store.deleteFile` for files no longer on disk.\n     d. `new TsServerClient` → `runLspIndexStage` → `client.shutdown()`\n     e. `runAstGrepIndexStage` (`loadRules` → scan → `applyRuleMatches`)\n     f. `runCoverageIndexStage` (`parseCoverageReports` → `mapCoverageToNodes`)\n     g. `runGitCoChangeStage` (`getCurrentHead`, `parseGitLog`, `computeDecayWeight`)\n     \n     Then `ensureIndexed` sets or clears `lastIndexError` (using `dbIsWritable`) and resets `state.indexing` to `null`.\n   - `setStatus(ctx, …)` clears the status or shows \"codegraph: indexing failed\".\n   - `ensureHashInit()`\n2. The tool's own work:\n   - `symbol_graph`: `store.findNodes`; if exactly one node matches, `getClient` → `resolveMissingCallers` (+ `resolveImplementations` for interfaces), shared through `state.resolving` and wrapped in `raceAbort`; then `symbolGraph(...)`.\n   - `impact`: `impact(...)`\n   - `trace`: `trace(...)`\n3. `finalizeReadOnlyOutput`: `suppressFreshTrustHeader` → (optional) `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`.\n4. `impact` and `trace` call `store.findNodes` again to decide `isError`; then `toolResult` → `extractAnchors` returns `{ content, isError, structuredContent: { text, anchors, indexingFailed } }`.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "All three tools follow the same path in `src/index.ts`; indexing is in `src/indexer/pipeline.ts`.\n\n1. `execute` → `prepare(ctx, signal)`:\n   - `signal?.throwIfAborted()`\n   - `getOrCreateProject(ctx.cwd)`: on the first call this creates `.codegraph/`, opens a `SqliteGraphStore` on `.codegraph/graph.db`, and stores the project's state.\n   - `setStatus(ctx, \"codegraph: indexing…\")`\n   - `raceAbort(ensureIndexed(projectRoot, state), signal)`: `ensureIndexed` starts one shared run, saved as `state.indexing`. It calls `indexProjectImpl`, which is `indexProject(projectRoot, store)`:\n     a. `walkTsFiles` → `walk` collects the `.ts`/`.tsx` files.\n     b. For each file: `toPosixPath`, `readFileSync`, `sha256Hex`, `store.getFileHash` (skip if unchanged; `store.deleteFile` if changed), then `extractFile` (tree-sitter), `store.addNode`/`store.addEdge`, `store.setFileHash`.\n     c. `store.listFiles` → `store.deleteFile` for files no longer on disk.\n     d. `new TsServerClient` → `runLspIndexStage` → `client.shutdown()`\n     e. `runAstGrepIndexStage` (`loadRules` → scan → `applyRuleMatches`)\n     f. `runCoverageIndexStage` (`parseCoverageReports` → `mapCoverageToNodes`)\n     g. `runGitCoChangeStage` (`getCurrentHead`, `parseGitLog`, `computeDecayWeight`)\n     \n     Then `ensureIndexed` sets or clears `lastIndexError` (using `dbIsWritable`) and resets `state.indexing` to `null`.\n   - `setStatus(ctx, …)` clears the status or shows \"codegraph: indexing failed\".\n   - `ensureHashInit()`\n2. The tool's own work:\n   - `symbol_graph`: `store.findNodes`; if exactly one node matches, `getClient` → `resolveMissingCallers` (+ `resolveImplementations` for interfaces), shared through `state.resolving` and wrapped in `raceAbort`; then `symbolGraph(...)`.\n   - `impact`: `impact(...)`\n   - `trace`: `trace(...)`\n3. `finalizeReadOnlyOutput`: `suppressFreshTrustHeader` → (optional) `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`.\n4. `impact` and `trace` call `store.findNodes` again to decide `isError`; then `toolResult` → `extractAnchors` returns `{ content, isError, structuredContent: { text, anchors, indexingFailed } }`.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,48 @@
+{
+  "cell": "tool-call-path__off__openai-codex_gpt-6.1-sol__r3",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T17:17:35.927Z",
+  "wallMs": 54143,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 28572,
+    "output": 1505,
+    "cacheRead": 88192,
+    "cacheWrite": 0,
+    "total": 118269
+  },
+  "costUsd": 0.08101320000000001,
+  "toolCalls": {
+    "ls": 1,
+    "read": 14,
+    "grep": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThe call path is **`execute → prepare → tool-specific query → finalizeReadOnlyOutput → toolResult`**, with indexing awaited inside `prepare`.\n\n### 1. Shared preparation — `src/index.ts:261`\n\nIn order:\n\n1. `prepare(ctx, signal)` checks cancellation and uses `ctx.cwd` as the project root.\n2. `getOrCreateProject(projectRoot)` creates/reuses project state. On first use, it creates `.codegraph/` and opens `.codegraph/graph.db` through `SqliteGraphStore → openDb → initSchema`.\n3. `setStatus(ctx, \"codegraph: indexing…\")`.\n4. `ensureIndexed(projectRoot, state)` invokes `indexProjectImpl`—normally `indexProject`—or reuses an in-flight indexing promise. `raceAbort(...)` wraps the wait.\n5. After indexing, `setStatus(...)` clears the status or reports failure.\n6. `ensureHashInit()` initializes the hashline hasher.\n\n### 2. Indexing — `src/indexer/pipeline.ts:53`\n\n`indexProject` runs these stages **sequentially**:\n\n1. **`walkTsFiles`** discovers `.ts`/`.tsx` files, excluding `node_modules`, `.megapowers`, and `.git`.\n2. Per file: **`sha256Hex → store.getFileHash`**. Unchanged files are skipped; changed files have their old graph data deleted, then **`extractFile`** parses them with tree-sitter. **`store.addNode → store.addEdge → store.setFileHash`** persists the extracted symbols, relationships, and hash. Deleted files are removed via `store.deleteFile`.\n3. **`runLspIndexStage`**, using a `TsServerClient`, resolves/upgrades tree-sitter call edges through `client.definition`; then **`client.shutdown`**.\n4. **`runAstGrepIndexStage → loadRules → runScan → applyRuleMatches`** adds framework relationships for changed files.\n5. **`runCoverageIndexStage → parseCoverageReports → mapCoverageToNodes`** imports existing coverage reports from `.codegraph/coverage`, adding `tested_by` edges and saved test traces. It does **not** run tests.\n6. **`runGitCoChangeStage → getCurrentHead`**, then, when HEAD changed, **`parseGitLog`**, computes and stores co-change relationships.\n\n`ensureIndexed` records indexing failures rather than propagating them, allowing queries against existing graph data. Indexing is **not exclusively first-call initialization**: subsequent calls invoke this incremental pipeline again unless indexing is already underway.\n\n### 3. Tool-specific work — `src/index.ts:414–519`\n\n- **`symbol_graph`:** `store.findNodes`; for exactly one match, **`getClient → resolveMissingCallers → resolveImplementations`** (the last only for interfaces), awaited through `raceAbort`; then **`symbolGraph`**.\n- **`impact`:** **`impact`**, which resolves symbols and uses **`collectImpactDetails`** to traverse/classify dependents.\n- **`trace`:** **`trace → resolveUniqueSymbol → resolveCoverageTraceId`**; uses stored coverage when available, otherwise **`buildStaticTrace`** for ordinary entries.\n\nThe query functions render anchored output and run **`evaluateFreshness → prependFreshnessHeader`**.\n\n### 4. Final wrapping — `src/index.ts:279–336`\n\n1. **`finalizeReadOnlyOutput`**\n   - `suppressFreshTrustHeader`\n   - optionally `stripTrustHeader`\n   - `indexingFailedNote → getIndexingFailedNoteForTesting`\n   - `appendTokenMetaIfEnabled`—optional token statistics.\n2. **`toolResult → extractAnchors`** returns text content, `isError` for failed/ambiguous lookups, and structured `{ text, anchors, indexingFailed }`.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "The call path is **`execute → prepare → tool-specific query → finalizeReadOnlyOutput → toolResult`**, with indexing awaited inside `prepare`.\n\n### 1. Shared preparation — `src/index.ts:261`\n\nIn order:\n\n1. `prepare(ctx, signal)` checks cancellation and uses `ctx.cwd` as the project root.\n2. `getOrCreateProject(projectRoot)` creates/reuses project state. On first use, it creates `.codegraph/` and opens `.codegraph/graph.db` through `SqliteGraphStore → openDb → initSchema`.\n3. `setStatus(ctx, \"codegraph: indexing…\")`.\n4. `ensureIndexed(projectRoot, state)` invokes `indexProjectImpl`—normally `indexProject`—or reuses an in-flight indexing promise. `raceAbort(...)` wraps the wait.\n5. After indexing, `setStatus(...)` clears the status or reports failure.\n6. `ensureHashInit()` initializes the hashline hasher.\n\n### 2. Indexing — `src/indexer/pipeline.ts:53`\n\n`indexProject` runs these stages **sequentially**:\n\n1. **`walkTsFiles`** discovers `.ts`/`.tsx` files, excluding `node_modules`, `.megapowers`, and `.git`.\n2. Per file: **`sha256Hex → store.getFileHash`**. Unchanged files are skipped; changed files have their old graph data deleted, then **`extractFile`** parses them with tree-sitter. **`store.addNode → store.addEdge → store.setFileHash`** persists the extracted symbols, relationships, and hash. Deleted files are removed via `store.deleteFile`.\n3. **`runLspIndexStage`**, using a `TsServerClient`, resolves/upgrades tree-sitter call edges through `client.definition`; then **`client.shutdown`**.\n4. **`runAstGrepIndexStage → loadRules → runScan → applyRuleMatches`** adds framework relationships for changed files.\n5. **`runCoverageIndexStage → parseCoverageReports → mapCoverageToNodes`** imports existing coverage reports from `.codegraph/coverage`, adding `tested_by` edges and saved test traces. It does **not** run tests.\n6. **`runGitCoChangeStage → getCurrentHead`**, then, when HEAD changed, **`parseGitLog`**, computes and stores co-change relationships.\n\n`ensureIndexed` records indexing failures rather than propagating them, allowing queries against existing graph data. Indexing is **not exclusively first-call initialization**: subsequent calls invoke this incremental pipeline again unless indexing is already underway.\n\n### 3. Tool-specific work — `src/index.ts:414–519`\n\n- **`symbol_graph`:** `store.findNodes`; for exactly one match, **`getClient → resolveMissingCallers → resolveImplementations`** (the last only for interfaces), awaited through `raceAbort`; then **`symbolGraph`**.\n- **`impact`:** **`impact`**, which resolves symbols and uses **`collectImpactDetails`** to traverse/classify dependents.\n- **`trace`:** **`trace → resolveUniqueSymbol → resolveCoverageTraceId`**; uses stored coverage when available, otherwise **`buildStaticTrace`** for ordinary entries.\n\nThe query functions render anchored output and run **`evaluateFreshness → prependFreshnessHeader`**.\n\n### 4. Final wrapping — `src/index.ts:279–336`\n\n1. **`finalizeReadOnlyOutput`**\n   - `suppressFreshTrustHeader`\n   - optionally `stripTrustHeader`\n   - `indexingFailedNote → getIndexingFailedNoteForTesting`\n   - `appendTokenMetaIfEnabled`—optional token statistics.\n2. **`toolResult → extractAnchors`** returns text content, `isError` for failed/ambiguous lookups, and structured `{ text, anchors, indexingFailed }`.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

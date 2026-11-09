@@ -1,0 +1,65 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:39:19.281Z",
+  "wallMs": 12879,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 2288,
+      "lsp": 4704,
+      "ast-grep": 76,
+      "coverage": 1,
+      "git": 223
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 566,
+    "cacheRead": 11780,
+    "cacheWrite": 3376,
+    "total": 15730
+  },
+  "costUsd": 0.040716,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Four functions in `src/` are affected:\n\n- **Direct caller (will break):** `renderSymbolSourceSection` in `src/tools/symbol-card.ts:41` is the only function that calls `readSourceSnippet`, so it will need updating for the new signature.\n- **Indirect callers (behaviour may change):**\n  - `symbolCard` (`src/tools/symbol-card.ts`) and `symbolGraph` (`src/tools/symbol-graph.ts`) both call `renderSymbolSourceSection`.\n  - `piCodegraph` (`src/index.ts`) is the tool entry point that reaches them.\n\nA text search of `src/` matches the impact analysis.\n\nTests that call `readSourceSnippet` directly are in `test/read-source-snippet.test.ts` and `test/repro-078-source-truncation-hint.test.ts`. Another 39 test files reach it through the symbol-card and symbol-graph tools.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

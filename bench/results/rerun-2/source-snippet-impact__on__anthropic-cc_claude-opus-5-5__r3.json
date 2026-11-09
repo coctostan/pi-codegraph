@@ -1,0 +1,65 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T17:13:43.483Z",
+  "wallMs": 16357,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 1858,
+      "lsp": 8958,
+      "ast-grep": 219,
+      "coverage": 1,
+      "git": 426
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 10,
+    "output": 895,
+    "cacheRead": 17501,
+    "cacheWrite": 3580,
+    "total": 21986
+  },
+  "costUsd": 0.0500802,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 2
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Changing the signature of `readSourceSnippet` breaks one function directly. Three more are affected through it.\n\n**Direct caller (breaking):**\n- `renderSymbolSourceSection` (`src/tools/symbol-card.ts:25`) calls `readSourceSnippet` at line 41.\n\n**Reached through other functions (behaviour only):**\n- `symbolCard` (`src/tools/symbol-card.ts:120`) calls `renderSymbolSourceSection` at line 156. Nothing in `src/` calls `symbolCard`, so only the tests reach it.\n- `symbolGraph` (`src/tools/symbol-graph.ts:265`) calls `renderSymbolSourceSection` at line 289.\n- `piCodegraph` (`src/index.ts:373`) is the tool entry point. It calls `symbolGraph` at line 444.\n\nI got this from the impact tool and checked it with a text search of `src/`. No other callers turned up.\n\nTwo test files call `readSourceSnippet` directly: `test/read-source-snippet.test.ts` and `test/repro-078-source-truncation-hint.test.ts`. Another 39 test files reach it through `symbolCard`, `symbolGraph` or the extension entry point. That wider set covers the `tool-symbol-card-*`, `tool-symbol-graph-*` and `extension-*` tests.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

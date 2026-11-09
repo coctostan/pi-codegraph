@@ -1,0 +1,48 @@
+{
+  "cell": "compact-diff-impact__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:35:03.127Z",
+  "wallMs": 23077,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1671,
+    "cacheRead": 35332,
+    "cacheWrite": 9530,
+    "total": 46549
+  },
+  "costUsd": 0.11679039999999999,
+  "toolCalls": {
+    "grep": 3,
+    "read": 3,
+    "bash": 2
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "There are two call paths, one for the edit tool and one for the write tool. Both end at the place where the tool is registered.\n\n**Edit path (`src/edit.ts`)**\n- `buildEditResult` (line 1129) calls `generateCompactOrFullDiff` directly and uses `diffResult.diff` to build `diffData`.\n- `buildEditResult` is called only from the `execute` method inside `registerEditTool` (line 1321).\n\n**Write path (`src/write.ts`)**\n- `generateWriteDiff` (line 127) returns the result of `generateCompactOrFullDiff` as-is when there was previous content. Its declared return type is `{ diff; firstChangedLine }`, so a change to the shape will surface here.\n- `executeWrite` (line 324) calls `generateWriteDiff`.\n- `executeWrite` is called from the `execute` method inside `registerWriteTool` (line 410).\n\n`index.ts` calls both register functions (lines 184 and 193).\n\nThese test files also call the function or its callers directly: `tests/edit-compact-diff.test.ts`, `tests/diff-data-compact.test.ts`, `tests/diff-data-inline.test.ts`, `tests/write-diff-data.test.ts`, `tests/write-tool.test.ts`, `tests/write-truncation.test.ts`, `tests/context-hygiene-write.test.ts` and `tests/pending-diff-preview-write-complexity.test.ts`.\n\n<answer>\nbuildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

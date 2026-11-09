@@ -1,0 +1,63 @@
+{
+  "cell": "cc-payload-trace__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "cc-payload-trace",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:30:08.942Z",
+  "wallMs": 62194,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 1780,
+      "lsp": 4071,
+      "ast-grep": 191,
+      "coverage": 1,
+      "git": 1269
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 11,
+  "tokens": {
+    "input": 24,
+    "output": 5081,
+    "cacheRead": 187402,
+    "cacheWrite": 30187,
+    "total": 222694
+  },
+  "costUsd": 0.38069240000000004,
+  "toolCalls": {
+    "bash": 6,
+    "read": 7
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "When `streamAnthropicCc` runs, the stock code builds the body and passes it to an `onPayload` hook. The anthropic-cc hook rewrites it in four steps. After that, the stock code only adds `stream: true` before the SDK call.\n\n**Where it happens**\n- `streamAnthropicCc` (`src/anthropic-cc/stream.ts`) calls the vendored `streamSimpleAnthropic`, which calls `streamAnthropic` (`src/anthropic-cc/vendor/anthropicStock.ts`) with its own `onPayload` wrapper.\n- Inside `streamAnthropic`'s request loop (around lines 398–403):\n  ```ts\n  let params = buildParams(model, context, isOAuth, options, strictToolPolicy);   // stock body\n  const nextParams = await awaitProviderOperation(() => options?.onPayload?.(params, model), options?.signal);\n  if (nextParams !== undefined) params = nextParams;\n  response = await retryProviderRequest(() => client.messages.create({ ...params, stream: true }, ...).asResponse(), ...);\n  ```\n- The loop can run again (when it retries without \"preferred strict tools\"). Each time, the body is rebuilt and goes through the whole hook again.\n\n**Order of rewrites inside the anthropic-cc `onPayload` (stream.ts)**\n\n1. **`applyAnthropicCcBodyOverrides`** (`overrides.ts`)\n   - **`applyAnthropicCcIdentityOverrides`:**\n     - Sets `metadata.user_id`, but only if it's missing; the fallback is the synthetic id from `getAnthropicCcSyntheticUserId()`.\n     - Replaces `system` entirely using `buildAnthropicCcSystemPrelude`. The new `system` is the billing-header block, then the \"Claude Agent SDK\" line, then the user's system prompt.\n     - The user prompt goes through `sanitizeAnthropicCcSystemPrompt` for OAuth tokens and `sanitizeSurrogates` otherwise.\n     - `cache_control` goes only on the last block. Its value comes from the stock body via `resolveAnthropicCcCacheControl`, which reads it before the rewrite.\n   - **Baseline defaults, only if missing:** `context_management` (`clear_thinking_20251015`) and `thinking: {type:\"adaptive\"}`.\n   - **Tool policy (first pass):** runs `applyAnthropicCcToolPolicy` on the result.\n   - **Adaptive thinking:** if thinking is adaptive and has no `block_binding`, it adds `display: \"omitted\"`.\n   - **`output_config`:**\n     - If the stock body already had one, that exact object is kept.\n     - Otherwise it uses the baseline value or a model default (`effort: \"xhigh\"` for Opus 4.7/4.8 and Fable 5).\n     - If neither applies, the field is deleted.\n   - Afterwards the hook saves the resulting `metadata.user_id` as the provider identity, for step 5.\n\n2. **The caller's `options.onPayload`**\n   - This is pi's own payload hook (`callerOnPayload`). If it returns something, that return value replaces the body.\n   - The extension's `before_provider_request` → `patchAnthropicOAuthPayload` (`src/payload.ts`) doesn't change these bodies. It only patches bodies whose `system[0]` is the \"You are Claude Code…\" prompt, and anthropic-cc bodies start with the billing header.\n\n3. **`applyAnthropicCcToolPolicy`** (second pass, in case step 2 changed the tools)\n   - Removes the `__pi_deferred_placeholder__` tool.\n   - On each tool definition, removes `cache_control` and `defer_loading` and sets `eager_input_streaming: true`. This covers top-level `tools` and inline `tool_addition` / `tool_definition` blocks in `messages`.\n\n4. **`sanitizeAnthropicCcRequestParams`** (`request.ts`), using the original `model`\n   - Removes `temperature`, `top_p` and `top_k` on Opus 4.7/4.8, or only `temperature` when `compat.supportsTemperature === false`.\n   - Changes `thinking.type` from `\"enabled\"` to `\"adaptive\"` and drops `budget_tokens`. This applies to Opus 4.7/4.8 or when `compat.forceAdaptiveThinking` is set.\n   - On models that reject assistant prefill (Opus 4.6+, Sonnet 4.6, Opus 5, Sonnet 5), it removes a trailing assistant message. This also handles the managed effort-control system messages around it.\n   - Deletes `context_management` if thinking isn't active.\n   - Logs a `console.warn` for each change.\n\n5. **Final metadata merge** (inline in stream.ts)\n   - Returns `{...sanitized, metadata: {...sanitized.metadata, user_id: <identity saved after step 1>}}`.\n   - This overwrites any `user_id` that step 2 changed.\n\n**After the hook**\n- `streamAnthropic` uses the hook's return value and calls `client.messages.create({ ...params, stream: true })` through `retryProviderRequest`.\n- The fetch wrapper `withMessagesBetaQuery` only adds `?beta=true` to the URL and strips some headers. It doesn't touch the body.\n\n<answer>\nIn `src/anthropic-cc/stream.ts`, `streamAnthropicCc` calls the vendored `streamSimpleAnthropic`, which calls `streamAnthropic`. There, the stock `buildParams(...)` builds the body, which goes through `options.onPayload` (wrapped in `awaitProviderOperation`). The returned body is sent with `client.messages.create({...params, stream: true})` inside `retryProviderRequest`. If the request loop retries without strict tools, the body is rebuilt and rewritten again.\n\nThe anthropic-cc `onPayload` rewrites the body in this order:\n1. `applyAnthropicCcBodyOverrides` (`overrides.ts`):\n   - `applyAnthropicCcIdentityOverrides` sets `metadata.user_id` only if missing (synthetic id fallback). It replaces `system` with the `buildAnthropicCcSystemPrelude` blocks: billing header, then the \"Claude Agent SDK\" line, then the user prompt (sanitized for OAuth, surrogates cleaned otherwise). `cache_control` goes on the last block only, with the value taken from the stock body by `resolveAnthropicCcCacheControl`.\n   - Adds the baseline `context_management` and `thinking: {type:\"adaptive\"}` only if missing.\n   - Runs `applyAnthropicCcToolPolicy`.\n   - Adds `display: \"omitted\"` to adaptive thinking that has no `block_binding`.\n   - Keeps the stock `output_config` if there is one. Otherwise uses the baseline or a model default (`effort: \"xhigh\"` for Opus 4.7/4.8 and Fable 5), or deletes the field.\n   - The resulting `metadata.user_id` is saved for step 5.\n2. The caller's `options.onPayload` (pi's payload hook). A returned value replaces the body. The extension's `patchAnthropicOAuthPayload` doesn't change these bodies because `system[0]` is the billing header, not \"You are Claude Code…\".\n3. `applyAnthropicCcToolPolicy` again: removes the `__pi_deferred_placeholder__` tool, removes `cache_control` and `defer_loading`, and sets `eager_input_streaming: true`. This applies to top-level tools and inline `tool_definition` blocks.\n4. `sanitizeAnthropicCcRequestParams` (`request.ts`):\n   - Removes unsupported sampling fields (`temperature`, `top_p`, `top_k`).\n   - Changes thinking from `\"enabled\"` with `budget_tokens` to `\"adaptive\"` for Opus 4.7/4.8 or `forceAdaptiveThinking`.\n   - Removes a trailing assistant prefill on models that reject it.\n   - Deletes `context_management` if thinking isn't active, and warns about each change.\n5. Final inline merge: `metadata.user_id` is set back to the identity saved in step 1.\n\nAfter that, the stock code adds `stream: true` and makes the HTTP call. The fetch wrapper `withMessagesBetaQuery` only changes the URL (`?beta=true`) and headers, not the body.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "In `src/anthropic-cc/stream.ts`, `streamAnthropicCc` calls the vendored `streamSimpleAnthropic`, which calls `streamAnthropic`. There, the stock `buildParams(...)` builds the body, which goes through `options.onPayload` (wrapped in `awaitProviderOperation`). The returned body is sent with `client.messages.create({...params, stream: true})` inside `retryProviderRequest`. If the request loop retries without strict tools, the body is rebuilt and rewritten again.\n\nThe anthropic-cc `onPayload` rewrites the body in this order:\n1. `applyAnthropicCcBodyOverrides` (`overrides.ts`):\n   - `applyAnthropicCcIdentityOverrides` sets `metadata.user_id` only if missing (synthetic id fallback). It replaces `system` with the `buildAnthropicCcSystemPrelude` blocks: billing header, then the \"Claude Agent SDK\" line, then the user prompt (sanitized for OAuth, surrogates cleaned otherwise). `cache_control` goes on the last block only, with the value taken from the stock body by `resolveAnthropicCcCacheControl`.\n   - Adds the baseline `context_management` and `thinking: {type:\"adaptive\"}` only if missing.\n   - Runs `applyAnthropicCcToolPolicy`.\n   - Adds `display: \"omitted\"` to adaptive thinking that has no `block_binding`.\n   - Keeps the stock `output_config` if there is one. Otherwise uses the baseline or a model default (`effort: \"xhigh\"` for Opus 4.7/4.8 and Fable 5), or deletes the field.\n   - The resulting `metadata.user_id` is saved for step 5.\n2. The caller's `options.onPayload` (pi's payload hook). A returned value replaces the body. The extension's `patchAnthropicOAuthPayload` doesn't change these bodies because `system[0]` is the billing header, not \"You are Claude Code…\".\n3. `applyAnthropicCcToolPolicy` again: removes the `__pi_deferred_placeholder__` tool, removes `cache_control` and `defer_loading`, and sets `eager_input_streaming: true`. This applies to top-level tools and inline `tool_definition` blocks.\n4. `sanitizeAnthropicCcRequestParams` (`request.ts`):\n   - Removes unsupported sampling fields (`temperature`, `top_p`, `top_k`).\n   - Changes thinking from `\"enabled\"` with `budget_tokens` to `\"adaptive\"` for Opus 4.7/4.8 or `forceAdaptiveThinking`.\n   - Removes a trailing assistant prefill on models that reject it.\n   - Deletes `context_management` if thinking isn't active, and warns about each change.\n5. Final inline merge: `metadata.user_id` is set back to the identity saved in step 1.\n\nAfter that, the stock code adds `stream: true` and makes the HTTP call. The fetch wrapper `withMessagesBetaQuery` only changes the URL (`?beta=true`) and headers, not the body.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

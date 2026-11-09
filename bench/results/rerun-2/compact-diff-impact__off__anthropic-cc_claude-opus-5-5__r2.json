@@ -1,0 +1,47 @@
+{
+  "cell": "compact-diff-impact__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:52:31.805Z",
+  "wallMs": 18537,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 1261,
+    "cacheRead": 39059,
+    "cacheWrite": 11891,
+    "total": 52225
+  },
+  "costUsd": 0.12821580000000002,
+  "toolCalls": {
+    "grep": 5,
+    "read": 2
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I traced every caller of `generateCompactOrFullDiff` in the source code (not the tests). There are two call chains, and each ends at a tool-registration function.\n\n**Edit tool** (`src/edit.ts`):\n- `buildEditResult` calls `generateCompactOrFullDiff` directly (line 1129).\n- `buildEditResult` is called from the tool's `execute` method inside `registerEditTool` (line 1321).\n\n**Write tool** (`src/write.ts`):\n- `generateWriteDiff` calls `generateCompactOrFullDiff` directly (line 127), but only when the file already had content.\n- `generateWriteDiff` is called by `executeWrite` (line 324).\n- `executeWrite` is called from the tool's `execute` method inside `registerWriteTool` (line 410).\n\nBoth registration functions are called from `index.ts` (lines 184 and 193). The `execute` methods are unnamed handlers inside the tool objects, so they're covered by the two `register…` names below. No other source file calls `executeWrite`. Several test files also call `generateCompactOrFullDiff` directly, so check those too.\n\n<answer>\nbuildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

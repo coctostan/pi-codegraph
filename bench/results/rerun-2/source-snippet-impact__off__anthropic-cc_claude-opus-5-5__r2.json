@@ -1,0 +1,47 @@
+{
+  "cell": "source-snippet-impact__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:57:17.783Z",
+  "wallMs": 20325,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1478,
+    "cacheRead": 41462,
+    "cacheWrite": 10061,
+    "total": 53017
+  },
+  "costUsd": 0.11840439999999999,
+  "toolCalls": {
+    "grep": 5,
+    "read": 4
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I traced the calls with grep and by reading the files. I didn't run anything or change any files.\n\n**Direct caller**\n- `renderSymbolSourceSection` (src/tools/symbol-card.ts:41) calls `readSourceSnippet(node, projectRoot, maxSourceLines)`. Nothing else in src/ calls it.\n\n**Indirect callers (through `renderSymbolSourceSection`)**\n- `symbolCard` (src/tools/symbol-card.ts:156). Nothing in src/ calls `symbolCard`, so this path stops here, but it may be used elsewhere, such as in tests.\n- `symbolGraph` (src/tools/symbol-graph.ts:289). It uses the source section only when `include` contains `\"source\"`.\n\n**Tool entry point**\n- The `symbol_graph` tool's `execute` handler (src/index.ts:414) calls `symbolGraph`. It is registered inside `piCodegraph` (src/index.ts:373), the extension's default export.\n\n`renderSymbolCardBody` and `renderLegacyNeighborhoodBody` don't call it, so they aren't affected. `symbolGraph` passes no `maxSourceLines` to `renderSymbolSourceSection`. Only `symbolCard` passes that value through.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
