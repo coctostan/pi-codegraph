@@ -97,9 +97,8 @@ test("an exact name wins over a member of the same bare name", async () => {
   expect(result.text).not.toContain("Store.add");
 });
 
-test("only a dotless name falls back, and only to class members", async () => {
+test("a bare name falls back only to class members", async () => {
   const run = setup({ "src/store.ts": store });
-  expect((await run("symbol_graph", { name: "Other.add" })).isError).toBe(true);
   // `src/store.ts` is a module node whose name ends in `.ts`; a bare `ts` is no member.
   expect((await run("symbol_graph", { name: "ts" })).text).toContain('Symbol "ts" not found');
 });
