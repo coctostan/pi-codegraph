@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "rows": [
     "src/fixture.ts partial=false",
     "{\"id\":\"src/fixture.ts::src/fixture.ts:1\",\"kind\":\"module\",\"name\":\"src/fixture.ts\",\"file\":\"src/fixture.ts\",\"start_line\":1,\"end_line\":21,\"content_hash\":\"194fb316fb2cc86f17e6d7faa0a2158ceb1420ef797e39dc68f21717cae2e8db\",\"is_exported\":false}",

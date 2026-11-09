@@ -84,7 +84,8 @@ function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNod
 
 function failedCalls(failures: FailedLookup[], targets: GraphNode[], edges: GraphEdge[]): number {
   const rendered = new Set(edges.map((edge) => `${edge.source}\0${edge.provenance.evidence}`));
-  const targetNames = new Set(targets.map((node) => node.name));
+  // A member `Class.m` is called by its bare name `m`.
+  const targetNames = new Set(targets.flatMap((node) => (node.kind === "function" ? [node.name, node.name.slice(node.name.indexOf(".") + 1)] : [node.name])));
   // A call's evidence is `<callee>:<line>:<col>`, so a call to a target stays countable while it reads unresolved.
   return failures
     .filter((f) => f.kind === "definition")

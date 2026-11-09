@@ -190,7 +190,7 @@ test("extractFile resolves aliased import calls to the original exported name", 
   expect(hCall).toBeUndefined();
 });
 
-test("extractFile extracts calls edges for bare calls + constructors, ignoring method calls", () => {
+test("extractFile extracts calls edges for bare calls + constructors, a method call only as a hidden member call", () => {
   const file = "src/calls.ts";
   const content = [
     "function a() {",
@@ -221,7 +221,10 @@ test("extractFile extracts calls edges for bare calls + constructors, ignoring m
   const ctorCall = calls.find((e) => e.target.includes("::MyClass:"));
   expect(ctorCall).toBeDefined();
 
-  expect(calls.some((e) => e.target.includes("::method:"))).toBe(false);
+  // obj.method() waits on the LSP stage as a hidden member call; this.method() outside a class is no class's.
+  expect(calls.filter((e) => e.target.includes("::method:")).map((e) => e.target)).toEqual([
+    nodeId("__member__", "method", content.indexOf("method")),
+  ]);
 });
 
 test("extractFile marks a file missing its closing brace partial, without throwing", () => {

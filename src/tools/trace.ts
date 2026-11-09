@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
-import { nodeId } from "../graph/types.js";
+import { isMemberCall, nodeId } from "../graph/types.js";
 import { extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
@@ -328,16 +328,19 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   const resolvedEdges: GraphEdge[] = [];
   const unindexed: string[] = [];
   const callees = fn.calls
-    .map((call): Callee => {
+    .flatMap((call): Callee[] => {
       const name = calleeName(call);
-      const hit = ownerCalls.find((n) => n.node.name === name);
+      // A member call resolves to `Class.<name>`: an exact name first, else a member by its bare name.
+      const hit = ownerCalls.find((n) => n.node.name === name) ?? ownerCalls.find((n) => n.node.kind === "function" && n.node.name.endsWith(`.${name}`));
       if (hit) {
         resolvedEdges.push(hit.edge);
-        return { node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line };
+        return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
+      // An `obj.m()` the LSP stage left unresolved is no project call, so it prints nothing.
+      if (isMemberCall(call.target)) return [];
       const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
-      return unresolvedCallee(stored ?? call, file, call);
+      return [unresolvedCallee(stored ?? call, file, call)];
     })
     .sort(byCallOrder);
   return renderStatic(params, entry, source, { callees, edges: resolvedEdges, unindexed });

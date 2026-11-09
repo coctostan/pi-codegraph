@@ -18,9 +18,10 @@ function openDb(path: string): any {
  * The extractor's output version. Bump it with any change to what indexing writes for unchanged source, so an
  * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
  * 3 re-extracts indexes whose incremental runs, before index-parity (An incremental index matches a fresh one), kept
- * stale edges or dropped live ones. 4 adds class members, from class-trace (Agents trace through classes).
+ * stale edges or dropped live ones. 4 adds class members and 5 their `obj.m()` calls, from class-trace (Agents trace
+ * through classes).
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 /** The `graph_metadata` key holding the git stage's last-seen HEAD. */
 export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
 /** The `graph_metadata` key `markCoverageIndexed` sets once a coverage report maps to a node. */
@@ -380,7 +381,7 @@ export class SqliteGraphStore implements GraphStore {
     const nodes: Record<string, number> = {};
     for (const row of nodeRows) nodes[row.kind] = row.cnt;
 
-    const edgeRows = this.db.prepare("SELECT kind, provenance_source, COUNT(*) as cnt FROM edges GROUP BY kind, provenance_source").all() as Array<{ kind: string; provenance_source: string; cnt: number }>;
+    const edgeRows = this.db.prepare("SELECT kind, provenance_source, COUNT(*) as cnt FROM edges WHERE SUBSTR(target, 1, 12) <> '__member__::' GROUP BY kind, provenance_source").all() as Array<{ kind: string; provenance_source: string; cnt: number }>;
     const edges: Record<string, Record<string, number>> = {};
     for (const row of edgeRows) {
       if (!edges[row.kind]) edges[row.kind] = {};

@@ -31,7 +31,7 @@ test("extractFile extracts namespace import and resolves qualified calls", () =>
   expect(formatCall).toBeDefined();
 });
 
-test("extractFile does not treat non-namespace member calls as qualified calls", () => {
+test("extractFile files a non-namespace member call as a hidden member call, not a qualified one", () => {
   const file = "src/plain.ts";
   const content = [
     "function run() {",
@@ -43,7 +43,9 @@ test("extractFile does not treat non-namespace member calls as qualified calls",
   const result = extractFile(file, content);
 
   const callEdges = result.edges.filter((e) => e.kind === "calls");
-  // obj and this are not namespace imports, so no calls edges
-  expect(callEdges.find((e) => e.target.includes("::method:"))).toBeUndefined();
+  // obj is no namespace import, so its call waits on the LSP stage; this outside a class is no class's
+  expect(callEdges.filter((e) => e.target.includes("::method:")).map((e) => e.target)).toEqual([
+    nodeId("__member__", "method", content.indexOf("method")),
+  ]);
   expect(callEdges.find((e) => e.target.includes("::foo:"))).toBeUndefined();
 });

@@ -4,7 +4,7 @@ import Parser from "tree-sitter";
 import ts from "tree-sitter-typescript";
 
 import type { GraphEdge, GraphNode, NodeKind } from "../graph/types.js";
-import { nodeId } from "../graph/types.js";
+import { MEMBER_CALL, nodeId } from "../graph/types.js";
 import { JS_GLOBALS } from "./js-globals.js";
 
 export interface ExtractionResult {
@@ -258,6 +258,15 @@ const FUNCTION_TYPES = new Set([
 ]);
 
 const MEMBER_NAME_TYPES = new Set(["property_identifier", "private_property_identifier"]);
+// A literal's methods are the platform's.
+const LITERAL_TYPES = new Set(["string", "template_string", "number", "array", "regex"]);
+
+/** Where a receiver's chain starts: `a` in `a.b(c)!.d`, whose methods a package or global's return values share. */
+function receiverRoot(n: SyntaxNode): SyntaxNode {
+  const next =
+    n.type === "member_expression" ? n.childForFieldName("object") : n.type === "call_expression" ? n.childForFieldName("function") : n.type === "non_null_expression" ? n.namedChildren[0] : null;
+  return next ? receiverRoot(next) : n;
+}
 
 /** `Class.member` for a method, accessor, constructor or arrow-valued field of a named class; null for any other node. */
 function memberName(n: SyntaxNode): string | null {
@@ -638,6 +647,12 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
         }
         if (obj?.type === "this" && members && prop && MEMBER_NAME_TYPES.has(prop.type)) {
           return { name: prop.text, at: prop, target: members.get(prop.text) };
+        }
+        // Another object's member, one target per call site: receivers of one name in a function can differ in type.
+        const root = obj && receiverRoot(obj);
+        const external = root?.type === "identifier" ? isExternalCallee(root.text) : LITERAL_TYPES.has(root?.type ?? "");
+        if (obj && obj.type !== "this" && !external && prop && MEMBER_NAME_TYPES.has(prop.type)) {
+          return { name: prop.text, at: prop, target: nodeId(MEMBER_CALL, prop.text, prop.startIndex) };
         }
       }
       return null;

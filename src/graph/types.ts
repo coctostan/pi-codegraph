@@ -56,3 +56,10 @@ export interface GraphEdge {
 export function nodeId(file: string, name: string, startLine: number): string {
   return `${file}::${name}:${startLine}`;
 }
+
+/** A call to another object's member, `obj.m()`: no reader shows it until the LSP stage resolves it to a project node. */
+export const MEMBER_CALL = "__member__";
+
+export function isMemberCall(target: string): boolean {
+  return target.startsWith(`${MEMBER_CALL}::`);
+}

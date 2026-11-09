@@ -1,7 +1,6 @@
 /**
- * Callable JS and runtime globals: a call to one the file neither binds nor imports is no hole in the project.
- * A fixed list, never read off `globalThis`, so Bun and Node index alike; member-only globals (`JSON`, `Math`,
- * `console`) are left out, since a member call makes no `calls` edge.
+ * JS and runtime globals: a call to one, or to a member of one, the file neither binds nor imports is no hole in the
+ * project. A fixed list, never read off `globalThis`, so Bun and Node index alike.
  */
 export const JS_GLOBALS: ReadonlySet<string> = new Set([
   // ECMAScript functions
@@ -19,4 +18,7 @@ export const JS_GLOBALS: ReadonlySet<string> = new Set([
   "TextDecoder", "TextEncoder", "TransformStream", "URL", "URLSearchParams", "WebSocket", "WritableStream",
   "atob", "btoa", "clearImmediate", "clearInterval", "clearTimeout", "fetch", "queueMicrotask", "require",
   "setImmediate", "setInterval", "setTimeout", "structuredClone",
+  // Globals called only through their members
+  "Atomics", "Bun", "Intl", "JSON", "Math", "Reflect", "WebAssembly", "console", "crypto", "globalThis", "performance",
+  "process",
 ]);
