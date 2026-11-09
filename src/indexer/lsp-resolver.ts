@@ -33,7 +33,8 @@ function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode,
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {
   try {
     const lines = readFileSync(join(projectRoot, file), "utf8").split(/\r?\n/);
-    const idx = (lines[line - 1] ?? "").indexOf(symbolName);
+    // A member, `Class.member`, is declared by its bare name.
+    const idx = (lines[line - 1] ?? "").indexOf(symbolName.slice(symbolName.lastIndexOf(".") + 1));
     return idx >= 0 ? idx + 1 : 1;
   } catch {
     return 1;
@@ -99,9 +100,11 @@ export async function resolveMissingCallers(
   }
   const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
   for (const ref of refs) {
+    // The innermost node holding the reference, by the narrowest span: a method, not its class.
     const callerNode = store
       .getNodesByFile(ref.file)
-      .find((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line));
+      .filter((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line))
+      .sort((a, b) => (a.end_line ?? Number.MAX_SAFE_INTEGER) - a.start_line - ((b.end_line ?? Number.MAX_SAFE_INTEGER) - b.start_line))[0];
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
     for (const f of failedCalls) {

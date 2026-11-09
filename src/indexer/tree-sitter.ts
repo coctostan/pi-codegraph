@@ -257,6 +257,21 @@ const FUNCTION_TYPES = new Set([
   "method_definition",
 ]);
 
+const MEMBER_NAME_TYPES = new Set(["property_identifier", "private_property_identifier"]);
+
+/** `Class.member` for a method, accessor, constructor or arrow-valued field of a named class; null for any other node. */
+function memberName(n: SyntaxNode): string | null {
+  const isMember =
+    n.type === "method_definition" || (n.type === "public_field_definition" && n.childForFieldName("value")?.type === "arrow_function");
+  const cls = n.parent?.type === "class_body" ? n.parent.parent : null;
+  const className = cls?.type === "class_declaration" ? cls.childForFieldName("name")?.text : undefined;
+  const name = n.childForFieldName("name");
+  return isMember && className && name && MEMBER_NAME_TYPES.has(name.type) ? `${className}.${name.text}` : null;
+}
+
+/** The nodes that bind their own `this`, so a `this.m()` inside one is no enclosing class's. */
+const THIS_BINDERS = new Set([...FUNCTION_TYPES, "class", "abstract_class_declaration"].filter((t) => t !== "arrow_function"));
+
 /** The innermost functions whose spans hold 0-based `row`: one holding no other that holds it; several only side by side. */
 function innermostFunctionsAt(root: SyntaxNode, row: number): SyntaxNode[] {
   const holders: SyntaxNode[] = [];
@@ -266,9 +281,11 @@ function innermostFunctionsAt(root: SyntaxNode, row: number): SyntaxNode[] {
   return holders.filter((h) => !holders.some((o) => o !== h && o.startIndex >= h.startIndex && o.endIndex <= h.endIndex));
 }
 
-/** A function's own name, else the variable, property or assignee it is bound to, else `<anonymous>`. */
+/** A member's `Class.member`, else a function's own name, else the variable, property or assignee it is bound to, else `<anonymous>`. */
 function functionName(fn: SyntaxNode): string {
   const parent = fn.parent;
+  const member = memberName(fn) ?? (parent ? memberName(parent) : null);
+  if (member) return member;
   const named =
     fn.childForFieldName("name") ??
     (parent?.type === "variable_declarator" ? parent.childForFieldName("name") : null) ??
@@ -396,6 +413,14 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
           isExportedNode(n),
           signature
         );
+        return;
+      }
+
+      const member = memberName(n);
+      if (member) {
+        const fn = n.type === "method_definition" ? n : n.childForFieldName("value")!;
+        // A member is no module export, its class is.
+        addNode(nodes, file, "function", member, n.startPosition.row + 1, n.endPosition.row + 1, contentHash, false, extractFunctionSignature(fn));
         return;
       }
 
@@ -592,8 +617,10 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     }
     // `endPosition` sits just past the call's last character, so its 0-based column is that character's 1-based one.
     const callEnd = (call: SyntaxNode) => ({ line: call.endPosition.row + 1, col: call.endPosition.column });
-    // The project callee `n` calls itself, by the name its edge targets, and the node its evidence points at.
-    const calleeOf = (n: SyntaxNode): { name: string; at: SyntaxNode } | null => {
+    type Callee = { name: string; at: SyntaxNode; target?: string };
+    // The project callee `n` calls itself, by the name its edge targets, and the node its evidence points at; `members`
+    // are the enclosing class's by name when `this` is that class's, a `this.m()` to one of them resolved to its node.
+    const calleeOf = (n: SyntaxNode, members: Map<string, string> | null): Callee | null => {
       if (n.type === "new_expression") {
         const ctor = n.childForFieldName("constructor");
         return ctor?.type === "identifier" && !isExternalCallee(ctor.text) ? { name: ctor.text, at: ctor } : null;
@@ -609,19 +636,32 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
         if (obj?.type === "identifier" && prop?.type === "property_identifier" && namespaceImports.has(obj.text) && !isExternalCallee(obj.text)) {
           return { name: prop.text, at: prop };
         }
+        if (obj?.type === "this" && members && prop && MEMBER_NAME_TYPES.has(prop.type)) {
+          return { name: prop.text, at: prop, target: members.get(prop.text) };
+        }
       }
       return null;
     };
-    const callEdge = (source: string, callee: { name: string; at: SyntaxNode }, call: SyntaxNode): GraphEdge => ({
+    const callEdge = (source: string, callee: Callee, call: SyntaxNode): GraphEdge => ({
       source,
-      target: unresolvedId(callee.name),
+      target: callee.target ?? unresolvedId(callee.name),
       kind: "calls",
       provenance: { source: "tree-sitter", confidence: 0.5, evidence: callEvidence(callee.at), content_hash: contentHash },
       created_at: Date.now(),
       call_end: callEnd(call),
     });
+    /** A class's members by their bare name, each to its node; of two sharing one, a getter and setter, the first. */
+    const membersOf = (cls: SyntaxNode): Map<string, string> => {
+      const members = new Map<string, string>();
+      for (const m of cls.childForFieldName("body")?.namedChildren ?? []) {
+        const name = memberName(m);
+        const bare = m.childForFieldName("name")?.text;
+        if (name && bare && !members.has(bare)) members.set(bare, nodeId(file, name, m.startPosition.row + 1));
+      }
+      return members;
+    };
 
-    // The node `n` files its own calls under when it starts one: a test callback's, a named declaration's, a named arrow's.
+    // The node `n` files its own calls under when it starts one: a test callback's, a named declaration's, a named arrow's, a member's.
     const ownId = (n: SyntaxNode): string | null => {
       const test = callbackOwners.get(n.startIndex);
       if (test) return test;
@@ -630,7 +670,8 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       if (n.type === "variable_declarator" && name?.type === "identifier" && n.childForFieldName("value")?.type === "arrow_function") {
         return nodeId(file, name.text, n.startPosition.row + 1);
       }
-      return null;
+      const member = memberName(n);
+      return member && nodeId(file, member, n.startPosition.row + 1);
     };
 
     const held = entryLine === undefined ? [] : innermostFunctionsAt(tree.rootNode, entryLine - 1);
@@ -640,26 +681,27 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     const entryId = entryFn ? nodeId(file, functionName(entryFn), entryFn.startPosition.row + 1) : "";
     let entryOwner: string | null = null;
 
-    const visitCalls = (n: SyntaxNode, currentFunctionId: string | null, inEntry: boolean): void => {
+    const visitCalls = (n: SyntaxNode, currentFunctionId: string | null, inEntry: boolean, members: Map<string, string> | null): void => {
       const nextFunctionId = ownId(n) ?? currentFunctionId;
+      const nextMembers = n.type === "class_declaration" ? membersOf(n) : THIS_BINDERS.has(n.type) && !memberName(n) ? null : members;
 
       if (entryFn && n.startIndex === entryFn.startIndex && n.type === entryFn.type) {
         entryOwner = nextFunctionId;
         inEntry = true;
       }
 
-      const callee = calleeOf(n);
+      const callee = calleeOf(n, nextMembers);
       if (callee && nextFunctionId) pushEdge(callEdge(nextFunctionId, callee, n));
       // The entry's calls are those the index files under its owner: a nested callback's, not a nested named function's.
       if (callee && inEntry && nextFunctionId === entryOwner) pushEntryEdge(callEdge(entryId, callee, n));
 
-      for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry);
+      for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry, nextMembers);
     };
 
-    visitCalls(tree.rootNode, null, false);
+    visitCalls(tree.rootNode, null, false, null);
     if (entryFn) {
-      // A named arrow's node starts at its declarator, the arrow's parent.
-      const own = ownId(entryFn) ?? (entryFn.parent?.type === "variable_declarator" ? ownId(entryFn.parent) : null);
+      // A named arrow's node starts at its declarator or field, the arrow's parent.
+      const own = ownId(entryFn) ?? (entryFn.parent && /^(variable_declarator|public_field_definition)$/.test(entryFn.parent.type) ? ownId(entryFn.parent) : null);
       const fn: FunctionAt = {
         name: functionName(entryFn),
         startLine: entryFn.startPosition.row + 1,

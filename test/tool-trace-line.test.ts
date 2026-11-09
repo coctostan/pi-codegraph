@@ -32,6 +32,14 @@ const APP = [
   "  other();",
   "  return items.map(() => helper()); }",
   "export const pair = [() => helper(), () => deep()];",
+  "export class Store {",
+  "  get(id: number) { return this.load(id); }",
+  "  load(id: number) {",
+  "    other();",
+  "    return [id].map(() => this.peek());",
+  "  }",
+  "  peek() { return deep(); }",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
@@ -129,6 +137,24 @@ test("a line holding two functions side by side is an error naming both", async 
   expect(out.text).toContain(`Several functions hold line ${line} of src/app.ts`);
   expect(out.text).toContain(`<anonymous> (src/app.ts:${line}:22)`);
   expect(out.text).toContain(`<anonymous> (src/app.ts:${line}:38)`);
+});
+
+test("a class member traces by Class.member, its this-calls to its class's members resolved beneath it", async () => {
+  const { trace } = setup();
+  const out = await trace({ entry: "Store.get", file: "src/app.ts" });
+  expect(out.isError).toBe(false);
+  expect(tree(out.text)).toEqual(["Store.get", "  Store.load", "    other [leaf]", "    Store.peek", "      deep [leaf]"]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a line in a class member traces that member as its entry does; a line in a callback inside it names the member", async () => {
+  const { trace } = setup();
+  expect(await trace({ file: "src/app.ts", line: lineOf("load(id: number) {") })).toEqual(
+    await trace({ entry: "Store.load", file: "src/app.ts" }),
+  );
+  const callback = await trace({ file: "src/app.ts", line: lineOf("this.peek()") });
+  expect(tree(callback.text)).toEqual(["<anonymous> (in Store.load)", "  Store.peek", "    deep [leaf]"]);
+  expect(callback.text.startsWith("Trust: fresh")).toBe(true);
 });
 
 test("a line in an indexed function traces it as trace by entry does", async () => {
