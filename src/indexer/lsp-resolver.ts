@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { GraphNode } from "../graph/types.js";
+import { calledName, type GraphNode } from "../graph/types.js";
 import { resolverMarkerKey } from "../graph/sqlite.js";
 import type { FailedLookup, GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
@@ -104,8 +104,7 @@ export async function resolveMissingCallers(
     return;
   }
   const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
-  // A member `Class.m` is called by its bare name.
-  const bare = node.kind === "function" ? node.name.slice(node.name.indexOf(".") + 1) : node.name;
+  const bare = calledName(node);
   for (const ref of refs) {
     // The innermost node holding the reference, by the narrowest span: a method, not its class. An interface's member
     // declaration calls nothing.

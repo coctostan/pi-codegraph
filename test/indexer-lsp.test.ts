@@ -7,7 +7,7 @@ import { runLspIndexStage } from "../src/indexer/lsp.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
-import type { GraphEdge } from "../src/graph/types.js";
+import { calledName, type GraphEdge } from "../src/graph/types.js";
 
 function mkStore() {
   const store = new SqliteGraphStore();
@@ -364,4 +364,68 @@ test("a member call left hidden is no dangling edge, so an unchanged project's r
     store.close();
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("a definition resolves to no module its name ends, and to the constructor of the class holding it, not a namesake's", async () => {
+  const store = new SqliteGraphStore();
+  const files: Record<string, string[]> = {
+    "src/ts.ts": ["export default function () {}"],
+    "src/inner.ts": [
+      "export function a() { class Inner { constructor() {} } }",
+      "export function b() { class Inner { constructor() {} } }",
+    ],
+    "src/use.ts": ['import ts from "./ts";', "export function use() {", "  ts();", "  new Inner();", "}"],
+  };
+  for (const [file, lines] of Object.entries(files)) {
+    const extracted = extractFile(file, lines.join("\n"));
+    store.addNode(extracted.module);
+    for (const node of extracted.nodes) store.addNode(node);
+    for (const edge of extracted.edges) store.addEdge(edge);
+    store.setFileHash(file, extracted.module.content_hash);
+  }
+  const definitions: Record<string, { file: string; line: number; col: number }> = {
+    "src/use.ts:3:3": { file: "src/ts.ts", line: 1, col: 16 },
+    "src/use.ts:4:7": { file: "src/inner.ts", line: 2, col: 29 },
+  };
+  const client: ITsServerClient = {
+    definition: async (file, line, col) => definitions[`${file}:${line}:${col}`] ?? null,
+    references: async () => [],
+    implementations: async () => [],
+    shutdown: async () => {},
+  };
+
+  await runLspIndexStage(store, "/project", client);
+
+  expect(store.getNeighbors("src/use.ts::use:2", { direction: "out", kind: "calls" }).map((n) => n.node.id)).toEqual(["src/inner.ts::Inner.constructor:2"]);
+  expect(store.getUnresolvedEdges().filter((e) => e.kind === "calls").map((e) => e.target)).toEqual(["__unresolved__::ts:0"]);
+  store.close();
+});
+
+test("a call names a member by its bare name, any other node by its whole name", () => {
+  expect(calledName({ kind: "function", name: "Store.load" })).toBe("load");
+  expect(calledName({ kind: "function", name: "load" })).toBe("load");
+  expect(calledName({ kind: "module", name: "src/ts.ts" })).toBe("src/ts.ts");
+  expect(calledName({ kind: "test", name: "a.test.ts > b.c" })).toBe("a.test.ts > b.c");
+});
+
+test("a call tree-sitter resolved stays as it is when tsserver's definition names another node", async () => {
+  const { store, caller, callee } = mkStore();
+  const other = { ...callee, id: "src/c.ts::target:1", file: "src/c.ts" };
+  store.addNode(other);
+  store.addEdge({
+    source: caller.id,
+    target: callee.id,
+    kind: "calls",
+    provenance: { source: "tree-sitter", confidence: 0.5, evidence: "target:2:5", content_hash: "h-a" },
+    created_at: 1000,
+  });
+  const client: ITsServerClient = {
+    definition: async () => ({ file: "src/c.ts", line: 1, col: 17 }),
+    references: async () => [],
+    implementations: async () => [],
+    shutdown: async () => {},
+  };
+  await runLspIndexStage(store, "/project", client);
+  expect(store.getEdgesBySource(caller.id).map((e) => [e.target, e.provenance.source])).toEqual([[callee.id, "tree-sitter"]]);
+  store.close();
 });

@@ -63,3 +63,8 @@ export const MEMBER_CALL = "__member__";
 export function isMemberCall(target: string): boolean {
   return target.startsWith(`${MEMBER_CALL}::`);
 }
+
+/** The name a call to `node` uses: a member `Class.m`'s bare `m`, any other node's whole name, a dotted file's too. */
+export function calledName(node: Pick<GraphNode, "kind" | "name">): string {
+  return node.kind === "function" ? node.name.slice(node.name.indexOf(".") + 1) : node.name;
+}
