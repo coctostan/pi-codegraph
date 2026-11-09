@@ -26,8 +26,9 @@ export function findSymbolNodes(store: GraphStore, name: string, file?: string):
   if (exact.length > 0) return exact;
   const suffix = `.${name}`;
   const rows = store.queryRows<{ id: string }>(
-    `SELECT id FROM nodes WHERE kind = 'function' AND substr(name, -?) = ?${file ? " AND file = ?" : ""} ORDER BY id`,
-    file ? [suffix.length, suffix, file] : [suffix.length, suffix],
+    // SQLite's length counts characters, as substr does; JS's counts UTF-16 units.
+    `SELECT id FROM nodes WHERE kind = 'function' AND substr(name, -length(?)) = ?${file ? " AND file = ?" : ""} ORDER BY id`,
+    file ? [suffix, suffix, file] : [suffix, suffix],
   );
   return rows.flatMap((row) => store.getNode(row.id) ?? []);
 }

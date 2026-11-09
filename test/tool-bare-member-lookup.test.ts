@@ -53,6 +53,13 @@ test("a bare method name resolves to its Class.member node through all three too
   expect(impact.text).toContain("Store.add");
 });
 
+test("a bare member name outside the BMP resolves as its Class.member does", async () => {
+  const run = setup({ "src/astral.ts": "export class A {\n  \u{10400}() { return 1; }\n}\n" });
+  const result = await run("symbol_graph", { name: "\u{10400}" });
+  expect(result.isError).toBe(false);
+  expect(result.text).toContain("## A.\u{10400} (function)");
+});
+
 test("a bare name two classes declare is an error listing both members", async () => {
   const run = setup({
     "src/store.ts": store,
