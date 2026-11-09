@@ -1,0 +1,65 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:57:02.597Z",
+  "wallMs": 13262,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 2237,
+      "lsp": 4790,
+      "ast-grep": 200,
+      "coverage": 1,
+      "git": 242
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 643,
+    "cacheRead": 11780,
+    "cacheWrite": 3377,
+    "total": 15808
+  },
+  "costUsd": 0.042263999999999996,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Changing the signature of `readSourceSnippet` would break one direct caller. Three more functions reach it through that caller, ending at the extension entry point.\n\n- **Direct caller (breaks with the signature change):** `renderSymbolSourceSection` in `src/tools/symbol-card.ts`. It calls `readSourceSnippet` at line 41.\n- **Reaches it through `renderSymbolSourceSection`:**\n  - `symbolCard` in `src/tools/symbol-card.ts` calls it at line 156.\n  - `symbolGraph` in `src/tools/symbol-graph.ts` calls it at line 289.\n- **Entry point:** `piCodegraph` in `src/index.ts`, which reaches it through `symbolCard` and `symbolGraph`.\n\nThe impact analysis gave this list, and a search of `src/` found no other direct callers. Two test files call `readSourceSnippet` directly: `test/read-source-snippet.test.ts` and `test/repro-078-source-truncation-hint.test.ts`.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

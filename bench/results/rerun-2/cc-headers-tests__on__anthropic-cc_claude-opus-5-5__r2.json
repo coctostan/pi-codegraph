@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:44:03.081Z",
+  "wallMs": 11489,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 1813,
+      "lsp": 4552,
+      "ast-grep": 187,
+      "coverage": 1,
+      "git": 1534
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 704,
+    "cacheRead": 6428,
+    "cacheWrite": 2833,
+    "total": 9971
+  },
+  "costUsd": 0.03805360000000001,
+  "toolCalls": {
+    "impact": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Five test files call `buildAnthropicCcHeaders` directly:\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nThree functions also call it: `buildAnthropicCcRequestFromContext` and `buildAnthropicCcRequest` in `src/anthropic-cc/request.ts`, and `streamAnthropicCc` in `src/anthropic-cc/stream.ts`. Through those, 26 more test files run it indirectly, such as `tests/anthropicCcManagedBetaRequest.test.ts`, `tests/anthropicCcInlineToolsBetaWire.test.ts` and `tests/anthropicCcTranscriptRequestOverride.test.ts`. If your change affects the request headers, rerun those as well. The simplest way is to run the whole `tests/anthropicCc*` suite.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

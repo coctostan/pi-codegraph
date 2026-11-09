@@ -1,0 +1,48 @@
+{
+  "cell": "compact-diff-impact__off__openai-codex_gpt-6.1-sol__r3",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T17:10:50.007Z",
+  "wallMs": 25777,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 4,
+  "tokens": {
+    "input": 19037,
+    "output": 539,
+    "cacheRead": 10752,
+    "cacheWrite": 0,
+    "total": 30328
+  },
+  "costUsd": 0.0445392,
+  "toolCalls": {
+    "grep": 2,
+    "read": 4,
+    "ls": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nbuildEditResult\nregisterEditTool.execute\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool.execute\nregisterWriteTool\npiHashlineReadmapExtension\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nregisterEditTool.execute\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool.execute\nregisterWriteTool\npiHashlineReadmapExtension",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

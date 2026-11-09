@@ -1,0 +1,47 @@
+{
+  "cell": "source-snippet-impact__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:40:26.056Z",
+  "wallMs": 24900,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 8,
+  "tokens": {
+    "input": 13575,
+    "output": 364,
+    "cacheRead": 29056,
+    "cacheWrite": 0,
+    "total": 42995
+  },
+  "costUsd": 0.0336956,
+  "toolCalls": {
+    "read": 4,
+    "grep": 3
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

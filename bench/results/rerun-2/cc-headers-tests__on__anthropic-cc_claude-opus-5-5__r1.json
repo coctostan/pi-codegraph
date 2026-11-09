@@ -1,0 +1,62 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:28:01.053Z",
+  "wallMs": 11609,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 1832,
+      "lsp": 4051,
+      "ast-grep": 64,
+      "coverage": 1,
+      "git": 1083
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 791,
+    "cacheRead": 4073,
+    "cacheWrite": 5188,
+    "total": 10058
+  },
+  "costUsd": 0.0581626,
+  "toolCalls": {
+    "impact": 1
+  },
+  "codegraphCalls": 1,
+  "stopReason": "stop",
+  "finalText": "Five test files call `buildAnthropicCcHeaders` directly. I found them with the impact tool's dependency index. It had no coverage report, so this list comes from the code's call structure rather than from tests actually running.\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nThe function is also called by `buildAnthropicCcRequestFromContext` and `buildAnthropicCcRequest` in `src/anthropic-cc/request.ts`, and by `streamAnthropicCc` in `src/anthropic-cc/stream.ts`. Through those, 26 more test files reach it indirectly, for example `anthropicCcManagedBetaRequest`, `anthropicCcInlineToolsBetaWire`, `anthropicCcTranscriptRequestOverride` and `anthropicCcTranscriptStreamOverride`. If your change affects the headers those requests send, rerun those as well.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

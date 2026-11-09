@@ -1,0 +1,47 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:55:34.576Z",
+  "wallMs": 19522,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 1244,
+    "cacheRead": 27943,
+    "cacheWrite": 5556,
+    "total": 34759
+  },
+  "costUsd": 0.07498060000000001,
+  "toolCalls": {
+    "grep": 6,
+    "read": 1
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four test files call `findEnclosingSgSymbols` directly. Each one imports it from `../src/sg.js` and calls it:\n\n- `tests/context-hygiene-sg.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nNo other tests should run it. The only other caller is the sg tool in `src/sg.ts:415`, and it only calls the function when `PI_CONTEXT_HYGIENE_DEBUG === \"1\"`. The only test that sets that variable and also runs the sg tool is `tests/context-hygiene-sg.test.ts`, which is already listed. `tests/context-hygiene-debug-tool.test.ts` sets the variable but never uses sg, and the vitest setup files don't set it.\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

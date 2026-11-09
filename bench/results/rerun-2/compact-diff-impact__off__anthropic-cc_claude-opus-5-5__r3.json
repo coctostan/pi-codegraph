@@ -1,0 +1,48 @@
+{
+  "cell": "compact-diff-impact__off__anthropic-cc_claude-opus-5-5__r3",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T17:09:28.014Z",
+  "wallMs": 16106,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 5,
+  "tokens": {
+    "input": 12,
+    "output": 1317,
+    "cacheRead": 23052,
+    "cacheWrite": 7350,
+    "total": 31731
+  },
+  "costUsd": 0.0897984,
+  "toolCalls": {
+    "grep": 1,
+    "read": 1,
+    "bash": 3
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I traced the callers with grep. Test files that call `generateCompactOrFullDiff` directly are not included.\n\n**Write path (`src/write.ts`):**\n- `generateWriteDiff` calls `generateCompactOrFullDiff` (line 127) and passes its return value on, in the same shape, when the file already had content.\n- `executeWrite` calls `generateWriteDiff` (line 324).\n- `registerWriteTool` calls `executeWrite` from its unnamed `execute` method (line 410), where the tool is registered.\n\n**Edit path (`src/edit.ts`):**\n- `buildEditResult` calls `generateCompactOrFullDiff` (line 1129) and uses `.diff` (for `buildDiffData`) and the rest of the result.\n- `registerEditTool` calls `buildEditResult` from its unnamed `execute` method (line 1321), where the tool is registered.\n\nBoth register functions are called by `piHashlineReadmapExtension` in `index.ts` (lines 184 and 193). That's past the registration point, so I left it out.\n\n<answer>\ngenerateWriteDiff\nexecuteWrite\nregisterWriteTool\nbuildEditResult\nregisterEditTool\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "generateWriteDiff\nexecuteWrite\nregisterWriteTool\nbuildEditResult\nregisterEditTool",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,48 @@
+{
+  "cell": "cc-payload-trace__off__openai-codex_gpt-6.1-sol__r1",
+  "task": "cc-payload-trace",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "1a7f689a3c3bb0783b055aa097b25c280019ea5b",
+  "providerCommit": "decd5acdfc9b509bc7f5d9e03e8319b0b1d64f73",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-09T16:33:29.634Z",
+  "wallMs": 44248,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 8,
+  "tokens": {
+    "input": 26297,
+    "output": 1444,
+    "cacheRead": 76160,
+    "cacheWrite": 0,
+    "total": 103901
+  },
+  "costUsd": 0.07465,
+  "toolCalls": {
+    "ls": 2,
+    "grep": 4,
+    "read": 11
+  },
+  "codegraphCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThe live path is **stock `buildParams` → provider’s wrapped `onPayload` → SDK `messages.create`**. The rewrites run in this order:\n\n1. **Stock `buildParams` builds the initial body.**  \n   `src/anthropic-cc/vendor/anthropicStock.ts:398–400` then awaits `options.onPayload`. For this provider, that is the wrapper installed by `streamAnthropicCc` in `src/anthropic-cc/stream.ts:55`.\n\n2. **`applyAnthropicCcBodyOverrides` applies the provider defaults.**  \n   In `src/anthropic-cc/overrides.ts:299`, it performs these operations in order:\n   - **`applyAnthropicCcIdentityOverrides`** preserves existing metadata, fills a missing `metadata.user_id` with the file-backed synthetic ID, and replaces `system`.\n   - **`buildAnthropicCcSystemPrelude`** constructs the replacement system array: billing header, Claude Agent SDK identity, then the user system prompt. For OAuth, **`sanitizeAnthropicCcSystemPrompt`** removes recognized Pi identity statements and rewrites recognized documentation references to neutral aliases. Only the final system block receives the cache-control setting recovered from the stock body.\n   - Adds baseline `context_management` and `thinking` only when those fields are absent.\n   - **`applyAnthropicCcToolPolicy`** removes deferred placeholders and applies **`applyAnthropicCcToolDefinitionPolicy`** to top-level tools and inline tool additions: strip `cache_control` and `defer_loading`, force `eager_input_streaming: true`.\n   - Sets adaptive thinking’s `display` to `\"omitted\"` when `block_binding` is absent.\n   - Preserves an existing `output_config` exactly; otherwise supplies the applicable baseline/model default.\n\n3. **The wrapper saves the established user ID, then awaits the caller’s `onPayload`.**  \n   `src/anthropic-cc/stream.ts:64–73`. The caller sees the already-overridden body. It may mutate it or return a replacement; returning `undefined` retains the current object.\n\n4. **`applyAnthropicCcToolPolicy` runs again.**  \n   `src/anthropic-cc/stream.ts:76`. This reapplies the eager/non-deferred rules to tools introduced or changed by the caller.\n\n5. **`sanitizeAnthropicCcRequestParams` performs final model checks.**  \n   `src/anthropic-cc/request.ts:148`. It:\n   - Removes unsupported sampling fields.\n   - Converts legacy enabled/budgeted thinking to adaptive thinking when required.\n   - Removes trailing assistant prefill for models that reject it, accounting for managed-effort control messages.\n   - Removes `context_management` if thinking is not active.\n\n6. **The wrapper restores the saved `metadata.user_id`.**  \n   `src/anthropic-cc/stream.ts:78–84`. Other callback metadata survives, but the caller cannot replace the provider-established identity.\n\n7. **Stock code forces streaming and calls the SDK.**  \n   `src/anthropic-cc/vendor/anthropicStock.ts:403` sends:\n   ```ts\n   client.messages.create({ ...params, stream: true }, requestOptions)\n   ```\n   The fetch wrapper, **`withMessagesBetaQuery`**, subsequently adjusts the URL and transport headers—not the body.\n\nThe identity/system/default overrides are **not** rerun after the caller callback; only tool policy, model sanitization, identity protection, and the final `stream: true` enforcement follow it.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "The live path is **stock `buildParams` → provider’s wrapped `onPayload` → SDK `messages.create`**. The rewrites run in this order:\n\n1. **Stock `buildParams` builds the initial body.**  \n   `src/anthropic-cc/vendor/anthropicStock.ts:398–400` then awaits `options.onPayload`. For this provider, that is the wrapper installed by `streamAnthropicCc` in `src/anthropic-cc/stream.ts:55`.\n\n2. **`applyAnthropicCcBodyOverrides` applies the provider defaults.**  \n   In `src/anthropic-cc/overrides.ts:299`, it performs these operations in order:\n   - **`applyAnthropicCcIdentityOverrides`** preserves existing metadata, fills a missing `metadata.user_id` with the file-backed synthetic ID, and replaces `system`.\n   - **`buildAnthropicCcSystemPrelude`** constructs the replacement system array: billing header, Claude Agent SDK identity, then the user system prompt. For OAuth, **`sanitizeAnthropicCcSystemPrompt`** removes recognized Pi identity statements and rewrites recognized documentation references to neutral aliases. Only the final system block receives the cache-control setting recovered from the stock body.\n   - Adds baseline `context_management` and `thinking` only when those fields are absent.\n   - **`applyAnthropicCcToolPolicy`** removes deferred placeholders and applies **`applyAnthropicCcToolDefinitionPolicy`** to top-level tools and inline tool additions: strip `cache_control` and `defer_loading`, force `eager_input_streaming: true`.\n   - Sets adaptive thinking’s `display` to `\"omitted\"` when `block_binding` is absent.\n   - Preserves an existing `output_config` exactly; otherwise supplies the applicable baseline/model default.\n\n3. **The wrapper saves the established user ID, then awaits the caller’s `onPayload`.**  \n   `src/anthropic-cc/stream.ts:64–73`. The caller sees the already-overridden body. It may mutate it or return a replacement; returning `undefined` retains the current object.\n\n4. **`applyAnthropicCcToolPolicy` runs again.**  \n   `src/anthropic-cc/stream.ts:76`. This reapplies the eager/non-deferred rules to tools introduced or changed by the caller.\n\n5. **`sanitizeAnthropicCcRequestParams` performs final model checks.**  \n   `src/anthropic-cc/request.ts:148`. It:\n   - Removes unsupported sampling fields.\n   - Converts legacy enabled/budgeted thinking to adaptive thinking when required.\n   - Removes trailing assistant prefill for models that reject it, accounting for managed-effort control messages.\n   - Removes `context_management` if thinking is not active.\n\n6. **The wrapper restores the saved `metadata.user_id`.**  \n   `src/anthropic-cc/stream.ts:78–84`. Other callback metadata survives, but the caller cannot replace the provider-established identity.\n\n7. **Stock code forces streaming and calls the SDK.**  \n   `src/anthropic-cc/vendor/anthropicStock.ts:403` sends:\n   ```ts\n   client.messages.create({ ...params, stream: true }, requestOptions)\n   ```\n   The fetch wrapper, **`withMessagesBetaQuery`**, subsequently adjusts the URL and transport headers—not the body.\n\nThe identity/system/default overrides are **not** rerun after the caller callback; only tool policy, model sanitization, identity protection, and the final `stream: true` enforcement follow it.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
