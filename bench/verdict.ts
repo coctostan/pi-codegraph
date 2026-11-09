@@ -6,7 +6,7 @@
  *
  * With `--on-results`, the on arm comes from that directory and only the off cells of `--results` count.
  * Exits 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded cell, or cells run on
- * different pi versions. Only `*.json` files directly under a results directory count, so `pilot/` and the
+ * different pi versions or anthropic-cc provider commits. Only `*.json` files directly under a results directory count, so `pilot/` and the
  * transcripts are skipped.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -43,6 +43,8 @@ export interface TaskResult {
 export type Verdict = "keep" | "freeze" | "retire";
 
 const ARMS: Arm[] = ["on", "off"];
+/** Fields every cell must share; a cell without one counts as the value `none`. */
+const PINNED = ["piVersion", "providerCommit"] as const;
 
 function expectedCells(tasks: Task[], t: Thresholds) {
   const cells = new Map<string, { task: Task; arm: Arm; model: string; repeat: number }>();
@@ -63,7 +65,7 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
   const expected = expectedCells(tasks, thresholds);
   const problems: string[] = tasks.length === 0 ? ["no tasks"] : [];
   for (const name of files.keys()) if (!expected.has(name)) problems.push(`${name}: unexpected cell`);
-  const versions: Record<Arm, Set<string>> = { on: new Set(), off: new Set() };
+  const pins = Object.fromEntries(PINNED.map((f) => [f, { on: new Set(), off: new Set() }])) as Record<(typeof PINNED)[number], Record<Arm, Set<unknown>>>;
   for (const [name, want] of expected) {
     const raw = files.get(name);
     if (raw === undefined) {
@@ -91,7 +93,7 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
       problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
       continue;
     }
-    versions[want.arm].add(c.piVersion);
+    for (const f of PINNED) pins[f][want.arm].add(c[f] ?? "none");
     const identity: Record<string, unknown> = {
       cell: name.slice(0, -".json".length),
       task: want.task.id,
@@ -112,9 +114,11 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
     const regraded = grade(want.task.key, c.finalText).correct;
     if (regraded !== c.grade.correct) problems.push(`${name}: recorded grade correct=${c.grade.correct}, key gives ${regraded}`);
   }
-  if (new Set([...versions.on, ...versions.off]).size > 1) {
-    const named = ARMS.filter((a) => versions[a].size > 0);
-    problems.push(`piVersion mismatch: ${named.map((a) => `${a} arm ${[...versions[a]].sort().join("/")}`).join(", ")}`);
+  for (const f of PINNED) {
+    const seen = pins[f];
+    if (new Set([...seen.on, ...seen.off]).size <= 1) continue;
+    const named = ARMS.filter((a) => seen[a].size > 0);
+    problems.push(`${f} mismatch: ${named.map((a) => `${a} arm ${[...seen[a]].sort().join("/")}`).join(", ")}`);
   }
   return problems;
 }

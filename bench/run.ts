@@ -4,8 +4,9 @@
  *   bun bench/run.ts --task bench/pilot/compute-anchor-callers.json --arm on --model openai-codex/gpt-6.1-sol --repeat 1
  *
  * Each cell gets a fresh detached worktree of the sibling repo at the task's commit, its deps installed;
- * the on arm is indexed before the timed `pi` run. Both arms load codegraph from this checkout and differ
- * only by `-xt symbol_graph,impact,trace`.
+ * the on arm is indexed before the timed `pi` run. Both arms load codegraph from this checkout and the
+ * anthropic-cc provider from `--provider` (default the sibling pi-claude-header), each cell recording both
+ * commits, and differ only by `-xt symbol_graph,impact,trace`.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -147,11 +148,12 @@ async function main(): Promise<number> {
       model: { type: "string" },
       repeat: { type: "string", default: "1" },
       out: { type: "string", default: "bench/results/pilot" },
+      provider: { type: "string" },
     },
   });
   const arm = values.arm as Arm;
   if (!values.task || !values.model || (arm !== "on" && arm !== "off")) {
-    console.error("usage: bun bench/run.ts --task <file> --arm on|off --model <provider/id> [--repeat n] [--out dir]");
+    console.error("usage: bun bench/run.ts --task <file> --arm on|off --model <provider/id> [--repeat n] [--out dir] [--provider pi-claude-header dir]");
     return 2;
   }
   const repeat = Number(values.repeat);
@@ -164,9 +166,12 @@ async function main(): Promise<number> {
     console.error(`${cellPath} exists; a recorded cell is never overwritten`);
     return 1;
   }
-  // shortcut: target repos and the anthropic-cc provider are resolved as siblings of this checkout; take paths as flags when the bench leaves this machine.
+  // shortcut: target repos are resolved as siblings of this checkout; take paths as flags when the bench leaves this machine.
   const sourceRepo = resolve(repoRoot, "..", task.repo);
-  const extensions = [join(repoRoot, "src", "index.ts"), resolve(repoRoot, "..", "pi-claude-header", "src", "index.ts")];
+  const providerRepo = resolve(values.provider ?? join(repoRoot, "..", "pi-claude-header"));
+  const extensions = [join(repoRoot, "src", "index.ts"), join(providerRepo, "src", "index.ts")];
+  // Read before the run, so a bad --provider fails at no cost and a checkout moved mid-run can't relabel the cell.
+  const providerCommit = sh("git", ["rev-parse", "HEAD"], providerRepo);
   const tmp = mkdtempSync(join(tmpdir(), "codegraph-bench-"));
   const worktree = join(tmp, task.repo);
   sh("git", ["worktree", "add", "--detach", worktree, task.commit], sourceRepo);
@@ -192,6 +197,7 @@ async function main(): Promise<number> {
       thinking: THINKING,
       repeat,
       codegraphCommit: sh("git", ["rev-parse", "HEAD"], repoRoot),
+      providerCommit,
       piVersion: sh("pi", ["--version"], worktree),
       startedAt: startedAt.toISOString(),
       wallMs,
