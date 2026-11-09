@@ -97,6 +97,15 @@ test("a failed lookup whose call is edited away leaves no record", async () => {
   });
 });
 
+test("a timed-out lookup on a member call reads partial on the member's card, which it calls by its bare name", async () => {
+  await withRepo(async (root, store) => {
+    writeFileSync(join(root, "src", "main.ts"), ["export class Store {", "  add() {}", "}", "export function a(s: Store) {", "  s.add();", "}", ""].join("\n"));
+    await indexProject(root, store, { lspClientFactory: throwing("TsServer request timed out: definition") });
+    const text = card(root, store, "Store.add");
+    expect(text).toStartWith("Trust: partial\n");
+    expect(text).toContain(NOTE);
+  });
+});
 test("an unchanged project's run writes no lookup record", async () => {
   for (const client of [throwing("TsServer request timed out: definition"), fakeClient(async () => null)]) {
     await withRepo(async (root, store) => {

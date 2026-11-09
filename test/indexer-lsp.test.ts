@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { runLspIndexStage } from "../src/indexer/lsp.js";
+import { indexProject } from "../src/indexer/pipeline.js";
 import { extractFile } from "../src/indexer/tree-sitter.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
 import type { GraphEdge } from "../src/graph/types.js";
@@ -265,4 +269,99 @@ test("a call inside a test callback resolves to its target with the test node ke
   expect(callers.map((c) => [c.node.name, c.edge.provenance.source])).toEqual([["tests/b.test.ts > targets", "lsp"]]);
 
   store.close();
+});
+
+test("member calls resolve to members: obj.m(), an inherited this.m(), new X() to its constructor or class, a decorated field", async () => {
+  const store = new SqliteGraphStore();
+  const files: Record<string, string[]> = {
+    "src/store.ts": [
+      "export class Base {",
+      "  m() {}",
+      "  close() {}",
+      "}",
+      "export class Store extends Base {",
+      "  constructor() { super(); }",
+      "  @log",
+      "  load = () => 1;",
+      "  run() { this.m(); }",
+      "}",
+      "export class Plain {}",
+    ],
+    "src/use.ts": [
+      'import { Store, Plain } from "./store";',
+      "export function use(s: Store, xs: number[], other: Closer) {",
+      "  s.load();",
+      "  new Store();",
+      "  new Plain();",
+      "  xs.push(1);",
+      "  other.close();",
+      "  s.load();",
+      "}",
+    ],
+  };
+  for (const [file, lines] of Object.entries(files)) {
+    const extracted = extractFile(file, lines.join("\n"));
+    store.addNode(extracted.module);
+    for (const node of extracted.nodes) store.addNode(node);
+    for (const edge of extracted.edges) store.addEdge(edge);
+    store.setFileHash(file, extracted.module.content_hash);
+  }
+  // tsserver's definition: a member's name, so a decorated field's is a line below its node's start; a constructor's
+  // for `new X()`; a lib or interface member for a receiver no class types.
+  const definitions: Record<string, { file: string; line: number; col: number }> = {
+    "src/use.ts:3:5": { file: "src/store.ts", line: 8, col: 3 },
+    "src/use.ts:8:5": { file: "src/store.ts", line: 8, col: 3 },
+    "src/use.ts:4:7": { file: "src/store.ts", line: 6, col: 3 },
+    "src/use.ts:5:7": { file: "src/store.ts", line: 11, col: 14 },
+    "src/use.ts:7:9": { file: "lib.d.ts", line: 1, col: 1 },
+    "src/store.ts:9:16": { file: "src/store.ts", line: 2, col: 3 },
+  };
+  const asked: string[] = [];
+  const client: ITsServerClient = {
+    async definition(file, line, col) {
+      asked.push(`${file}:${line}:${col}`);
+      return definitions[`${file}:${line}:${col}`] ?? null;
+    },
+    async references() { return []; },
+    async implementations() { return []; },
+    async shutdown() {},
+  };
+
+  await runLspIndexStage(store, "/project", client);
+
+  // xs.push() is asked about by no run: no class declares a `push`.
+  expect(asked.sort()).toEqual(Object.keys(definitions).sort());
+  const callees = (source: string) =>
+    store.getNeighbors(source, { direction: "out", kind: "calls" }).map((n) => [n.node.name, n.edge.provenance.source, n.edge.call_end?.line]);
+  expect(callees("src/use.ts::use:2").sort()).toEqual([
+    ["Plain", "lsp", 5],
+    ["Store.constructor", "lsp", 4],
+    ["Store.load", "lsp", 3],
+  ]);
+  expect(callees("src/store.ts::Store.run:9")).toEqual([["Base.m", "lsp", 9]]);
+  // The calls no project node answers stay hidden: no unresolved line, no edge a reader joins to a node.
+  expect(store.getUnresolvedEdges().filter((e) => e.kind === "calls")).toEqual([]);
+  expect(store.getEdgesBySource("src/use.ts::use:2").filter((e) => e.provenance.source === "tree-sitter").map((e) => e.provenance.evidence).sort()).toEqual(["close:7:9", "push:6:6"]);
+
+  store.close();
+});
+
+test("a member call left hidden is no dangling edge, so an unchanged project's run re-extracts nothing", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-cg-member-call-"));
+  mkdirSync(join(root, "src"));
+  writeFileSync(join(root, "src", "a.ts"), "export function a(xs: number[]) {\n  xs.push(1);\n}\n");
+  const store = new SqliteGraphStore();
+  const client = (): ITsServerClient => ({ definition: async () => null, references: async () => [], implementations: async () => [], shutdown: async () => {} });
+  try {
+    await indexProject(root, store, { lspClientFactory: client });
+    expect(store.getEdgesBySource("src/a.ts::a:1").map((e) => e.provenance.evidence)).toEqual(["push:2:6"]);
+    const cleared: string[] = [];
+    const clearFile = store.clearFile.bind(store);
+    store.clearFile = (file) => { cleared.push(file); clearFile(file); };
+    await indexProject(root, store, { lspClientFactory: client });
+    expect(cleared).toEqual([]);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 });

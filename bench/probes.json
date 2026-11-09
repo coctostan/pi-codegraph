@@ -222,5 +222,17 @@
       "ordered": ["## SqliteGraphStore.addEdge (function)", "\nsrc/graph/sqlite.ts  "],
       "none": ["not found", "Multiple matches"]
     }
+  },
+  {
+    "id": "class-impact",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "impact",
+    "params": { "symbols": ["BM25Index.search"], "changeType": "behavior_change" },
+    "expect": {
+      "resolves": true,
+      "all": ["symbolSearch", "test/bm25-index.test.ts"],
+      "none": ["No dependents", "untested"]
+    }
   }
 ]

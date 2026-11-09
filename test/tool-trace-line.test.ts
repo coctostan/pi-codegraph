@@ -40,14 +40,23 @@ const APP = [
   "  }",
   "  peek() { return deep(); }",
   "}",
+  "export function useStore(s: Store, xs: { peek(): void }) {",
+  "  return [1].map(() => { xs.peek(); s.peek(); });",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
-/** A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` declaring it there, so no test waits on a real one. */
+/**
+ * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` or member `<name>(` declaring it
+ * there, so no test waits on a real one; an `xs.` receiver is typed by no class.
+ */
 const sameFileDefinitions: ITsServerClient = {
   definition: async (file, line, col) => {
-    const name = /^\w+/.exec(APP[line - 1]?.slice(col - 1) ?? "")?.[0];
-    const at = file === "src/app.ts" && name ? APP.findIndex((l) => l.includes(`function ${name}(`)) : -1;
+    const text = APP[line - 1] ?? "";
+    const name = /^\w+/.exec(text.slice(col - 1))?.[0];
+    if (file !== "src/app.ts" || !name || text.slice(0, col - 1).endsWith("xs.")) return null;
+    const declared = (l: string) => l.includes(`function ${name}(`) || l.startsWith(`  ${name}(`);
+    const at = APP.findIndex(declared);
     return at < 0 ? null : { file, line: at + 1, col: 1 };
   },
   references: async () => [],
@@ -155,6 +164,15 @@ test("a line in a class member traces that member as its entry does; a line in a
   const callback = await trace({ file: "src/app.ts", line: lineOf("this.peek()") });
   expect(tree(callback.text)).toEqual(["<anonymous> (in Store.load)", "  Store.peek", "    deep [leaf]"]);
   expect(callback.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("another object's member call tsserver resolves traces to that member, by entry and by line; one it can't prints nothing", async () => {
+  const { trace } = setup();
+  const byEntry = await trace({ entry: "useStore", file: "src/app.ts" });
+  expect(tree(byEntry.text)).toEqual(["useStore [entry-point]", "  Store.peek", "    deep [leaf]"]);
+  const byLine = await trace({ file: "src/app.ts", line: lineOf("xs.peek()") });
+  expect(tree(byLine.text)).toEqual(["<anonymous> (in useStore)", "  Store.peek", "    deep [leaf]"]);
+  expect(byLine.text.startsWith("Trust: fresh")).toBe(true);
 });
 
 test("a line in an indexed function traces it as trace by entry does", async () => {
