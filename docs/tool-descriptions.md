@@ -11,10 +11,10 @@ Tool descriptions exist to help the model decide whether to call a tool. Keep th
 6. Do not restate parameters that the TypeBox schema already documents.
 
 ## Good
-- `Summarize a symbol with relationships, tests, and key metadata.`
+- `Summarize a symbol: who calls it, which tests call it, what it calls, and key metadata.`
 - `Run a Cypher-subset query against the symbol graph.`
-- `Classify blast radius for changed symbols.`
-- `Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.`
+- `Classify blast radius for changed symbols, then list the tests calling them directly before those reached through other callers.`
+- `Return the call tree below an entry point or the function holding a file line, or, when coverage has one, the functions a covering test's report covered.`
 
 ## Bad
 - `Execute a Cypher subset query against the graph. Examples: MATCH ...`

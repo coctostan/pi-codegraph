@@ -433,10 +433,11 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "symbol_graph",
     label: "Symbol Graph",
-    description: "Summarize a symbol with relationships, tests, and key metadata.",
-    promptSnippet: "Look up a TypeScript symbol: callers (test cases listed by file), callees, tests, contract, and anchored source",
+    description: "Summarize a symbol: who calls it, which tests call it, what it calls, and key metadata.",
+    promptSnippet: "Look up a TypeScript symbol: who calls it, which tests call it (test cases listed by file), what it calls, its contract and anchored source",
     promptGuidelines: [
       "Use symbol_graph to find who calls a symbol instead of chaining grep and read: it lists the test cases among its callers by file, and `include: [\"neighborhood\"]` adds implementors and importers.",
+      "Asked which tests exercise or cover a symbol, or which to rerun after changing it, answer from symbol_graph's `Test callers (<n> in <m> files)`, the test files that call it directly, instead of grepping the tests.",
     ],
     parameters: SymbolGraphParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -493,11 +494,12 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "impact",
     label: "Impact",
-    description: "Classify blast radius for changed symbols.",
-    promptSnippet: "List the callers a TypeScript symbol change reaches, directly or indirectly, each breaking or behavioral, then the tests reached",
+    description: "Classify blast radius for changed symbols, then list the tests calling them directly before those reached through other callers.",
+    promptSnippet: "List the callers a TypeScript symbol change reaches, directly or indirectly, each breaking or behavioral, then the tests calling it directly, before those reached through other callers",
     promptGuidelines: [
       "Run impact on the symbols you are about to change before editing a shared function, class, or interface.",
       "impact follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5): a direct dependent of a `signature_change` or `removal` is breaking, every other dependent behavioral; the test files and cases come last, those calling a changed symbol directly in a `Tests reached directly` list, then the rest in a `Tests reached through other callers` list.",
+      "Asked which tests exercise a changed symbol, answer from `Tests reached directly`, the tests that call it; `Tests reached through other callers` is the wider rerun set, not a list to prune by hand.",
     ],
     parameters: ImpactParams,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -524,10 +526,11 @@ export default function piCodegraph(pi: ExtensionAPI): void {
   registerReadOnlyTool(pi, {
     name: "trace",
     label: "Trace",
-    description: "Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.",
-    promptSnippet: "Trace what a TypeScript function, endpoint, or test calls, as a call tree in call-site order, or list the functions a covering test's report covered",
+    description: "Return the call tree below an entry point or the function holding a file line, or, when coverage has one, the functions a covering test's report covered.",
+    promptSnippet: "Trace what runs from a TypeScript function, endpoint, test, or the handler or callback holding a `file` + `line`, as a call tree in call-site order, or list the functions a covering test's report covered",
     promptGuidelines: [
-      "Use trace to follow what an entry point executes instead of reading each callee by hand.",
+      "Use trace when asked what runs, or in what order, from a function, handler or callback onward, or between one point and another, instead of reading each callee by hand.",
+      "Start trace at a function, endpoint or test case by `entry`, or at an object method or anonymous callback the index names no symbol for by `file` and `line`: it starts at the innermost function holding that line.",
       "trace prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `(see above)`, an unresolved call is a `? name (unresolved, file:line)` line, and `N more omitted beyond depth 3` counts the rest, so trace a deeper callee to continue. When a coverage report covers the entry, it prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list.",
     ],
     parameters: TraceParams,

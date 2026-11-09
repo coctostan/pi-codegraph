@@ -15,9 +15,10 @@ A symbol-level code intelligence engine for coding agents. Builds a graph of eve
 Coding agents waste tool calls fishing for context. They grep for a function name, read the file, grep for its callers, read those files, and hope they found everything. pi-codegraph replaces that pattern with a structured graph that answers questions directly:
 
 - **"What calls this function?"** → `symbol_graph` returns a compact symbol card by default; add `include: ["neighborhood"]` for the full relationship neighborhood
+- **"Which tests exercise this? Which do I rerun after changing it?"** → `symbol_graph`'s `Test callers` lists the test files that call it; `impact` lists them as `Tests reached directly`, before the tests that reach it through other callers
 - **"What breaks if I change this?"** → `impact` traces downstream dependents by change type
 - **"What does this function promise?"** → `symbol_graph` with `include: ["contract"]` appends behavioral contract details from code and tests
-- **"Show me the execution path"** → `trace` returns an anchored call tree in call-site order
+- **"What runs from here, in what order?"** → `trace` returns an anchored call tree in call-site order, from a named function or from the `file` and `line` of a handler or callback with no name
 - **"Show me the source"** → `symbol_graph` with `include: ["source"]` appends anchored source for the resolved symbol
 
 Editable anchor locations are rendered as two adjacent fields: the file path as context, then a bare `LINE:HASH` token, for example `src/a.ts  10:abc`. The `LINE:HASH` token uses the same exact-line xxhash algorithm as pi-hashline-readmap (only a trailing CR is ignored; whitespace is significant).
@@ -104,7 +105,7 @@ After installing the toolchain, re-run `bun install` (or `npm install`).
 ### Public
 
 #### `symbol_graph`
-Summarize a symbol with relationships, tests, and key metadata.
+Summarize a symbol: who calls it, which tests call it, what it calls, and key metadata.
 By default, `symbol_graph({ name: "validateToken" })` already includes test signals in the compact card.
 Allowed include values: `"neighborhood"`, `"contract"`, `"source"`. `"tests"` is not a valid include value.
 The card lists up to 5 callers, then the test cases calling the symbol by file (`Test callers (<n> in <m> files)`), callees and imports; `"neighborhood"` adds implementors, importers and every other edge kind.
@@ -117,7 +118,7 @@ symbol_graph({ name: "validateToken", include: ["source"] })
 symbol_graph({ name: "validateToken", include: ["neighborhood", "contract", "source"] })
 ```
 #### `impact`
-Classify blast radius for changed symbols.
+Classify blast radius for changed symbols, then list the tests calling them directly before those reached through other callers.
 It follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5). Each row is `<file>  <LINE:HASH>  <name>  <class>  depth:<n>`, by depth then file: a direct dependent of a `signature_change` or `removal` is `breaking`, every other dependent `behavioral`. The test files and test cases reached follow: those calling a changed symbol directly in a `Tests reached directly (<c> cases in <f> files):` list, then the rest in a `Tests reached through other callers (<c> cases in <f> files):` list, each file once per list.
 Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`; `"addition"` returns a note, no dependents.
 ```
@@ -127,7 +128,7 @@ impact({ symbols: ["validateToken"], changeType: "behavior_change", maxDepth: 2 
 ```
 
 #### `trace`
-Return the call tree below an entry point, or, when coverage has one, the functions a covering test's report covered.
+Return the call tree below an entry point or the function holding a file line, or, when coverage has one, the functions a covering test's report covered.
 The static tree prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `<name> (see above)`, an unresolved call is a `? <name> (unresolved, <file>:<line>)` line, and `N more omitted beyond depth 3` counts the rest. When a coverage report covers the entry, `trace` prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list. The entry is a function, endpoint or test case, or, by `file` and `line`, the innermost function holding that line: an object method or anonymous callback the graph holds no node for starts a tree of its own calls, its line naming the enclosing function, as `execute (in setup)`.
 ```
 trace({ entry: "loginHandler" })
