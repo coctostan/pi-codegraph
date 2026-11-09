@@ -70,12 +70,22 @@ test("a member's calls are filed under it, a this-call to a member its class dec
   expect(calls(id("Store.size", "get size"))).toEqual([id("Store.count", "count() {")]);
 });
 
-test("a static member's this-call reaches the static side, an instance member's the instance side", () => {
-  const pair = ["class Pair {", "  static m() {}", "  m() {}", "  static run() { this.m(); }", "  run() { this.m(); }", "}"].join("\n");
+test("a static member's this-call reaches the static side, an instance member's the instance side, a getter over its setter", () => {
+  const pair = [
+    "class Pair {",
+    "  static m() {}",
+    "  m() {}",
+    "  get a() { return () => 1; }",
+    "  set a(v) {}",
+    "  static run() { this.m(); }",
+    "  run() { this.m(); this.a(); }",
+    "}",
+  ].join("\n");
   const edges = extractFile(FILE, pair).edges.filter((e) => e.kind === "calls");
   expect(edges.map((e) => [e.source, e.target])).toEqual([
-    [nodeId(FILE, "Pair.run", 4), nodeId(FILE, "Pair.m", 2)],
-    [nodeId(FILE, "Pair.run", 5), nodeId(FILE, "Pair.m", 3)],
+    [nodeId(FILE, "Pair.run", 6), nodeId(FILE, "Pair.m", 2)],
+    [nodeId(FILE, "Pair.run", 7), nodeId(FILE, "Pair.m", 3)],
+    [nodeId(FILE, "Pair.run", 7), nodeId(FILE, "Pair.a", 4)],
   ]);
 });
 

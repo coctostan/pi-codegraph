@@ -652,13 +652,14 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     });
     type ClassMembers = Record<"static" | "instance", Map<string, string>>;
     const isStatic = (member: SyntaxNode) => member.children.some((c) => c.type === "static");
-    /** A class's static and instance members, apart, by their bare name, each to its node; of a getter and setter, the last. */
+    /** A class's static and instance members, apart, by their bare name, each to its node; a setter none, as no read runs it. */
     const membersOf = (cls: SyntaxNode): ClassMembers => {
       const sides: ClassMembers = { static: new Map(), instance: new Map() };
       for (const m of cls.childForFieldName("body")?.namedChildren ?? []) {
         const name = memberName(m);
         const bare = m.childForFieldName("name")?.text;
-        if (name && bare) sides[isStatic(m) ? "static" : "instance"].set(bare, nodeId(file, name, m.startPosition.row + 1));
+        const setter = m.children.some((c) => c.type === "set");
+        if (name && bare && !setter) sides[isStatic(m) ? "static" : "instance"].set(bare, nodeId(file, name, m.startPosition.row + 1));
       }
       return sides;
     };
