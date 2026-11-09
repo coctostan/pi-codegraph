@@ -1,7 +1,7 @@
 ---
 from: space:arcs/right-tool.md
 ---
-# The right-tool re-run reads keep
+# The two-arm re-run reads keep
 
 On 2026-11-09, 72 cells in `bench/results/rerun-2/` (decision 0002's 6 tasks × codegraph on and off × `anthropic-cc/claude-opus-5-5` and `openai-codex/gpt-6.1-sol` × 3 repeats, pi 1.5.0, codegraph at `1a7f689a`, pi-claude-header at `decd5acd`) were all answered correctly. `bun bench/verdict.ts --results bench/results/rerun-2` judges each task and model apart and prints `wins 10/12` and `keep`, with `pooled wins 5/6 keep` beside it. Decision 0002's keep stands and this record supersedes nothing. Decision 0003's `freeze` came from one wrong on cell set against decision 0002's stored off arm; this run ran both arms again on one provider commit, since the anthropic-cc provider now refuses the stored arm's, and no cell was wrong.
 
