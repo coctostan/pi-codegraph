@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphStore } from "../graph/store.js";
+import { findSymbolNodes } from "./symbol-resolution.js";
 
 interface SessionStats {
   totalCalls: number;
@@ -55,7 +56,7 @@ export function collectNaiveFiles(
       const name = params.name as string | undefined;
       const file = params.file as string | undefined;
       if (!name) break;
-      const nodes = store.findNodes(name, file);
+      const nodes = findSymbolNodes(store, name, file);
       for (const node of nodes) {
         if (!node.file.startsWith("__unresolved__")) files.add(node.file);
         const neighbors = store.getNeighbors(node.id);
@@ -70,7 +71,7 @@ export function collectNaiveFiles(
       const symbols = params.symbols as string[] | undefined;
       if (!symbols) break;
       for (const sym of symbols) {
-        const nodes = store.findNodes(sym);
+        const nodes = findSymbolNodes(store, sym);
         for (const node of nodes) {
           if (!node.file.startsWith("__unresolved__")) files.add(node.file);
           const neighbors = store.getNeighbors(node.id, { direction: "in" });
@@ -86,7 +87,7 @@ export function collectNaiveFiles(
       const entry = params.entry as string | undefined;
       const file = params.file as string | undefined;
       if (!entry) break;
-      const nodes = store.findNodes(entry, file);
+      const nodes = findSymbolNodes(store, entry, file);
       if (nodes.length === 1) {
         const node = nodes[0]!;
         if (!node.file.startsWith("__unresolved__")) files.add(node.file);

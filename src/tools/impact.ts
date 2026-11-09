@@ -3,7 +3,7 @@ import type { GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer } from "../output/signals.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
-import { formatAmbiguousMatches } from "./symbol-resolution.js";
+import { findSymbolNodes, formatAmbiguousMatches } from "./symbol-resolution.js";
 
 export type ChangeType = "signature_change" | "removal" | "behavior_change" | "addition";
 export type ImpactClassification = "breaking" | "behavioral";
@@ -122,7 +122,7 @@ export interface ImpactParams {
 
 /** The rendered impact plus whether every requested symbol resolved to exactly one node. */
 export function impactResult(params: ImpactParams): { text: string; resolved: boolean } {
-  const matches = (params.symbols ?? []).map((symbol) => params.store.findNodes(symbol));
+  const matches = (params.symbols ?? []).map((symbol) => findSymbolNodes(params.store, symbol));
   const resolved = matches.length > 0 && matches.every((nodes) => nodes.length === 1);
   const targetNodes = matches.flat();
   const withFreshness = (

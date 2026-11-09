@@ -8,7 +8,7 @@ import { extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
-import { resolveUniqueSymbol, type SymbolResolution } from "./symbol-resolution.js";
+import { findSymbolNodes, resolveUniqueSymbol, type SymbolResolution } from "./symbol-resolution.js";
 
 export interface TraceParams {
   entry?: string;
@@ -355,7 +355,7 @@ function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
   }
   if (resolved.kind === "not_found") {
     if (params.file) {
-      const unscopedMatches = params.store.findNodes(params.entry);
+      const unscopedMatches = findSymbolNodes(params.store, params.entry);
       if (unscopedMatches.length > 0) {
         const freshness = evaluateFreshness({
           store: params.store,

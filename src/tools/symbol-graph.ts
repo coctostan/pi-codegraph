@@ -13,7 +13,7 @@ import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.j
 import { createSignalComputer, type NodeSignals } from "../output/signals.js";
 import { namedTestCallerFiles, renderSymbolCardBody, renderSymbolSourceSection } from "./symbol-card.js";
 import { renderSymbolContractBody } from "./symbol-contract.js";
-import { formatAmbiguousMatches } from "./symbol-resolution.js";
+import { findSymbolNodes, formatAmbiguousMatches } from "./symbol-resolution.js";
 
 export interface SymbolGraphParams {
   name: string;
@@ -240,12 +240,12 @@ function collectSymbolGraphScope(params: SymbolGraphParams, nodes: GraphNode[]):
 
 /**
  * The rendered card plus whether `name` (scoped by `file`) resolved to exactly one node. `nodes`, when given, is the
- * `findNodes(name, file)` result the caller already holds, so the call looks the name up once.
+ * `findSymbolNodes(store, name, file)` result the caller already holds, so the call looks the name up once.
  */
 export function symbolGraphResult(params: SymbolGraphParams & { nodes?: GraphNode[] }): { text: string; resolved: boolean } {
   const { name, store, projectRoot } = params;
   const include = params.include ?? [];
-  const nodes = params.nodes ?? store.findNodes(name, params.file);
+  const nodes = params.nodes ?? findSymbolNodes(store, name, params.file);
   let body: string;
   if (nodes.length === 0) {
     body = `Symbol "${name}" not found`;
