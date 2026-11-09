@@ -30,10 +30,16 @@ function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode,
   else store.setLookupFailed(queryLookup(kind, symbol, col), true);
 }
 
+/**
+ * The 1-based column of `symbolName`'s declaration on `line`: a member, `Class.member`, by its bare name. It takes the
+ * name a `(`, `<`, `=`, `:`, `?` or `!` follows, so not a keyword holding it (`static at()`, `get get()`); else the first.
+ */
 function findSymbolColumn(projectRoot: string, file: string, line: number, symbolName: string): number {
   try {
-    const lines = readFileSync(join(projectRoot, file), "utf8").split(/\r?\n/);
-    const idx = (lines[line - 1] ?? "").indexOf(symbolName);
+    const text = readFileSync(join(projectRoot, file), "utf8").split(/\r?\n/)[line - 1] ?? "";
+    const bare = symbolName.slice(symbolName.lastIndexOf(".") + 1);
+    const token = new RegExp(`(?<![\\w$#])${escapeRegex(bare)}(?=\\s*[(<=:?!])`).exec(text);
+    const idx = token ? token.index : text.indexOf(symbolName);
     return idx >= 0 ? idx + 1 : 1;
   } catch {
     return 1;
@@ -99,9 +105,11 @@ export async function resolveMissingCallers(
   }
   const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
   for (const ref of refs) {
+    // The innermost node holding the reference, by the narrowest span: a method, not its class.
     const callerNode = store
       .getNodesByFile(ref.file)
-      .find((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line));
+      .filter((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line))
+      .sort((a, b) => (a.end_line ?? Number.MAX_SAFE_INTEGER) - a.start_line - ((b.end_line ?? Number.MAX_SAFE_INTEGER) - b.start_line))[0];
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
     for (const f of failedCalls) {

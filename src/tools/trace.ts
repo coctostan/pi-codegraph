@@ -62,14 +62,15 @@ function endsBefore(a: CallEnd, b: CallEnd): boolean {
   return !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
 }
 
-const unresolvedName = (edge: GraphEdge) => edge.target.slice(UNRESOLVED.length, edge.target.lastIndexOf(":"));
+// A callee's name from its edge's target id, `<file>::<name>:<line>`: an unresolved call's, or a `this.m()` the index resolved.
+const calleeName = (edge: GraphEdge) => edge.target.slice(edge.target.indexOf("::") + 2, edge.target.lastIndexOf(":"));
 
 /** An unresolved call's callee, printed at `at`'s call: `edge` itself unless a stored edge stands for a call it read. */
 function unresolvedCallee(edge: GraphEdge, file: string, at: GraphEdge = edge): Callee {
   // Tree-sitter's evidence is `<callee>:<line>:<col>`, the callee's start.
   const evidenceLine = Number(at.provenance.evidence.split(":").at(-2));
   const line = Number.isInteger(evidenceLine) ? evidenceLine : (at.call_end?.line ?? 0);
-  return { unresolved: { edge, line: `? ${unresolvedName(edge)} (unresolved, ${file}:${line})` }, end: at.call_end, file, line };
+  return { unresolved: { edge, line: `? ${calleeName(edge)} (unresolved, ${file}:${line})` }, end: at.call_end, file, line };
 }
 
 const byCallOrder = (a: Callee, b: Callee): number =>
@@ -328,13 +329,13 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   const unindexed: string[] = [];
   const callees = fn.calls
     .map((call): Callee => {
-      const name = unresolvedName(call);
+      const name = calleeName(call);
       const hit = ownerCalls.find((n) => n.node.name === name);
       if (hit) {
         resolvedEdges.push(hit.edge);
         return { node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line };
       }
-      const stored = ownerUnresolved.find((e) => unresolvedName(e) === name);
+      const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
       return unresolvedCallee(stored ?? call, file, call);
     })

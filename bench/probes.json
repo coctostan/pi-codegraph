@@ -174,5 +174,29 @@
       ],
       "none": ["untested"]
     }
+  },
+  {
+    "id": "class-trace-entry",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "trace",
+    "params": { "entry": "SqliteGraphStore.getNeighbors", "file": "src/graph/sqlite.ts" },
+    "expect": {
+      "resolves": true,
+      "ordered": ["mode: static", "SqliteGraphStore.getNeighbors", "\n  src/graph/sqlite.ts  178:", "SqliteGraphStore.fetchNeighborRows"],
+      "none": ["untested"]
+    }
+  },
+  {
+    "id": "class-trace-line",
+    "repo": "pi-codegraph",
+    "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+    "tool": "trace",
+    "params": { "file": "src/graph/sqlite.ts", "line": 165 },
+    "expect": {
+      "resolves": true,
+      "ordered": ["mode: static", "SqliteGraphStore.getNeighbors", "\n  src/graph/sqlite.ts  178:", "SqliteGraphStore.fetchNeighborRows"],
+      "none": ["untested"]
+    }
   }
 ]
