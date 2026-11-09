@@ -135,6 +135,19 @@ test("auditCells names a piVersion mismatch between the arms, and needs a piVers
   expect(auditCells(tasks, thresholds, unversioned).join("\n")).toContain("t1__off__p_a__r1.json: malformed");
 });
 
+test("auditCells names a providerCommit mismatch across or within the arms, a missing one counting as a value of its own", () => {
+  const unpinned = fullSet();
+  expect(auditCells(tasks, thresholds, unpinned)).toEqual([]);
+  const pinned = fullSet((c) => ({ ...c, providerCommit: "abc" }));
+  expect(auditCells(tasks, thresholds, pinned)).toEqual([]);
+  const across = fullSet((c) => ({ ...c, providerCommit: c.arm === "on" ? "def" : "abc" }));
+  expect(auditCells(tasks, thresholds, across)).toEqual(["providerCommit mismatch: on arm def, off arm abc"]);
+  const within = fullSet((c) => ({ ...c, providerCommit: c.arm === "on" && c.model === "p/b" ? "def" : "abc" }));
+  expect(auditCells(tasks, thresholds, within)).toEqual(["providerCommit mismatch: on arm abc/def, off arm abc"]);
+  const missing = fullSet((c) => (c.task === "t1" && c.arm === "off" && c.model === "p/a" ? c : { ...c, providerCommit: "abc" }));
+  expect(auditCells(tasks, thresholds, missing)).toEqual(["providerCommit mismatch: on arm abc, off arm abc/none"]);
+});
+
 test("decide keeps when the on arm wins half the pairs without losing correctness", () => {
   const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" ? { ...c, tokens: { total: 750 } } : c)));
   const d = decide(tasks, thresholds, cells);
