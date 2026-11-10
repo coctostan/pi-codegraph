@@ -43,20 +43,40 @@ const APP = [
   "export function useStore(s: Store, xs: { peek(): void }) {",
   "  return [1].map(() => { xs.peek(); s.peek(); });",
   "}",
+  "export class Alpha {",
+  "  run() { return deep(); }",
+  "}",
+  "export class Beta {",
+  "  run() { return other(); }",
+  "}",
+  "export class Gamma {",
+  "  constructor() { helper(); }",
+  "}",
+  "export function both(a: Alpha, b: Beta) {",
+  "  return [1].map(() => { b.run(); a.run(); new Gamma(); });",
+  "}",
+  "export function twice(a: Alpha, b: Beta) {",
+  "  a.run();",
+  "  b.run();",
+  "  return [1].map(() => b.run());",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
 /**
- * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` or member `<name>(` declaring it
- * there, so no test waits on a real one; an `xs.` receiver is typed by no class.
+ * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(`, `class <name> ` or member
+ * `<name>(` declaring it there, a `b.` receiver's in `Beta`, so no test waits on a real one; an `xs.` receiver is typed
+ * by no class.
  */
 const sameFileDefinitions: ITsServerClient = {
   definition: async (file, line, col) => {
     const text = APP[line - 1] ?? "";
     const name = /^\w+/.exec(text.slice(col - 1))?.[0];
-    if (file !== "src/app.ts" || !name || text.slice(0, col - 1).endsWith("xs.")) return null;
-    const declared = (l: string) => l.includes(`function ${name}(`) || l.startsWith(`  ${name}(`);
-    const at = APP.findIndex(declared);
+    const before = text.slice(0, col - 1);
+    if (file !== "src/app.ts" || !name || before.endsWith("xs.")) return null;
+    const from = before.endsWith("b.") ? APP.indexOf("export class Beta {") : 0;
+    const declared = (l: string) => l.includes(`function ${name}(`) || l.includes(`class ${name} `) || l.startsWith(`  ${name}(`);
+    const at = APP.findIndex((l, i) => i >= from && declared(l));
     return at < 0 ? null : { file, line: at + 1, col: 1 };
   },
   references: async () => [],
@@ -173,6 +193,29 @@ test("another object's member call tsserver resolves traces to that member, by e
   const byLine = await trace({ file: "src/app.ts", line: lineOf("xs.peek()") });
   expect(tree(byLine.text)).toEqual(["<anonymous> (in useStore)", "  Store.peek", "    deep [leaf]"]);
   expect(byLine.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's member calls on two namesakes trace each to its own class, its new X() to X's constructor", async () => {
+  const { trace } = setup();
+  const out = await trace({ file: "src/app.ts", line: lineOf("b.run()") });
+  expect(tree(out.text)).toEqual([
+    "<anonymous> (in both)",
+    "  Beta.run",
+    "    other [leaf]",
+    "  Alpha.run",
+    "    deep [leaf]",
+    "  Gamma.constructor",
+    "    helper [leaf]",
+  ]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's member call its owner makes to two namesakes before it reads unresolved, not a guess", async () => {
+  const { trace } = setup();
+  const line = lineOf("map(() => b.run())");
+  const out = await trace({ file: "src/app.ts", line });
+  expect(tree(out.text)).toEqual(["<anonymous> (in twice)", `  ? run (unresolved, src/app.ts:${line})`]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(false);
 });
 
 test("a line in an indexed function traces it as trace by entry does", async () => {

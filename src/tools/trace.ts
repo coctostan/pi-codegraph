@@ -99,6 +99,8 @@ interface StaticTrace {
   nodeIds: string[];
   /** Each unresolved call printed, for the freshness check. */
   unresolvedEdges: GraphEdge[];
+  /** Each node whose own stored calls the tree listed. */
+  expanded: string[];
 }
 
 /**
@@ -116,6 +118,7 @@ function buildStaticTrace(
   const lines: StaticTrace["lines"] = [];
   const cut: GraphNode[] = [];
   const unresolvedEdges: GraphEdge[] = [];
+  const expanded: string[] = [];
   const visit = (node: GraphNode, depth: number): void => {
     const indent = "  ".repeat(depth);
     if (printed.has(node.id)) {
@@ -129,6 +132,7 @@ function buildStaticTrace(
       cut.push(node);
       return;
     }
+    if (depth > 0 || !entryCallees) expanded.push(node.id);
     for (const callee of depth === 0 && entryCallees ? entryCallees : orderedCallees(store, node)) {
       if (callee.node) visit(callee.node, depth + 1);
       else {
@@ -151,7 +155,7 @@ function buildStaticTrace(
     }
   }
   if (omitted.size > 0) lines.push({ line: `${omitted.size} more omitted beyond depth ${STATIC_TRACE_DEPTH}`, stale: false });
-  return { lines, nodeIds: [...printed], unresolvedEdges };
+  return { lines, nodeIds: [...printed], unresolvedEdges, expanded };
 }
 
 function formatStoredTraceLine(
@@ -327,27 +331,40 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   const ownerEdges = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls") : [];
   const ownerUnresolved = ownerEdges.filter((e) => e.target.startsWith(UNRESOLVED));
   // The `obj.m()` calls the LSP stage left unresolved, by call site: no project call, so they print nothing.
-  const hidden = new Set(ownerEdges.filter((e) => isMemberCall(e.target)).map((e) => e.provenance.evidence));
+  const hidden = new Map(ownerEdges.filter((e) => isMemberCall(e.target)).map((e) => [e.provenance.evidence, e]));
+  const hiddenEdges: GraphEdge[] = [];
   const resolvedEdges: GraphEdge[] = [];
   const unindexed: string[] = [];
   const callees = fn.calls
     .flatMap((call): Callee[] => {
-      if (isMemberCall(call.target) && hidden.has(call.provenance.evidence)) return [];
+      const left = isMemberCall(call.target) ? hidden.get(call.provenance.evidence) : undefined;
+      if (left) {
+        hiddenEdges.push(left);
+        return [];
+      }
       const name = calleeName(call);
-      // A member call resolves to `Class.<name>`: an exact name first, else a member by its bare name.
-      const hit = ownerCalls.find((n) => n.node.name === name) ?? ownerCalls.find((n) => n.node.kind === "function" && n.node.name.endsWith(`.${name}`));
+      // The owner's callees this call may have resolved to: by its name, a member's `Class.<name>`, a `new`'s constructor.
+      const named = ownerCalls.filter(
+        (n) => n.node.name === name || n.node.name === `${name}.constructor` || (n.node.kind === "function" && n.node.name.endsWith(`.${name}`)),
+      );
+      // The one whose stored call ends where this one does, else an exact name, else the only one; two namesakes, say
+      // `a.run()` and `b.run()` on two classes, leave the call unresolved rather than guess.
+      const hit =
+        named.find((n) => !!call.call_end && n.edge.call_end?.line === call.call_end.line && n.edge.call_end.col === call.call_end.col) ??
+        named.find((n) => n.node.name === name) ??
+        (named.length === 1 ? named[0] : undefined);
       if (hit) {
         resolvedEdges.push(hit.edge);
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
       // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
-      if (isMemberCall(call.target)) return [];
+      if (isMemberCall(call.target) && named.length === 0) return [];
       const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
       return [unresolvedCallee(stored ?? call, file, call)];
     })
     .sort(byCallOrder);
-  return renderStatic(params, entry, source, { callees, edges: resolvedEdges, unindexed });
+  return renderStatic(params, entry, source, { callees, edges: resolvedEdges, hidden: hiddenEdges, unindexed });
 }
 
 function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
@@ -426,10 +443,16 @@ function renderStatic(
   params: TraceParams,
   entry: GraphNode,
   target: GraphNode | null,
-  span?: { callees: Callee[]; edges: GraphEdge[]; unindexed: string[] },
+  span?: { callees: Callee[]; edges: GraphEdge[]; hidden: GraphEdge[]; unindexed: string[] },
 ): string {
   const staticTrace = buildStaticTrace(params.store, entry, params.projectRoot, createSignalComputer(params.store), span?.callees);
+  // An `obj.m()` the LSP stage left unresolved prints nothing, so a failed lookup on one reads partial through its edge.
+  const failed = new Set(params.store.getFailedLookups().filter((f) => f.kind === "definition").map((f) => `${f.source}\0${f.evidence}`));
+  const failedHidden = [...staticTrace.expanded.flatMap((id) => params.store.getEdgesBySource(id)), ...(span?.hidden ?? [])].filter(
+    (edge) => isMemberCall(edge.target) && failed.has(`${edge.source}\0${edge.provenance.evidence}`),
+  );
   const staticEdges = [
+    ...failedHidden,
     ...collectStaticTraceEdges(params.store, staticTrace.nodeIds),
     ...(span?.edges ?? []),
     // A span's unindexed call has no stored edge to judge; `unindexed` names it instead.

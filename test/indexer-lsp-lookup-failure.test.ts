@@ -97,13 +97,17 @@ test("a failed lookup whose call is edited away leaves no record", async () => {
   });
 });
 
-test("a timed-out lookup on a member call reads partial on the member's card, which it calls by its bare name", async () => {
+test("a timed-out lookup on a member call reads partial on the member's card and its caller's traces, though the call prints nothing", async () => {
   await withRepo(async (root, store) => {
-    writeFileSync(join(root, "src", "main.ts"), ["export class Store {", "  add() {}", "}", "export function a(s: Store) {", "  s.add();", "}", ""].join("\n"));
+    const source = ["export class Store {", "  add() {}", "}", "export function a(s: Store) {", "  [1].map(() => s.add());", "}", ""];
+    writeFileSync(join(root, "src", "main.ts"), source.join("\n"));
     await indexProject(root, store, { lspClientFactory: throwing("TsServer request timed out: definition") });
-    const text = card(root, store, "Store.add");
-    expect(text).toStartWith("Trust: partial\n");
-    expect(text).toContain(NOTE);
+    const callback = traceResult({ file: "src/main.ts", line: 5, store, projectRoot: root }).text;
+    for (const text of [card(root, store, "Store.add"), trace(root, store, "a"), callback]) {
+      expect(text).toStartWith("Trust: partial\n");
+      expect(text).toContain(NOTE);
+      expect(text).not.toContain("? add");
+    }
   });
 });
 test("an unchanged project's run writes no lookup record", async () => {
