@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { GraphNode } from "../graph/types.js";
+import { calledName, type GraphNode } from "../graph/types.js";
 import { resolverMarkerKey } from "../graph/sqlite.js";
 import type { FailedLookup, GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
@@ -104,16 +104,18 @@ export async function resolveMissingCallers(
     return;
   }
   const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
+  const bare = calledName(node);
   for (const ref of refs) {
-    // The innermost node holding the reference, by the narrowest span: a method, not its class.
+    // The innermost node holding the reference, by the narrowest span: a method, not its class. An interface's member
+    // declaration calls nothing.
     const callerNode = store
       .getNodesByFile(ref.file)
-      .filter((n) => n.kind !== "module" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line))
+      .filter((n) => n.kind !== "module" && n.kind !== "interface" && n.start_line <= ref.line && (n.end_line === null || n.end_line >= ref.line))
       .sort((a, b) => (a.end_line ?? Number.MAX_SAFE_INTEGER) - a.start_line - ((b.end_line ?? Number.MAX_SAFE_INTEGER) - b.start_line))[0];
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
     for (const f of failedCalls) {
-      if (f.source === callerNode.id && f.evidence === `${node.name}:${ref.line}:${ref.col}`) store.setLookupFailed(f, false);
+      if (f.source === callerNode.id && f.evidence === `${bare}:${ref.line}:${ref.col}`) store.setLookupFailed(f, false);
     }
     if (callerNode.id === node.id) continue; // self reference/declaration
 

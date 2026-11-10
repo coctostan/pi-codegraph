@@ -27,7 +27,7 @@ const APP = [
   "  });",
   "}",
   "export const arrow = () => deep();",
-  "export default { start() { helper(); } };",
+  "export default { start() { helper(); VERSION.toFixed(); } };",
   "export function tail(items: number[]) {",
   "  other();",
   "  return items.map(() => helper()); }",
@@ -40,14 +40,54 @@ const APP = [
   "  }",
   "  peek() { return deep(); }",
   "}",
+  "export function useStore(s: Store, xs: { peek(): void }) {",
+  "  return [1].map(() => { xs.peek(); s.peek(); });",
+  "}",
+  "export class Alpha {",
+  "  run() { return deep(); }",
+  "}",
+  "export class Beta {",
+  "  run() { return other(); }",
+  "}",
+  "export class Gamma {",
+  "  constructor() { helper(); }",
+  "}",
+  "export function both(a: Alpha, b: Beta) {",
+  "  return [1].map(() => { b.run(); a.run(); new Gamma(); });",
+  "}",
+  "export function twice(a: Alpha, b: Beta) {",
+  "  a.run();",
+  "  b.run();",
+  "  return [1].map(() => b.run());",
+  "}",
+  "export function run() { return 4; }",
+  "export function mixed(a: Alpha) {",
+  "  a.run();",
+  "  run();",
+  "  return [1].map(() => a.run());",
+  "}",
+  "export function loose(s: Store) {",
+  "  s.peek();",
+  "  return [1].map(() => peek());",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
-/** A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` declaring it there, so no test waits on a real one. */
+/**
+ * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` or `class <name> ` declaring it
+ * there, a member call to the member `<name>(`, a `b.` receiver's in `Beta`, so no test waits on a real one; an `xs.`
+ * receiver is typed by no class.
+ */
 const sameFileDefinitions: ITsServerClient = {
   definition: async (file, line, col) => {
-    const name = /^\w+/.exec(APP[line - 1]?.slice(col - 1) ?? "")?.[0];
-    const at = file === "src/app.ts" && name ? APP.findIndex((l) => l.includes(`function ${name}(`)) : -1;
+    const text = APP[line - 1] ?? "";
+    const name = /^\w+/.exec(text.slice(col - 1))?.[0];
+    const before = text.slice(0, col - 1);
+    if (file !== "src/app.ts" || !name || before.endsWith("xs.")) return null;
+    const from = before.endsWith("b.") ? APP.indexOf("export class Beta {") : 0;
+    const declared = (l: string) =>
+      before.endsWith(".") ? l.startsWith(`  ${name}(`) : l.includes(`function ${name}(`) || l.includes(`class ${name} `);
+    const at = APP.findIndex((l, i) => i >= from && declared(l));
     return at < 0 ? null : { file, line: at + 1, col: 1 };
   },
   references: async () => [],
@@ -157,6 +197,52 @@ test("a line in a class member traces that member as its entry does; a line in a
   expect(callback.text.startsWith("Trust: fresh")).toBe(true);
 });
 
+test("another object's member call tsserver resolves traces to that member, by entry and by line; one it can't prints nothing", async () => {
+  const { trace } = setup();
+  const byEntry = await trace({ entry: "useStore", file: "src/app.ts" });
+  expect(tree(byEntry.text)).toEqual(["useStore [entry-point]", "  Store.peek", "    deep [leaf]"]);
+  const byLine = await trace({ file: "src/app.ts", line: lineOf("xs.peek()") });
+  expect(tree(byLine.text)).toEqual(["<anonymous> (in useStore)", "  Store.peek", "    deep [leaf]"]);
+  expect(byLine.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's member calls on two namesakes trace each to its own class, its new X() to X's constructor", async () => {
+  const { trace } = setup();
+  const out = await trace({ file: "src/app.ts", line: lineOf("b.run()") });
+  expect(tree(out.text)).toEqual([
+    "<anonymous> (in both)",
+    "  Beta.run",
+    "    other [leaf]",
+    "  Alpha.run",
+    "    deep [leaf]",
+    "  Gamma.constructor",
+    "    helper [leaf]",
+  ]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's member call its owner makes to two namesakes before it reads unresolved, not a guess", async () => {
+  const { trace } = setup();
+  const line = lineOf("map(() => b.run())");
+  const out = await trace({ file: "src/app.ts", line });
+  expect(tree(out.text)).toEqual(["<anonymous> (in twice)", `  ? run (unresolved, src/app.ts:${line})`]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(false);
+});
+
+test("a callback's member call reaches its owner's member, not a free function of its name", async () => {
+  const { trace } = setup();
+  const out = await trace({ file: "src/app.ts", line: lineOf("map(() => a.run())") });
+  expect(tree(out.text)).toEqual(["<anonymous> (in mixed)", "  Alpha.run", "    deep [leaf]"]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's call by a name its owner holds unresolved reads unresolved, not as the owner's member of that name", async () => {
+  const { trace } = setup();
+  const line = lineOf("map(() => peek())");
+  const out = await trace({ file: "src/app.ts", line });
+  expect(tree(out.text)).toEqual(["<anonymous> (in loose)", `  ? peek (unresolved, src/app.ts:${line})`]);
+});
+
 test("a line in an indexed function traces it as trace by entry does", async () => {
   const { trace } = setup();
   for (const [file, line, entry] of [
@@ -170,7 +256,7 @@ test("a line in an indexed function traces it as trace by entry does", async () 
   }
 });
 
-test("a line in a module-level method prints its calls unresolved, since the index files them under no function", async () => {
+test("a line in a module-level method prints its calls unresolved, since the index files them under no function, and no obj.m() call", async () => {
   const { trace } = setup();
   const out = await trace({ file: "src/app.ts", line: lineOf("start()") });
   expect(out.isError).toBe(false);

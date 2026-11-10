@@ -56,3 +56,21 @@ export interface GraphEdge {
 export function nodeId(file: string, name: string, startLine: number): string {
   return `${file}::${name}:${startLine}`;
 }
+
+/** A call to another object's member, `obj.m()`: no reader shows it until the LSP stage resolves it to a project node. */
+export const MEMBER_CALL = "__member__";
+
+export function isMemberCall(target: string): boolean {
+  return target.startsWith(`${MEMBER_CALL}::`);
+}
+
+/**
+ * The name a call to `node` uses: a member `Class.m`'s bare `m`, a constructor's class, as `new Class()` names it, any
+ * other node's whole name, a dotted file's too.
+ */
+export function calledName(node: Pick<GraphNode, "kind" | "name">): string {
+  const dot = node.name.indexOf(".");
+  if (node.kind !== "function" || dot < 0) return node.name;
+  const member = node.name.slice(dot + 1);
+  return member === "constructor" ? node.name.slice(0, dot) : member;
+}

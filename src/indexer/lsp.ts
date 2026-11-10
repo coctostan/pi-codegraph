@@ -1,4 +1,5 @@
-import type { GraphEdge } from "../graph/types.js";
+import type { GraphEdge, GraphNode } from "../graph/types.js";
+import { isMemberCall } from "../graph/types.js";
 import type { GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
@@ -18,6 +19,27 @@ function isStartupError(err: unknown): boolean {
 
 function isUnresolvedTarget(target: string): boolean {
   return target.startsWith("__unresolved__::");
+}
+
+type CallEnd = GraphEdge["call_end"];
+const endsBefore = (a: CallEnd, b: CallEnd): boolean => !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
+const span = (n: GraphNode) => (n.end_line ?? n.start_line) - n.start_line;
+
+/**
+ * The node a definition at `loc` declares for a call to `name`: the narrowest function or class in its file named
+ * `name` or `<Class>.<name>` whose span holds it, so a decorated member, which starts at its decorator, still does; for
+ * a class, its constructor when it declares one. Two as narrow, namesakes on one line, are no answer: nodes hold no
+ * column to tell them apart.
+ */
+function definedAt(store: GraphStore, loc: { file: string; line: number }, name: string): GraphNode | undefined {
+  const nodes = store.getNodesByFile(loc.file);
+  const [found, next] = nodes
+    .filter((n) => (n.kind === "function" || n.kind === "class") && (n.name === name || n.name.endsWith(`.${name}`)))
+    .filter((n) => n.start_line <= loc.line && loc.line <= (n.end_line ?? n.start_line))
+    .sort((a, b) => span(a) - span(b));
+  if (found && next && span(next) === span(found)) return undefined;
+  if (found?.kind !== "class") return found;
+  return nodes.find((n) => n.name === `${found.name}.constructor` && found.start_line <= n.start_line && n.start_line <= (found.end_line ?? found.start_line)) ?? found;
 }
 
 function makeLspEdge(from: GraphEdge, target: string, evidence: string, contentHash: string): GraphEdge {
@@ -43,17 +65,22 @@ export async function runLspIndexStage(
 ): Promise<number> {
   let errors = 0;
   const unresolved = store.getUnresolvedEdges().filter((e) => e.kind === "calls" && e.provenance.source === "tree-sitter");
+  // An `obj.m()` can reach a project node only when some class declares an `m`; tsserver is asked about no other.
+  const memberNames = new Set(
+    store.queryRows<{ name: string }>("SELECT name FROM nodes WHERE kind = 'function' AND INSTR(name, '.') > 0").map((r) => r.name.slice(r.name.indexOf(".") + 1)),
+  );
+  const members: GraphEdge[] = [];
   const confirmed: GraphEdge[] = [];
   for (const file of store.listFiles()) {
     for (const node of store.getNodesByFile(file)) {
       for (const e of store.getEdgesBySource(node.id)) {
-        if (e.kind === "calls" && e.provenance.source === "tree-sitter" && !isUnresolvedTarget(e.target)) {
-          confirmed.push(e);
-        }
+        if (e.kind !== "calls" || e.provenance.source !== "tree-sitter" || isUnresolvedTarget(e.target)) continue;
+        if (!isMemberCall(e.target)) confirmed.push(e);
+        else if (memberNames.has(parseEvidence(e.provenance.evidence)?.name ?? "")) members.push(e);
       }
     }
   }
-  const work = [...unresolved, ...confirmed];
+  const work = [...unresolved, ...members, ...confirmed];
   // Every run asks each call again, so a record is current once this run has asked; one whose call is gone goes now.
   // Each write waits on a change, so an unchanged index writes nothing.
   const key = (source: string, evidence: string) => `${source}\0${evidence}`;
@@ -84,26 +111,17 @@ export async function runLspIndexStage(
     }
     recordLookup(edge.source, edge.provenance.evidence, false);
     if (!loc) continue;
-    if (isUnresolvedTarget(edge.target)) {
-      const targetNode = store
-        .getNodesByFile(loc.file)
-        .find((n) => n.name === parsed.name && n.start_line === loc.line);
-      if (!targetNode) continue;
-      try {
-        // Add before delete: a failed add keeps the call for the next run to resolve.
-        store.addEdge(makeLspEdge(edge, targetNode.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
-        store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
-      } catch {
-        errors++;
-      }
-      continue;
-    }
-    const existingTarget = store.getNode(edge.target);
-    if (!existingTarget) continue;
-    const sameTarget = existingTarget.file === loc.file && existingTarget.start_line === loc.line;
-    if (!sameTarget) continue;
+    const target = definedAt(store, loc, parsed.name);
+    // A call tree-sitter resolved stays put unless tsserver agrees on its target.
+    const pending = isUnresolvedTarget(edge.target) || isMemberCall(edge.target);
+    if (!target || (!pending && target.id !== edge.target)) continue;
     try {
-      store.addEdge(makeLspEdge(edge, edge.target, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      // Add before delete: a failed add keeps the call for the next run to resolve. Of a caller's calls to one target,
+      // the first to end places it, as in tree-sitter's edges.
+      const kept = store.getEdgesBySource(edge.source).find((e) => e.target === target.id && e.kind === "calls" && e.provenance.source === "lsp");
+      if (!kept || endsBefore(edge.call_end, kept.call_end)) {
+        store.addEdge(makeLspEdge(edge, target.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      }
       store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
     } catch {
       errors++;

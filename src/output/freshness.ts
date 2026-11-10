@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { FailedLookup, GraphStore } from "../graph/store.js";
-import type { GraphEdge, GraphNode } from "../graph/types.js";
+import { calledName, type GraphEdge, type GraphNode } from "../graph/types.js";
 import { sha256Hex } from "../indexer/tree-sitter.js";
 
 export type FreshnessStatus = "fresh" | "partial" | "stale" | "unknown";
@@ -84,7 +84,7 @@ function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNod
 
 function failedCalls(failures: FailedLookup[], targets: GraphNode[], edges: GraphEdge[]): number {
   const rendered = new Set(edges.map((edge) => `${edge.source}\0${edge.provenance.evidence}`));
-  const targetNames = new Set(targets.map((node) => node.name));
+  const targetNames = new Set(targets.map(calledName));
   // A call's evidence is `<callee>:<line>:<col>`, so a call to a target stays countable while it reads unresolved.
   return failures
     .filter((f) => f.kind === "definition")

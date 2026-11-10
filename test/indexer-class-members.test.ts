@@ -115,3 +115,34 @@ test("a line in a member finds that member as its own node; a line in a callback
   expect([callback.fn.name, callback.fn.own, callback.fn.ownerId]).toEqual(["<anonymous>", false, id("Store.load", "load(n: number): number")]);
   expect(callback.fn.calls.map((e) => e.target)).toEqual([id("Store.count", "count() {")]);
 });
+
+test("another object's member call is a hidden member call per call site; a package's, a global's or a literal's chain is none", () => {
+  const src = [
+    'import { readFileSync } from "node:fs";',
+    'import * as path from "node:path";',
+    "class Sub extends Base {",
+    "  run(store: Store) {",
+    "    store.get(1);",
+    "    store.get(2)!.close();",
+    "    this.db.prepare();",
+    "    super.run();",
+    "    new Store().load();",
+    "    readFileSync('x').toString();",
+    "    path.join('a').split('/');",
+    "    JSON.parse('{}').x();",
+    "    console.log([1].map(String), 'a'.trim(), `b`.trim());",
+    "  }",
+    "}",
+  ].join("\n");
+  const member = (name: string, from: number) => nodeId("__member__", name, src.indexOf(name, from));
+  const edges = extractFile(FILE, src).edges.filter((e) => e.kind === "calls");
+  expect(edges.map((e) => [e.target, e.provenance.evidence])).toEqual([
+    [member("get", 0), "get:5:11"],
+    [member("close", 0), "close:6:19"],
+    [member("get", src.indexOf("get(2)")), "get:6:11"],
+    [member("prepare", 0), "prepare:7:13"],
+    [member("run", src.indexOf("super")), "run:8:11"],
+    [member("load", 0), "load:9:17"],
+    [unresolved("Store"), "Store:9:9"],
+  ]);
+});

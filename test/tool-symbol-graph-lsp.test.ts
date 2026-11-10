@@ -94,6 +94,27 @@ test("resolveMissingCallers files a reference under the innermost node holding i
   }
 });
 
+test("resolveMissingCallers takes no interface's member declaration as a caller, and clears a member call's failed lookup by its bare name", async () => {
+  const store = new SqliteGraphStore();
+  const node = (file: string, name: string, kind: "function" | "interface", start: number, end: number) => ({
+    id: nodeId(file, name, start), kind, name, file, start_line: start, end_line: end, content_hash: `h-${file}`,
+  });
+  const target = node("src/store.ts", "Store.add", "function", 5, 5);
+  const iface = node("src/api.ts", "Api", "interface", 1, 3);
+  const caller = node("src/use.ts", "use", "function", 1, 3);
+  for (const n of [target, iface, caller]) store.addNode(n);
+  store.setLookupFailed({ kind: "definition", source: caller.id, evidence: "add:2:5" }, true);
+  const client: ITsServerClient = {
+    references: async () => [{ file: "src/api.ts", line: 2, col: 3 }, { file: "src/use.ts", line: 2, col: 5 }],
+    definition: async () => null,
+    implementations: async () => [],
+    async shutdown() {},
+  };
+  await resolveMissingCallers(target, store, "/project", client);
+  expect(store.getNeighbors(target.id, { direction: "in", kind: "calls" }).map((n) => n.node.name)).toEqual(["use"]);
+  expect(store.getFailedLookups().filter((f) => f.kind === "definition")).toEqual([]);
+  store.close();
+});
 test("resolveMissingCallers ignores self-reference at declaration location", async () => {
   const store = new SqliteGraphStore();
   const target = {
