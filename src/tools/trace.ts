@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { isMemberCall, nodeId } from "../graph/types.js";
-import { extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
+import { extractCallbacks, extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
 import { createSignalComputer, formatRoleTags, type NodeRole, type SignalComputer } from "../output/signals.js";
@@ -431,12 +431,27 @@ function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
     const body = `${[
       formatModeHeader("static", classStale),
       classLine.line,
-      "  → class entry: use symbol_graph to inspect methods, or trace a specific method symbol when one is available",
+      `  → class entry: trace one of its methods by \`entry\` \`${node.name}.<method>\`, or by a \`file\` + \`line\` inside it`,
     ].join("\n")}\n`;
     return prependFreshnessHeader(body, freshness);
   }
 
-  return renderStatic(params, node, node);
+  return renderStatic(params, node, node) + callbackHint(params, node);
+}
+
+/** The named callbacks `root` defines, whose calls its tree lists as its own, each by the `file` + `line` that traces it alone. */
+function callbackHint(params: TraceParams, root: GraphNode): string {
+  let content: string;
+  try {
+    content = readFileSync(join(params.projectRoot, root.file), "utf8");
+  } catch {
+    return "";
+  }
+  const named = extractCallbacks(root.file, content)
+    .filter((cb) => cb.ownerId === root.id)
+    .map((cb) => `${cb.name} (${root.file}:${cb.line})`);
+  if (named.length === 0) return "";
+  return `  → callbacks ${root.name} defines, their calls in its tree above: ${named.join(", ")}; trace one alone by that \`file\` + \`line\`\n`;
 }
 
 /**

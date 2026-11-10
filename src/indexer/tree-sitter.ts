@@ -321,6 +321,14 @@ export type FunctionsAt =
   | { kind: "one"; fn: FunctionAt }
   | { kind: "several"; fns: Array<{ name: string; line: number; column: number }> };
 
+/** A function the index holds no node for, named by its own name or the property or assignee it is bound to, that makes calls its owner's node holds. */
+export interface NamedCallback {
+  name: string;
+  /** 1-based. */
+  line: number;
+  ownerId: string;
+}
+
 /** A push that keeps one edge per source, target, kind and provenance; of a callee's calls, the first to end, the first to run. */
 function edgeSink(edges: GraphEdge[]): (edge: GraphEdge) => void {
   const edgeIndex = new Map<string, number>();
@@ -340,7 +348,11 @@ function edgeSink(edges: GraphEdge[]): (edge: GraphEdge) => void {
   };
 }
 
-function extract(file: string, content: string, entryLine?: number): ExtractionResult & { functionsAt: FunctionsAt } {
+function extract(
+  file: string,
+  content: string,
+  entryLine?: number,
+): ExtractionResult & { functionsAt: FunctionsAt; callbacks: NamedCallback[] } {
   const contentHash = sha256Hex(content);
 
   const moduleNode: GraphNode = {
@@ -358,6 +370,7 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
   const edges: GraphEdge[] = [];
   const pushEdge = edgeSink(edges);
   let functionsAt: FunctionsAt = { kind: "none" };
+  const callbacks: Array<NamedCallback & { calls: boolean }> = [];
 
   const aliasToOriginal = new Map<string, string>();
   const namespaceImports = new Set<string>();
@@ -691,6 +704,10 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       const member = memberName(n);
       return member && nodeId(file, member, n.startPosition.row + 1);
     };
+    // A named arrow's node starts at its declarator or field, the arrow's parent.
+    const ownNodeId = (fn: SyntaxNode): string | null =>
+      ownId(fn) ?? (fn.parent && /^(variable_declarator|public_field_definition)$/.test(fn.parent.type) ? ownId(fn.parent) : null);
+    const open: Array<NamedCallback & { calls: boolean }> = [];
 
     const held = entryLine === undefined ? [] : innermostFunctionsAt(tree.rootNode, entryLine - 1);
     const entryFn = held.length === 1 ? held[0]! : null;
@@ -718,17 +735,26 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
       }
 
       const callee = calleeOf(n, nextMembers);
-      if (callee && nextFunctionId) pushEdge(callEdge(nextFunctionId, callee, n));
+      if (callee && nextFunctionId) {
+        pushEdge(callEdge(nextFunctionId, callee, n));
+        for (const cb of open) if (cb.ownerId === nextFunctionId) cb.calls = true;
+      }
       // The entry's calls are those the index files under its owner: a nested callback's, not a nested named function's.
       if (callee && inEntry && nextFunctionId === entryOwner) pushEntryEdge(callEdge(entryId, callee, n));
 
+      const name = FUNCTION_TYPES.has(n.type) && nextFunctionId && ownNodeId(n) === null ? functionName(n) : "<anonymous>";
+      const cb = name === "<anonymous>" ? null : { name, line: n.startPosition.row + 1, ownerId: nextFunctionId!, calls: false };
+      if (cb) {
+        callbacks.push(cb);
+        open.push(cb);
+      }
       for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry, nextCls, nextMembers);
+      if (cb) open.pop();
     };
 
     visitCalls(tree.rootNode, null, false, null, null);
     if (entryFn) {
-      // A named arrow's node starts at its declarator or field, the arrow's parent.
-      const own = ownId(entryFn) ?? (entryFn.parent && /^(variable_declarator|public_field_definition)$/.test(entryFn.parent.type) ? ownId(entryFn.parent) : null);
+      const own = ownNodeId(entryFn);
       const fn: FunctionAt = {
         name: functionName(entryFn),
         startLine: entryFn.startPosition.row + 1,
@@ -746,15 +772,20 @@ function extract(file: string, content: string, entryLine?: number): ExtractionR
     }
   } catch {
     // If parser initialization fails, return only the module node; a walk that throws on a recovered tree stays partial.
-    return { module: moduleNode, nodes: [], edges: [], partial, functionsAt: { kind: "none" } };
+    return { module: moduleNode, nodes: [], edges: [], partial, functionsAt: { kind: "none" }, callbacks: [] };
   }
 
-  return { module: moduleNode, nodes, edges, partial, functionsAt };
+  return { module: moduleNode, nodes, edges, partial, functionsAt, callbacks: callbacks.flatMap(({ calls, ...cb }) => (calls ? [cb] : [])) };
 }
 
 export function extractFile(file: string, content: string): ExtractionResult {
-  const { functionsAt: _functionsAt, ...result } = extract(file, content);
+  const { functionsAt: _functionsAt, callbacks: _callbacks, ...result } = extract(file, content);
   return result;
+}
+
+/** Every named callback in the file, in source order. */
+export function extractCallbacks(file: string, content: string): NamedCallback[] {
+  return extract(file, content).callbacks;
 }
 
 /** The innermost function holding 1-based `line` and the calls it makes, as `extractFile` reads them. */

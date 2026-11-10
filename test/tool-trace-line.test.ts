@@ -163,6 +163,15 @@ test("a line in an arrow bound to a property traces that arrow alone", async () 
   expect(tree(out.text)).toEqual(["onDone (in setup)", "  helper [leaf]"]);
 });
 
+test("an entry trace whose root defines named callbacks ends naming each by file and line; an anonymous one goes unnamed", async () => {
+  const { trace } = setup();
+  const out = await trace({ entry: "setup", file: "src/app.ts" });
+  expect(out.text.trimEnd().split("\n").at(-1)).toBe(
+    `  → callbacks setup defines, their calls in its tree above: run (src/app.ts:${lineOf("run() {")}), onDone (src/app.ts:${lineOf("onDone")}); trace one alone by that \`file\` + \`line\``,
+  );
+  expect((await trace({ entry: "tail", file: "src/app.ts" })).text).not.toContain("→");
+});
+
 test("a callback ending on its enclosing function's last line traces the callback, not that function", async () => {
   const { trace } = setup();
   const out = await trace({ file: "src/app.ts", line: lineOf("items.map") });
