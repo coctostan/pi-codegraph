@@ -1,9 +1,9 @@
 ---
 from: space:arcs/class-trace.md
 ---
-# The class-trace re-run reads keep
+# The class-trace (Agents trace through classes) re-run reads keep
 
-On 2026-11-10, 72 cells in `bench/results/rerun-3/` (decision 0002's 6 tasks × codegraph on and off × `anthropic-cc/claude-opus-5-5` and `openai-codex/gpt-6.1-sol` × 3 repeats, pi 1.5.0, codegraph at `dfbcfdf1`, pi-claude-header at `263ba7e8`) were all answered correctly. Codegraph at `dfbcfdf1` holds class-trace (Agents trace through classes)'s slices 1–7: class members as symbols, unresolved calls no longer `[leaf]`, and `trace`'s description steering to `file` + `line`. `bun bench/verdict.ts --results bench/results/rerun-3` prints `wins 9/12` and `keep`, with `pooled wins 5/6 keep` beside it. Decision 0002's keep stands and this record supersedes nothing.
+On 2026-11-10, 72 cells in `bench/results/rerun-3/` (decision 0002's 6 tasks × codegraph on and off × `anthropic-cc/claude-opus-5-5` and `openai-codex/gpt-6.1-sol` × 3 repeats, pi 1.5.0, codegraph at `dfbcfdf1`, pi-claude-header at `263ba7e8`) were all answered correctly. Codegraph at `dfbcfdf1` holds every code change of class-trace (Agents trace through classes): class members as symbols, unresolved calls no longer `[leaf]`, and `trace`'s description steering to `file` + `line`. `bun bench/verdict.ts --results bench/results/rerun-3` prints `wins 9/12` and `keep`, with `pooled wins 5/6 keep` beside it. Decision 0002's keep stands and this record supersedes nothing.
 
 `bun bench/verdict.ts --results bench/results/rerun-3`, exit 0:
 
