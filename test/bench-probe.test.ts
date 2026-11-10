@@ -82,9 +82,9 @@ test("runProbes calls the tool on an indexed worktree at the pinned commit and l
 
     const probesPath = join(reposDir, "probes.json");
     writeFileSync(probesPath, JSON.stringify(probes));
-    expect(await main("pinned", probesPath, reposDir)).toBe(0);
-    expect(await main("", probesPath, reposDir)).toBe(1);
-    expect(await main("nope", probesPath, reposDir)).toBe(2);
+    expect(await main(["pinned", "--repos", reposDir], probesPath)).toBe(0);
+    expect(await main(["--repos", reposDir], probesPath)).toBe(1);
+    expect(await main(["nope", "--repos", reposDir], probesPath)).toBe(2);
   } finally {
     rmSync(reposDir, { recursive: true, force: true });
   }
@@ -95,7 +95,7 @@ test("main runs probes on repos beside this checkout by default", async () => {
   try {
     const probesPath = join(dir, "probes.json");
     writeFileSync(probesPath, JSON.stringify([{ id: "p", repo: "no-such-bench-repo", commit: "HEAD", tool: "trace", params: {}, expect: {} }]));
-    await expect(main("p", probesPath)).rejects.toThrow(`failed in ${resolve(import.meta.dir, "..", "..", "no-such-bench-repo")}`);
+    await expect(main(["p"], probesPath)).rejects.toThrow(`failed in ${resolve(import.meta.dir, "..", "..", "no-such-bench-repo")}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

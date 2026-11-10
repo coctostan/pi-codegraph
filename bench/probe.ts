@@ -1,9 +1,10 @@
 /**
  * Probe the graph against the bench keys: one fixed tool call per probe, on a bench repo at its task's pinned commit.
  *
- *   bun bench/probe.ts [id-prefix]
+ *   bun bench/probe.ts [id-prefix] [--repos dir]
  *
- * Each repo@commit gets a fresh detached worktree, its deps installed and indexed as `bench/run.ts` indexes an
+ * Each repo@commit gets a fresh detached worktree of `<repos>/<repo>`, `--repos` defaulting to this checkout's
+ * parent directory, its deps installed and indexed as `bench/run.ts` indexes an
  * on-arm cell; the tool runs through its registered `execute()`, so the text checked is what an on-arm agent saw.
  * Prints PASS or FAIL per probe and exits 0 only when every selected probe passes.
  */
@@ -11,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 import { indexWorktree, installDeps, sh } from "./run.js";
 
 /** Substring checks on a tool's output text: `ordered` items must also appear, first occurrences in that order. */
@@ -105,20 +107,17 @@ export async function runProbes(probes: Probe[], reposDir: string): Promise<Prob
   return results;
 }
 
-/** The CLI: 0 when every probe whose id starts with `prefix` passes, 1 when one fails, 2 when none match. */
-export async function main(
-  prefix = process.argv[2] ?? "",
-  probesPath = join(import.meta.dir, "probes.json"),
-  // shortcut: bench repos are resolved as siblings of this checkout, as in bench/run.ts; take a flag when the bench leaves this machine.
-  reposDir = resolve(import.meta.dir, "..", ".."),
-): Promise<number> {
+/** The CLI: 0 when every probe whose id starts with the prefix passes, 1 when one fails, 2 when none match. */
+export async function main(argv = process.argv.slice(2), probesPath = join(import.meta.dir, "probes.json")): Promise<number> {
+  const { values, positionals } = parseArgs({ args: argv, options: { repos: { type: "string" } }, allowPositionals: true });
+  const prefix = positionals[0] ?? "";
   const probes: Probe[] = JSON.parse(readFileSync(probesPath, "utf8"));
   const selected = probes.filter((p) => p.id.startsWith(prefix));
   if (selected.length === 0) {
     console.error(`no probe id starts with "${prefix}"`);
     return 2;
   }
-  const results = await runProbes(selected, reposDir);
+  const results = await runProbes(selected, resolve(values.repos ?? join(import.meta.dir, "..", "..")));
   for (const r of results) {
     console.log(r.failures.length === 0 ? `PASS ${r.id} (${r.chars} chars)` : `FAIL ${r.id} (${r.chars} chars): ${r.failures.join("; ")}`);
   }

@@ -260,41 +260,14 @@ test("the CLI skips pilot/, exits 1 listing problems, and prints the verdict on 
   expect(clean.stdout.trim().split("\n").slice(-3)).toEqual(["pooled wins 2/2 keep", "wins 4/4", "keep"]);
 });
 
-test("the CLI's --on-results takes the on arm from that directory and only the off arm from --results", () => {
-  const dir = mkdtempSync(join(tmpdir(), "bench-verdict-"));
-  const tasksDir = join(dir, "tasks");
-  const results = join(dir, "results");
-  const onDir = join(dir, "rerun");
-  for (const d of [tasksDir, results, onDir]) mkdirSync(d);
-  for (const t of tasks) writeFileSync(join(tasksDir, `${t.id}.json`), JSON.stringify(t));
-  writeFileSync(join(dir, "thresholds.json"), JSON.stringify(thresholds));
-  for (const [name, body] of fullSet()) writeFileSync(join(results, name), body);
-  const writeOn = (edit: (c: CellObj) => CellObj) => {
-    for (const [name, body] of fullSet(edit)) if (name.includes("__on__")) writeFileSync(join(onDir, name), body);
-  };
-  const run = () =>
-    spawnSync(
-      "bun",
-      [join(import.meta.dir, "..", "bench", "verdict.ts"), "--tasks", tasksDir, "--results", results, "--on-results", onDir, "--thresholds", join(dir, "thresholds.json")],
-      { encoding: "utf8" },
-    );
-
-  writeOn((c) => ({ ...c, tokens: { total: 600 } }));
-  const clean = run();
-  expect(clean.stderr).toBe("");
-  expect(clean.status).toBe(0);
-  expect(clean.stdout).toContain("t1  p/a  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  win");
-  expect(clean.stdout).toContain("pooled  t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 2/2  win");
-  expect(clean.stdout.trim().split("\n").slice(-3)).toEqual(["pooled wins 2/2 keep", "wins 4/4", "keep"]);
-
-  writeOn((c) => ({ ...c, piVersion: "2.0.0" }));
-  const mismatched = run();
-  expect(mismatched.status).toBe(1);
-  expect(mismatched.stderr).toContain("piVersion mismatch: on arm 2.0.0, off arm 1.0.0");
-
-  writeOn((c) => c);
-  writeFileSync(join(onDir, "t1__off__p_a__r1.json"), readFileSync(join(results, "t1__off__p_a__r1.json")));
-  const doubled = run();
-  expect(doubled.status).toBe(1);
-  expect(doubled.stderr).toContain("t1__off__p_a__r1.json: in both");
+test("the CLI refuses to run without --results and no longer takes --on-results", () => {
+  const run = (...args: string[]) =>
+    spawnSync("bun", [join(import.meta.dir, "..", "bench", "verdict.ts"), ...args], { cwd: join(import.meta.dir, ".."), encoding: "utf8" });
+  const bare = run();
+  expect(bare.status).toBe(2);
+  expect(bare.stderr).toContain("usage: bun bench/verdict.ts --results <dir>");
+  const onResults = run("--results", "bench/results/rerun-2", "--on-results", "bench/results/rerun-1");
+  expect(onResults.status).toBe(1);
+  expect(onResults.stderr).toContain("--on-results");
+  expect(onResults.stdout).toBe("");
 });

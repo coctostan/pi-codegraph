@@ -25,6 +25,16 @@ test("main resolves a task's repo beside this checkout and leaves no temp dir wh
   }
 });
 
+test("main resolves a task's repo and the default provider under --repos", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cg-run-"));
+  try {
+    await expect(main(unrunnableCell(dir, "--repos", dir))).rejects.toThrow(`failed in ${join(dir, "pi-claude-header")}`);
+    await expect(main(unrunnableCell(dir, "--repos", dir, "--provider", checkout))).rejects.toThrow(`failed in ${join(dir, "no-such-bench-repo")}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("parseTranscript sums usage, counts turns and codegraph calls on a recorded on-arm run", () => {
   const m = parseTranscript(fixture("pilot-on-gpt.jsonl"));
   expect(m.offeredTools).toEqual(["read", "grep", "find", "ls", "bash", "symbol_graph", "impact", "trace"]);

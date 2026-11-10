@@ -3,9 +3,10 @@
  *
  *   bun bench/run.ts --task bench/pilot/compute-anchor-callers.json --arm on --model openai-codex/gpt-6.1-sol --repeat 1
  *
- * Each cell gets a fresh detached worktree of the sibling repo at the task's commit, its deps installed;
- * the on arm is indexed before the timed `pi` run. Both arms load codegraph from this checkout and the
- * anthropic-cc provider from `--provider` (default the sibling pi-claude-header), each cell recording both
+ * Each cell gets a fresh detached worktree of `<repos>/<task.repo>` at the task's commit, its deps installed,
+ * `--repos` defaulting to this checkout's parent directory; the on arm is indexed before the timed `pi` run.
+ * Both arms load codegraph from this checkout and the anthropic-cc provider from `--provider` (default
+ * `<repos>/pi-claude-header`), each cell recording both
  * commits, and differ only by `-xt symbol_graph,impact,trace`.
  */
 import { spawnSync } from "node:child_process";
@@ -150,12 +151,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       model: { type: "string" },
       repeat: { type: "string", default: "1" },
       out: { type: "string", default: "bench/results/pilot" },
+      repos: { type: "string" },
       provider: { type: "string" },
     },
   });
   const arm = values.arm as Arm;
   if (!values.task || !values.model || (arm !== "on" && arm !== "off")) {
-    console.error("usage: bun bench/run.ts --task <file> --arm on|off --model <provider/id> [--repeat n] [--out dir] [--provider pi-claude-header dir]");
+    console.error("usage: bun bench/run.ts --task <file> --arm on|off --model <provider/id> [--repeat n] [--out dir] [--repos dir] [--provider pi-claude-header dir]");
     return 2;
   }
   const repeat = Number(values.repeat);
@@ -168,9 +170,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.error(`${cellPath} exists; a recorded cell is never overwritten`);
     return 1;
   }
-  // shortcut: target repos are resolved as siblings of this checkout; take paths as flags when the bench leaves this machine.
-  const sourceRepo = resolve(repoRoot, "..", task.repo);
-  const providerRepo = resolve(values.provider ?? join(repoRoot, "..", "pi-claude-header"));
+  const repos = resolve(values.repos ?? join(repoRoot, ".."));
+  const sourceRepo = join(repos, task.repo);
+  const providerRepo = resolve(values.provider ?? join(repos, "pi-claude-header"));
   const extensions = [join(repoRoot, "src", "index.ts"), join(providerRepo, "src", "index.ts")];
   // Read before the run, so a bad --provider fails at no cost and a checkout moved mid-run can't relabel the cell.
   const providerCommit = sh("git", ["rev-parse", "HEAD"], providerRepo);
