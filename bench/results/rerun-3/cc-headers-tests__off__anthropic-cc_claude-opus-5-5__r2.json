@@ -1,0 +1,48 @@
+{
+  "cell": "cc-headers-tests__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:08:55.422Z",
+  "wallMs": 30031,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 7,
+  "tokens": {
+    "input": 16,
+    "output": 2554,
+    "cacheRead": 79866,
+    "cacheWrite": 19060,
+    "total": 101496
+  },
+  "costUsd": 0.2195972,
+  "toolCalls": {
+    "grep": 1,
+    "bash": 5
+  },
+  "codegraphCalls": 0,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Five test files import and call `buildAnthropicCcHeaders` directly:\n\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n- `tests/anthropicCcAuthModes.test.ts`\n\nMany more tests also run it indirectly. Three production functions call it: `buildAnthropicCcRequestFromContext` and `buildAnthropicCcRequest` in `src/anthropic-cc/request.ts`, and `streamAnthropicCc` in `src/anthropic-cc/stream.ts`.\n- **58 test files** reference one of those three functions by name.\n- **About 20 more** reach `streamAnthropicCc` through the `captureCc` helper in `tests/helpers/pi099.ts`.\n\nThe indirect tests most focused on headers are `anthropicCcRequestHeaders`, `anthropicCcClaude5WireAuth`, `anthropicCcClaude5WireIdentity`, `anthropicCcInlineToolsBetaWire`, `anthropicCcManagedBetaRequest`, `anthropicCcManagedBetaIsolation` and `anthropicCcOAuthAuthMode`. If your change affects what goes out on the wire, rerun the whole `tests/anthropicCc*.test.ts` set (e.g. `bun test tests/anthropicCc`).\n\n<answer>\nDirect callers of buildAnthropicCcHeaders:\n- tests/anthropicCcBetaComposition.test.ts\n- tests/anthropicCcInlineToolsBetaFlags.test.ts\n- tests/anthropicCcHeaderSuppression.test.ts\n- tests/anthropicCcOAuthBetaComposition.test.ts\n- tests/anthropicCcAuthModes.test.ts\n\nMany more tests reach it indirectly through buildAnthropicCcRequest, buildAnthropicCcRequestFromContext, streamAnthropicCc, or the captureCc helper in tests/helpers/pi099.ts. Examples are tests/anthropicCcRequestHeaders.test.ts, tests/anthropicCcClaude5WireAuth.test.ts and tests/anthropicCcManagedBetaRequest.test.ts. To be thorough, rerun tests/anthropicCc*.test.ts.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "Direct callers of buildAnthropicCcHeaders:\n- tests/anthropicCcBetaComposition.test.ts\n- tests/anthropicCcInlineToolsBetaFlags.test.ts\n- tests/anthropicCcHeaderSuppression.test.ts\n- tests/anthropicCcOAuthBetaComposition.test.ts\n- tests/anthropicCcAuthModes.test.ts\n\nMany more tests reach it indirectly through buildAnthropicCcRequest, buildAnthropicCcRequestFromContext, streamAnthropicCc, or the captureCc helper in tests/helpers/pi099.ts. Examples are tests/anthropicCcRequestHeaders.test.ts, tests/anthropicCcClaude5WireAuth.test.ts and tests/anthropicCcManagedBetaRequest.test.ts. To be thorough, rerun tests/anthropicCc*.test.ts.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,49 @@
+{
+  "cell": "source-snippet-impact__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:03:27.762Z",
+  "wallMs": 22785,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 8,
+  "tokens": {
+    "input": 18,
+    "output": 1505,
+    "cacheRead": 50929,
+    "cacheWrite": 10160,
+    "total": 62612
+  },
+  "costUsd": 0.1216378,
+  "toolCalls": {
+    "grep": 3,
+    "read": 3,
+    "bash": 2
+  },
+  "codegraphCalls": 0,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "The call chain:\n\n- **Direct caller:** `renderSymbolSourceSection` in `src/tools/symbol-card.ts` is the only function in `src/` that calls `readSourceSnippet` (line 41).\n- **Indirect callers:**\n  - `symbolCard` in `src/tools/symbol-card.ts` calls `renderSymbolSourceSection` (line 156). Nothing else in `src/` calls `symbolCard`, so that path stops there.\n  - `symbolGraph` in `src/tools/symbol-graph.ts` calls `renderSymbolSourceSection` when `include` contains `\"source\"` (line 289).\n- **Tool entry point:** In `src/index.ts`, the `execute` handler of the `symbol_graph` tool calls `symbolGraph` (line 444). That handler is registered inside `piCodegraph`, the default export, through `registerReadOnlyTool`.\n\n`renderSymbolCardBody` and `renderLegacyNeighborhoodBody` don't use it, and neither do the `impact` and `trace` tools.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\nexecute\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

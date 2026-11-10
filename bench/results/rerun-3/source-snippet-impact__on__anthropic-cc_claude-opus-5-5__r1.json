@@ -1,0 +1,66 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:03:11.298Z",
+  "wallMs": 14765,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 3836,
+      "lsp": 5244,
+      "ast-grep": 51,
+      "coverage": 1,
+      "git": 207
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 695,
+    "cacheRead": 12154,
+    "cacheWrite": 3470,
+    "total": 16327
+  },
+  "costUsd": 0.044122800000000004,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four functions in src/ would be affected:\n\n- **Direct caller (will break):** `renderSymbolSourceSection` in `src/tools/symbol-card.ts`. It calls `readSourceSnippet` at line 41, so it must be updated to match the new signature.\n- **Indirect callers (behaviour may change, but the code still compiles):**\n  - `symbolCard` in `src/tools/symbol-card.ts` calls `renderSymbolSourceSection` (line 156).\n  - `symbolGraph` in `src/tools/symbol-graph.ts` calls `renderSymbolSourceSection` (line 289).\n  - `piCodegraph` in `src/index.ts` is the tool entry point, and it reaches the change through `symbolCard` and `symbolGraph`.\n\nA text search of src/ found no other callers.\n\nTests to rerun: 2 test files call `readSourceSnippet` directly: `test/read-source-snippet.test.ts` and `test/repro-078-source-truncation-hint.test.ts`. Another 39 files reach it through the callers above, mostly the `tool-symbol-card-*`, `tool-symbol-graph-*` and `extension-*` tests.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
