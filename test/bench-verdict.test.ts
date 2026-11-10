@@ -255,7 +255,9 @@ test("the CLI skips pilot/, exits 1 listing problems, and prints the verdict on 
   const clean = run();
   expect(clean.stderr).toBe("");
   expect(clean.status).toBe(0);
-  expect(clean.stdout.trim().split("\n").at(-1)).toBe("keep");
+  expect(clean.stdout).toContain("t1  p/a  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  win");
+  expect(clean.stdout).toContain("pooled  t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 2/2  win");
+  expect(clean.stdout.trim().split("\n").slice(-3)).toEqual(["pooled wins 2/2 keep", "wins 4/4", "keep"]);
 });
 
 test("the CLI's --on-results takes the on arm from that directory and only the off arm from --results", () => {

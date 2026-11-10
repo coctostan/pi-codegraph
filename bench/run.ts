@@ -140,8 +140,10 @@ export async function indexWorktree(dir: string) {
   }
 }
 
-async function main(): Promise<number> {
+/** The CLI: run one cell and write it; 0 when it ran clean, 1 when not, 2 on a usage error. */
+export async function main(argv = process.argv.slice(2)): Promise<number> {
   const { values } = parseArgs({
+    args: argv,
     options: {
       task: { type: "string" },
       arm: { type: "string" },
@@ -174,8 +176,8 @@ async function main(): Promise<number> {
   const providerCommit = sh("git", ["rev-parse", "HEAD"], providerRepo);
   const tmp = mkdtempSync(join(tmpdir(), "codegraph-bench-"));
   const worktree = join(tmp, task.repo);
-  sh("git", ["worktree", "add", "--detach", worktree, task.commit], sourceRepo);
   try {
+    sh("git", ["worktree", "add", "--detach", worktree, task.commit], sourceRepo);
     installDeps(worktree);
     const index = arm === "on" ? await indexWorktree(worktree) : null;
     const startedAt = new Date();

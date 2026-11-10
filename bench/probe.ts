@@ -80,8 +80,8 @@ export async function runProbes(probes: Probe[], reposDir: string): Promise<Prob
     const sourceRepo = join(reposDir, repo);
     const tmp = mkdtempSync(join(tmpdir(), "codegraph-probe-"));
     const worktree = join(tmp, repo);
-    sh("git", ["worktree", "add", "--detach", worktree, commit], sourceRepo);
     try {
+      sh("git", ["worktree", "add", "--detach", worktree, commit], sourceRepo);
       installDeps(worktree);
       const { indexed, errors, partial } = await indexWorktree(worktree);
       console.error(`${repo}@${commit.slice(0, 8)}: indexed ${indexed} files, ${errors} errors, ${partial.length} partially parsed`);

@@ -1,9 +1,29 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { armProblem, cellId, parseTranscript, piArgs } from "../bench/run.js";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { armProblem, cellId, main, parseTranscript, piArgs } from "../bench/run.js";
 
 const fixture = (name: string) => readFileSync(join(import.meta.dir, "fixtures", "bench", name), "utf8");
+const checkout = resolve(import.meta.dir, "..");
+
+/** `main`'s args for a cell of a task on a repo no machine has, written to a temp dir; `main` throws before any `pi` run. */
+function unrunnableCell(dir: string, ...flags: string[]): string[] {
+  const task = join(dir, "task.json");
+  writeFileSync(task, JSON.stringify({ id: "t", repo: "no-such-bench-repo", commit: "HEAD", question: "q", key: { all: ["x"] } }));
+  return ["--task", task, "--arm", "off", "--model", "p/m", "--out", join(dir, "out"), ...flags];
+}
+
+test("main resolves a task's repo beside this checkout and leaves no temp dir when it can't add the worktree", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cg-run-"));
+  const before = readdirSync(tmpdir()).filter((f) => f.startsWith("codegraph-bench-")).length;
+  try {
+    await expect(main(unrunnableCell(dir, "--provider", checkout))).rejects.toThrow(`failed in ${resolve(checkout, "..", "no-such-bench-repo")}`);
+    expect(readdirSync(tmpdir()).filter((f) => f.startsWith("codegraph-bench-")).length).toBe(before);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("parseTranscript sums usage, counts turns and codegraph calls on a recorded on-arm run", () => {
   const m = parseTranscript(fixture("pilot-on-gpt.jsonl"));
