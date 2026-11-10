@@ -62,9 +62,12 @@ function expectedCells(tasks: Task[], t: Thresholds) {
   return cells;
 }
 
-/** `trace` calls that passed `line`: the cell's own count, else its transcript's; undefined with neither. */
+const count = (x: unknown): x is number => Number.isInteger(x) && (x as number) >= 0;
+
+/** `trace` calls that passed `line`: the cell's own count when it holds a valid one, else its transcript's; undefined with neither. */
 export function traceLineCalls(cell: any, transcript?: string): number | undefined {
-  return cell.traceLineCalls ?? (transcript === undefined ? undefined : parseTranscript(transcript).traceLineCalls);
+  if (count(cell.traceLineCalls)) return cell.traceLineCalls;
+  return transcript === undefined ? undefined : parseTranscript(transcript).traceLineCalls;
 }
 
 /** Every reason the cell files, keyed by file name, can't feed a verdict; empty when they all can. Transcripts are keyed by cell id. */
@@ -86,19 +89,17 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
       problems.push(`${name}: malformed, not JSON`);
       continue;
     }
-    const count = (x: unknown) => Number.isInteger(x) && (x as number) >= 0;
     const typed =
       count(c?.turns) &&
       count(c.tokens?.total) &&
       count(c.codegraphCalls) &&
-      (c.traceLineCalls === undefined || count(c.traceLineCalls)) &&
       typeof c.grade?.correct === "boolean" &&
       typeof c.finalText === "string" &&
       typeof c.piVersion === "string" &&
       Array.isArray(c.offeredTools) &&
       c.offeredTools.every((t: unknown) => typeof t === "string");
     if (!typed) {
-      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, traceLineCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
+      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
       continue;
     }
     for (const f of PINNED) pins[f][want.arm].add(c[f] ?? "none");

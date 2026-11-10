@@ -199,19 +199,22 @@ const lineTranscript = JSON.stringify({
   },
 });
 
-test("traceLineCalls takes the cell's own count, else its transcript's, else none", () => {
+test("traceLineCalls takes the cell's own valid count, else its transcript's, else none", () => {
   const c = cell(tasks[0]!, "on", "p/a", 1);
   expect(traceLineCalls({ ...c, traceLineCalls: 3 }, lineTranscript)).toBe(3);
   expect(traceLineCalls({ ...c, traceLineCalls: undefined }, lineTranscript)).toBe(1);
   expect(traceLineCalls({ ...c, traceLineCalls: undefined })).toBeUndefined();
+  expect(traceLineCalls({ ...c, traceLineCalls: -1 }, lineTranscript)).toBe(1);
+  expect(traceLineCalls({ ...c, traceLineCalls: null as unknown as number })).toBeUndefined();
 });
 
-test("auditCells takes an on cell's line count from its transcript, names one with neither, and rejects an ill-typed count", () => {
+test("auditCells takes an on cell's line count from its transcript when it lacks a valid one, names one with neither, and skips off cells", () => {
   const files = fullSet((c) => (c.task === "t1" && c.model === "p/a" ? { ...c, traceLineCalls: undefined } : c));
   expect(auditCells(tasks, thresholds, files, new Map([["t1__on__p_a__r1", lineTranscript]]))).toEqual([]);
   expect(auditCells(tasks, thresholds, files)).toEqual(["t1__on__p_a__r1.json: on arm has no traceLineCalls and no transcript"]);
-  const negative = fullSet((c) => (c.task === "t2" && c.arm === "off" && c.model === "p/b" ? { ...c, traceLineCalls: -1 } : c));
-  expect(auditCells(tasks, thresholds, negative).join("\n")).toContain("t2__off__p_b__r1.json: malformed");
+  const invalid = fullSet((c) => (c.task === "t2" && c.model === "p/b" ? { ...c, traceLineCalls: -1 } : c));
+  expect(auditCells(tasks, thresholds, invalid, new Map([["t2__on__p_b__r1", lineTranscript]]))).toEqual([]);
+  expect(auditCells(tasks, thresholds, invalid)).toEqual(["t2__on__p_b__r1.json: on arm has no traceLineCalls and no transcript"]);
 });
 
 test("decide freezes when a win costs correctness overall, and a cut just under the threshold is no win", () => {
