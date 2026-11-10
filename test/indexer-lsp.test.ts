@@ -401,8 +401,9 @@ test("a definition resolves to no module its name ends, and to the constructor o
   store.close();
 });
 
-test("a call names a member by its bare name, any other node by its whole name", () => {
+test("a call names a member by its bare name, a constructor by its class's, any other node by its whole name", () => {
   expect(calledName({ kind: "function", name: "Store.load" })).toBe("load");
+  expect(calledName({ kind: "function", name: "Store.constructor" })).toBe("Store");
   expect(calledName({ kind: "function", name: "load" })).toBe("load");
   expect(calledName({ kind: "module", name: "src/ts.ts" })).toBe("src/ts.ts");
   expect(calledName({ kind: "test", name: "a.test.ts > b.c" })).toBe("a.test.ts > b.c");

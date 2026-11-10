@@ -343,9 +343,13 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
         return [];
       }
       const name = calleeName(call);
-      // The owner's callees this call may have resolved to: by its name, a member's `Class.<name>`, a `new`'s constructor.
+      // The owner's callees this call may have resolved to: a member's `Class.<name>`, and for a call by name, that name
+      // or a `new`'s constructor; an `obj.m()` reaches no free function `m`.
+      const byName = !isMemberCall(call.target);
       const named = ownerCalls.filter(
-        (n) => n.node.name === name || n.node.name === `${name}.constructor` || (n.node.kind === "function" && n.node.name.endsWith(`.${name}`)),
+        (n) =>
+          (byName && (n.node.name === name || n.node.name === `${name}.constructor`)) ||
+          (n.node.kind === "function" && n.node.name.endsWith(`.${name}`)),
       );
       // The one whose stored call ends where this one does, else an exact name, else the only one; two namesakes, say
       // `a.run()` and `b.run()` on two classes, leave the call unresolved rather than guess.

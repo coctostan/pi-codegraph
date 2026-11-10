@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { TsServerClient, type ITsServerClient, type LspLocation } from "../src/indexer/tsserver-client.js";
+import { impactResult } from "../src/tools/impact.js";
 import { symbolGraphResult } from "../src/tools/symbol-graph.js";
 import { traceResult } from "../src/tools/trace.js";
 
@@ -108,6 +109,16 @@ test("a timed-out lookup on a member call reads partial on the member's card and
       expect(text).toContain(NOTE);
       expect(text).not.toContain("? add");
     }
+  });
+});
+
+test("a timed-out lookup on new X() reads partial on X's constructor, which it calls by its class's name", async () => {
+  await withRepo(async (root, store) => {
+    writeFileSync(join(root, "src", "main.ts"), ["export class X {", "  constructor() {}", "}", "export function a() {", "  return new X();", "}", ""].join("\n"));
+    await indexProject(root, store, { lspClientFactory: throwing("TsServer request timed out: definition") });
+    const text = impactResult({ symbols: ["X.constructor"], changeType: "behavior_change", store, projectRoot: root }).text;
+    expect(text).toStartWith("Trust: partial\n");
+    expect(text).toContain(NOTE);
   });
 });
 test("an unchanged project's run writes no lookup record", async () => {

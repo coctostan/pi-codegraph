@@ -60,13 +60,19 @@ const APP = [
   "  b.run();",
   "  return [1].map(() => b.run());",
   "}",
+  "export function run() { return 4; }",
+  "export function mixed(a: Alpha) {",
+  "  a.run();",
+  "  run();",
+  "  return [1].map(() => a.run());",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
 /**
- * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(`, `class <name> ` or member
- * `<name>(` declaring it there, a `b.` receiver's in `Beta`, so no test waits on a real one; an `xs.` receiver is typed
- * by no class.
+ * A tsserver stand-in that resolves a call in `src/app.ts` to the `function <name>(` or `class <name> ` declaring it
+ * there, a member call to the member `<name>(`, a `b.` receiver's in `Beta`, so no test waits on a real one; an `xs.`
+ * receiver is typed by no class.
  */
 const sameFileDefinitions: ITsServerClient = {
   definition: async (file, line, col) => {
@@ -75,7 +81,8 @@ const sameFileDefinitions: ITsServerClient = {
     const before = text.slice(0, col - 1);
     if (file !== "src/app.ts" || !name || before.endsWith("xs.")) return null;
     const from = before.endsWith("b.") ? APP.indexOf("export class Beta {") : 0;
-    const declared = (l: string) => l.includes(`function ${name}(`) || l.includes(`class ${name} `) || l.startsWith(`  ${name}(`);
+    const declared = (l: string) =>
+      before.endsWith(".") ? l.startsWith(`  ${name}(`) : l.includes(`function ${name}(`) || l.includes(`class ${name} `);
     const at = APP.findIndex((l, i) => i >= from && declared(l));
     return at < 0 ? null : { file, line: at + 1, col: 1 };
   },
@@ -216,6 +223,13 @@ test("a callback's member call its owner makes to two namesakes before it reads 
   const out = await trace({ file: "src/app.ts", line });
   expect(tree(out.text)).toEqual(["<anonymous> (in twice)", `  ? run (unresolved, src/app.ts:${line})`]);
   expect(out.text.startsWith("Trust: fresh")).toBe(false);
+});
+
+test("a callback's member call reaches its owner's member, not a free function of its name", async () => {
+  const { trace } = setup();
+  const out = await trace({ file: "src/app.ts", line: lineOf("map(() => a.run())") });
+  expect(tree(out.text)).toEqual(["<anonymous> (in mixed)", "  Alpha.run", "    deep [leaf]"]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
 });
 
 test("a line in an indexed function traces it as trace by entry does", async () => {
