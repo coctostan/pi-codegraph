@@ -1,13 +1,12 @@
 /**
- * Audit the graded cells under `bench/results/` and print the keep/freeze/retire verdict by `bench/thresholds.json`,
+ * Audit the graded cells in one results directory and print the keep/freeze/retire verdict by `bench/thresholds.json`,
  * judged per task-model pair, with the verdict over both models pooled per task beside it.
  *
- *   bun bench/verdict.ts [--tasks bench/tasks] [--results bench/results] [--on-results dir] [--thresholds bench/thresholds.json]
+ *   bun bench/verdict.ts --results <dir> [--tasks bench/tasks] [--thresholds bench/thresholds.json]
  *
- * With `--on-results`, the on arm comes from that directory and only the off cells of `--results` count.
- * Exits 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded cell, or cells run on
- * different pi versions or anthropic-cc provider commits. Only `*.json` files directly under a results directory count, so `pilot/` and the
- * transcripts are skipped.
+ * Exits 2 without `--results`, and 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded
+ * cell, or cells run on different pi versions or anthropic-cc provider commits. Only `*.json` files directly under
+ * the results directory count, so `pilot/` and the transcripts are skipped.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -178,31 +177,28 @@ function main(): number {
   const { values } = parseArgs({
     options: {
       tasks: { type: "string", default: "bench/tasks" },
-      results: { type: "string", default: "bench/results" },
-      "on-results": { type: "string" },
+      results: { type: "string" },
       thresholds: { type: "string", default: "bench/thresholds.json" },
     },
   });
+  const dir = values.results;
+  if (!dir) {
+    console.error("usage: bun bench/verdict.ts --results <dir> [--tasks bench/tasks] [--thresholds bench/thresholds.json]");
+    return 2;
+  }
   const thresholds: Thresholds = JSON.parse(readFileSync(values.thresholds!, "utf8"));
   const tasks: Task[] = readdirSync(values.tasks!)
     .filter((f) => f.endsWith(".json"))
     .sort()
     .map((f) => JSON.parse(readFileSync(join(values.tasks!, f), "utf8")));
-  const onDir = values["on-results"];
-  const dirs = onDir ? [values.results!, onDir] : [values.results!];
-  const files = new Map<string, string>();
-  const problems: string[] = [];
-  for (const dir of dirs) {
-    for (const name of readdirSync(dir)) {
-      // A cell name is `<task>__<arm>__<model>__r<n>`; with --on-results, --results gives only its off arm.
-      if (!name.endsWith(".json") || (onDir && dir === values.results && name.split("__")[1] !== "off")) continue;
-      if (files.has(name)) problems.push(`${name}: in both ${dirs.join(" and ")}`);
-      files.set(name, readFileSync(join(dir, name), "utf8"));
-    }
-  }
-  problems.push(...auditCells(tasks, thresholds, files));
+  const files = new Map(
+    readdirSync(dir)
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => [name, readFileSync(join(dir, name), "utf8")]),
+  );
+  const problems = auditCells(tasks, thresholds, files);
   if (problems.length > 0) {
-    console.error(`${problems.length} problems in ${dirs.join(" and ")}:\n${problems.join("\n")}`);
+    console.error(`${problems.length} problems in ${dir}:\n${problems.join("\n")}`);
     return 1;
   }
   const { verdict, wins, perPair, pooled } = decide(tasks, thresholds, [...files.values()].map((s) => JSON.parse(s)));

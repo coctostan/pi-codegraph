@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { checkProbe, main, runProbes, type Probe } from "../bench/probe.js";
 
 test("checkProbe passes output meeting every expectation", () => {
@@ -82,10 +82,21 @@ test("runProbes calls the tool on an indexed worktree at the pinned commit and l
 
     const probesPath = join(reposDir, "probes.json");
     writeFileSync(probesPath, JSON.stringify(probes));
-    expect(await main("pinned", probesPath, reposDir)).toBe(0);
-    expect(await main("", probesPath, reposDir)).toBe(1);
-    expect(await main("nope", probesPath, reposDir)).toBe(2);
+    expect(await main(["pinned", "--repos", reposDir], probesPath)).toBe(0);
+    expect(await main(["--repos", reposDir], probesPath)).toBe(1);
+    expect(await main(["nope", "--repos", reposDir], probesPath)).toBe(2);
   } finally {
     rmSync(reposDir, { recursive: true, force: true });
   }
 }, 120_000);
+
+test("main runs probes on repos beside this checkout by default", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cg-probe-"));
+  try {
+    const probesPath = join(dir, "probes.json");
+    writeFileSync(probesPath, JSON.stringify([{ id: "p", repo: "no-such-bench-repo", commit: "HEAD", tool: "trace", params: {}, expect: {} }]));
+    await expect(main(["p"], probesPath)).rejects.toThrow(`failed in ${resolve(import.meta.dir, "..", "..", "no-such-bench-repo")}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
