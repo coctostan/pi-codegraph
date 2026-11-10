@@ -188,6 +188,7 @@ test("a node whose calls are all unresolved is no leaf, and a test takes no cove
     };
     const unresolvedOnly = fn("src/a.ts", "unresolvedOnly");
     const hiddenOnly = fn("src/b.ts", "hiddenOnly");
+    const importsOnly = fn("src/i.ts", "importsOnly");
     const prod = fn("src/c.ts", "prod");
     const coveringCase = fn("test/c.test.ts", "covers prod", "test");
     const helper = fn("test/d.test.ts", "helper");
@@ -196,6 +197,13 @@ test("a node whose calls are all unresolved is no leaf, and a test takes no cove
     addCall(store, unresolvedOnly.id, "__unresolved__::missing:0");
     // An `obj.m()` the LSP stage left unresolved prints nothing in `trace`, so it leaves a node a leaf.
     addCall(store, hiddenOnly.id, "__member__::push:12");
+    store.addEdge({
+      source: importsOnly.id,
+      target: "__unresolved__::gone:0",
+      kind: "imports",
+      provenance: { source: "tree-sitter", confidence: 0.5, evidence: "gone", content_hash: "h" },
+      created_at: Date.now(),
+    });
     for (const test of [coveringCase, helper]) {
       store.addEdge({
         source: prod.id,
@@ -210,6 +218,7 @@ test("a node whose calls are all unresolved is no leaf, and a test takes no cove
     const tags = (id: string) => formatRoleTags(computer.compute(id));
     expect(tags(unresolvedOnly.id)).toBe("[untested]");
     expect(tags(hiddenOnly.id)).toBe("[leaf, untested]");
+    expect(tags(importsOnly.id)).toBe("[leaf, untested]");
     expect(tags(prod.id)).toBe("[leaf, tested]");
     expect(tags(coveringCase.id)).toBe("");
     expect(tags(helper.id)).toBe("");
