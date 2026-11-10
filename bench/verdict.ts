@@ -6,13 +6,14 @@
  *
  * Exits 2 without `--results`, and 1, listing each problem, on a missing, extra, malformed, mis-armed or mis-graded
  * cell, or cells run on different pi versions or anthropic-cc provider commits. Only `*.json` files directly under
- * the results directory count, so `pilot/` and the transcripts are skipped.
+ * the results directory count as cells, so `pilot/` is skipped; an on cell recorded before `traceLineCalls` takes
+ * its count from its `<cell>.transcript.jsonl` beside it.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { grade } from "./grade.js";
-import { armProblem, cellId, type Arm, type Task } from "./run.js";
+import { armProblem, cellId, parseTranscript, type Arm, type Task } from "./run.js";
 
 export interface Thresholds {
   models: string[];
@@ -35,6 +36,8 @@ export interface TaskResult {
   turnsCut: number;
   /** On cells that called a codegraph tool, of `onCells`. */
   picks: number;
+  /** On cells with a `trace` call that passed `line`, of `onCells`. */
+  lines: number;
   onCells: number;
   win: boolean;
 }
@@ -59,8 +62,13 @@ function expectedCells(tasks: Task[], t: Thresholds) {
   return cells;
 }
 
-/** Every reason the cell files, keyed by file name, can't feed a verdict; empty when they all can. */
-export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<string, string>): string[] {
+/** `trace` calls that passed `line`: the cell's own count, else its transcript's; undefined with neither. */
+export function traceLineCalls(cell: any, transcript?: string): number | undefined {
+  return cell.traceLineCalls ?? (transcript === undefined ? undefined : parseTranscript(transcript).traceLineCalls);
+}
+
+/** Every reason the cell files, keyed by file name, can't feed a verdict; empty when they all can. Transcripts are keyed by cell id. */
+export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<string, string>, transcripts = new Map<string, string>()): string[] {
   const expected = expectedCells(tasks, thresholds);
   const problems: string[] = tasks.length === 0 ? ["no tasks"] : [];
   for (const name of files.keys()) if (!expected.has(name)) problems.push(`${name}: unexpected cell`);
@@ -83,18 +91,20 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
       count(c?.turns) &&
       count(c.tokens?.total) &&
       count(c.codegraphCalls) &&
+      (c.traceLineCalls === undefined || count(c.traceLineCalls)) &&
       typeof c.grade?.correct === "boolean" &&
       typeof c.finalText === "string" &&
       typeof c.piVersion === "string" &&
       Array.isArray(c.offeredTools) &&
       c.offeredTools.every((t: unknown) => typeof t === "string");
     if (!typed) {
-      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
+      problems.push(`${name}: malformed: turns, tokens.total, codegraphCalls, traceLineCalls, grade.correct, finalText, piVersion or offeredTools missing or ill-typed`);
       continue;
     }
     for (const f of PINNED) pins[f][want.arm].add(c[f] ?? "none");
+    const id = name.slice(0, -".json".length);
     const identity: Record<string, unknown> = {
-      cell: name.slice(0, -".json".length),
+      cell: id,
       task: want.task.id,
       commit: want.task.commit,
       arm: want.arm,
@@ -110,6 +120,7 @@ export function auditCells(tasks: Task[], thresholds: Thresholds, files: Map<str
     if (want.arm === "off" && c.codegraphCalls > 0) problems.push(`${name}: off arm made ${c.codegraphCalls} codegraph calls`);
     if (want.arm === "on" && typeof c.index?.errors !== "number") problems.push(`${name}: on arm has no index`);
     else if (want.arm === "on" && c.index.errors > 0) problems.push(`${name}: indexing reported ${c.index.errors} errors`);
+    if (want.arm === "on" && traceLineCalls(c, transcripts.get(id)) === undefined) problems.push(`${name}: on arm has no traceLineCalls and no transcript`);
     const regraded = grade(want.task.key, c.finalText).correct;
     if (regraded !== c.grade.correct) problems.push(`${name}: recorded grade correct=${c.grade.correct}, key gives ${regraded}`);
   }
@@ -144,6 +155,7 @@ function compare(task: string, model: string | undefined, on: any[], off: any[],
     turnsOn: turns(on),
     turnsOff: turns(off),
     picks: on.filter((c) => c.codegraphCalls > 0).length,
+    lines: on.filter((c) => c.traceLineCalls > 0).length,
     onCells: on.length,
   };
   const tokensCut = cut(r.tokensOn, r.tokensOff);
@@ -160,7 +172,7 @@ function verdictOf(results: TaskResult[], t: Thresholds): { verdict: Verdict; wi
   return { verdict, wins };
 }
 
-/** The verdict over audited cells, judged per task-model pair, with the per-task verdict, both models pooled, beside it. */
+/** The verdict over audited cells, each on cell's `traceLineCalls` filled, judged per task-model pair, with the per-task verdict, both models pooled, beside it. */
 export function decide(
   tasks: Task[],
   t: Thresholds,
@@ -191,20 +203,25 @@ function main(): number {
     .filter((f) => f.endsWith(".json"))
     .sort()
     .map((f) => JSON.parse(readFileSync(join(values.tasks!, f), "utf8")));
-  const files = new Map(
-    readdirSync(dir)
-      .filter((name) => name.endsWith(".json"))
-      .map((name) => [name, readFileSync(join(dir, name), "utf8")]),
-  );
-  const problems = auditCells(tasks, thresholds, files);
+  const read = (suffix: string) =>
+    new Map(
+      readdirSync(dir)
+        .filter((name) => name.endsWith(suffix))
+        .map((name) => [name, readFileSync(join(dir, name), "utf8")]),
+    );
+  const files = read(".json");
+  const transcripts = new Map([...read(".transcript.jsonl")].map(([name, s]) => [name.slice(0, -".transcript.jsonl".length), s]));
+  const problems = auditCells(tasks, thresholds, files, transcripts);
   if (problems.length > 0) {
     console.error(`${problems.length} problems in ${dir}:\n${problems.join("\n")}`);
     return 1;
   }
-  const { verdict, wins, perPair, pooled } = decide(tasks, thresholds, [...files.values()].map((s) => JSON.parse(s)));
+  const cells = [...files.values()].map((s) => JSON.parse(s));
+  for (const c of cells) c.traceLineCalls = traceLineCalls(c, transcripts.get(c.cell));
+  const { verdict, wins, perPair, pooled } = decide(tasks, thresholds, cells);
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const row = (r: TaskResult) =>
-    `correct on ${r.correctOn} off ${r.correctOff}  tokens on ${r.tokensOn} off ${r.tokensOff} cut ${pct(r.tokensCut)}  turns on ${r.turnsOn} off ${r.turnsOff} cut ${pct(r.turnsCut)}  picks ${r.picks}/${r.onCells}  ${r.win ? "win" : "-"}`;
+    `correct on ${r.correctOn} off ${r.correctOff}  tokens on ${r.tokensOn} off ${r.tokensOff} cut ${pct(r.tokensCut)}  turns on ${r.turnsOn} off ${r.turnsOff} cut ${pct(r.turnsCut)}  picks ${r.picks}/${r.onCells}  lines ${r.lines}/${r.onCells}  ${r.win ? "win" : "-"}`;
   for (const r of perPair) console.log(`${r.task}  ${r.model}  ${row(r)}`);
   for (const r of pooled.perTask) console.log(`pooled  ${r.task}  ${row(r)}`);
   console.log(`pooled wins ${pooled.wins}/${pooled.perTask.length} ${pooled.verdict}`);

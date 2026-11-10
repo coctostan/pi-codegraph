@@ -62,6 +62,17 @@ test("parseTranscript ignores non-JSON lines and reports an empty run", () => {
   expect(m).toMatchObject({ offeredTools: [], turns: 0, codegraphCalls: 0, finalText: "", stopReason: null });
 });
 
+test("parseTranscript counts the trace calls that passed line, not an entry trace or another tool's line", () => {
+  const call = (name: string, args: object) => ({ type: "toolCall", id: name, name, arguments: args });
+  const turn = (...content: object[]) => JSON.stringify({ type: "message_end", message: { role: "assistant", content } });
+  const jsonl = [
+    turn(call("trace", { file: "src/a.ts", line: 5 }), call("trace", { entry: "a" })),
+    turn(call("read", { path: "src/a.ts", line: 5 }), call("trace", { entry: "b", line: null }), call("trace", { file: "src/b.ts", line: 9 })),
+  ].join("\n");
+  expect(parseTranscript(jsonl)).toMatchObject({ codegraphCalls: 4, traceLineCalls: 2 });
+  expect(parseTranscript(fixture("pilot-on-gpt.jsonl")).traceLineCalls).toBe(0);
+});
+
 test("piArgs offers the codegraph tools on the on arm and excludes them on the off arm", () => {
   const on = piArgs({ arm: "on", model: "openai-codex/gpt-6.1-sol", prompt: "q", extensions: ["/a.ts", "/b.ts"] });
   expect(on).toContain("--no-session");
