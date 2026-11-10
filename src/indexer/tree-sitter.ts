@@ -351,7 +351,7 @@ function edgeSink(edges: GraphEdge[]): (edge: GraphEdge) => void {
 function extract(
   file: string,
   content: string,
-  entryLine?: number,
+  want: { line?: number; callbacks?: boolean } = {},
 ): ExtractionResult & { functionsAt: FunctionsAt; callbacks: NamedCallback[] } {
   const contentHash = sha256Hex(content);
 
@@ -370,7 +370,7 @@ function extract(
   const edges: GraphEdge[] = [];
   const pushEdge = edgeSink(edges);
   let functionsAt: FunctionsAt = { kind: "none" };
-  const callbacks: Array<NamedCallback & { calls: boolean }> = [];
+  let callbacks: NamedCallback[] = [];
 
   const aliasToOriginal = new Map<string, string>();
   const namespaceImports = new Set<string>();
@@ -707,9 +707,10 @@ function extract(
     // A named arrow's node starts at its declarator or field, the arrow's parent.
     const ownNodeId = (fn: SyntaxNode): string | null =>
       ownId(fn) ?? (fn.parent && /^(variable_declarator|public_field_definition)$/.test(fn.parent.type) ? ownId(fn.parent) : null);
-    const open: Array<NamedCallback & { calls: boolean }> = [];
+    const found: Array<NamedCallback & { calls: boolean; fn: SyntaxNode }> = [];
+    const open: typeof found = [];
 
-    const held = entryLine === undefined ? [] : innermostFunctionsAt(tree.rootNode, entryLine - 1);
+    const held = want.line === undefined ? [] : innermostFunctionsAt(tree.rootNode, want.line - 1);
     const entryFn = held.length === 1 ? held[0]! : null;
     const entryEdges: GraphEdge[] = [];
     const pushEntryEdge = edgeSink(entryEdges);
@@ -744,9 +745,9 @@ function extract(
 
       // A callback: a named function whose calls the index files under the node enclosing it.
       const name = FUNCTION_TYPES.has(n.type) && ownNodeId(n) === null ? functionName(n) : "<anonymous>";
-      const cb = nextFunctionId && name !== "<anonymous>" ? { name, line: n.startPosition.row + 1, ownerId: nextFunctionId, calls: false } : null;
+      const cb = nextFunctionId && name !== "<anonymous>" ? { name, line: n.startPosition.row + 1, ownerId: nextFunctionId, calls: false, fn: n } : null;
       if (cb) {
-        callbacks.push(cb);
+        found.push(cb);
         open.push(cb);
       }
       for (const child of n.namedChildren) visitCalls(child, nextFunctionId, inEntry, nextCls, nextMembers);
@@ -754,6 +755,13 @@ function extract(
     };
 
     visitCalls(tree.rootNode, null, false, null, null);
+    // Only a callback its own first line selects, as `trace` by `file` + `line` does: no function nested on it or beside it.
+    if (want.callbacks) {
+      callbacks = found.flatMap(({ calls, fn, ...cb }) => {
+        const at = innermostFunctionsAt(tree.rootNode, cb.line - 1);
+        return calls && at.length === 1 && at[0]!.startIndex === fn.startIndex && at[0]!.type === fn.type ? [cb] : [];
+      });
+    }
     if (entryFn) {
       const own = ownNodeId(entryFn);
       const fn: FunctionAt = {
@@ -776,7 +784,7 @@ function extract(
     return { module: moduleNode, nodes: [], edges: [], partial, functionsAt: { kind: "none" }, callbacks: [] };
   }
 
-  return { module: moduleNode, nodes, edges, partial, functionsAt, callbacks: callbacks.flatMap(({ calls, ...cb }) => (calls ? [cb] : [])) };
+  return { module: moduleNode, nodes, edges, partial, functionsAt, callbacks };
 }
 
 export function extractFile(file: string, content: string): ExtractionResult {
@@ -784,14 +792,14 @@ export function extractFile(file: string, content: string): ExtractionResult {
   return result;
 }
 
-/** Every named callback in the file that makes calls, in source order. */
+/** Every named callback in the file that makes calls and that a `file` + `line` trace from its first line selects, in source order. */
 export function extractCallbacks(file: string, content: string): NamedCallback[] {
-  return extract(file, content).callbacks;
+  return extract(file, content, { callbacks: true }).callbacks;
 }
 
 /** The innermost function holding 1-based `line` and the calls it makes, as `extractFile` reads them. */
 export function extractFunctionAt(file: string, content: string, line: number): FunctionsAt {
-  return extract(file, content, line).functionsAt;
+  return extract(file, content, { line }).functionsAt;
 }
 
 // Back-compat with the existing placeholder export test

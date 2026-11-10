@@ -23,7 +23,12 @@ const APP = [
   "      function inner() { return deep(); }",
   "      return inner();",
   "    },",
-  "    quiet() { function f() { return deep(); } return f; },",
+  "    quiet() {",
+  "      function f() { return deep(); }",
+  "      return f;",
+  "    },",
+  "    flush() { [1].forEach(() => helper()); },",
+  "    a() { other(); }, b() { deep(); },",
   "    onDone: (n: number) => helper(),",
   "  });",
   "}",
@@ -171,6 +176,10 @@ test("an entry trace whose root defines named callbacks ends naming each by file
     `  → callbacks inside: run (src/app.ts:${lineOf("run() {")}), onDone (src/app.ts:${lineOf("onDone")}); trace one alone by \`file\` + \`line\``,
   );
   expect((await trace({ entry: "tail", file: "src/app.ts" })).text).not.toContain("→");
+  // Each named location traces that callback alone; a callback sharing its first line with another function goes unnamed.
+  for (const [, name, line] of out.text.matchAll(/(\w+) \(src\/app\.ts:(\d+)\)/g)) {
+    expect(tree((await trace({ file: "src/app.ts", line: Number(line) })).text)[0]).toBe(`${name} (in setup)`);
+  }
 });
 
 test("a callback ending on its enclosing function's last line traces the callback, not that function", async () => {
