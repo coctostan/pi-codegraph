@@ -66,6 +66,10 @@ const APP = [
   "  run();",
   "  return [1].map(() => a.run());",
   "}",
+  "export function loose(s: Store) {",
+  "  s.peek();",
+  "  return [1].map(() => peek());",
+  "}",
 ];
 const lineOf = (text: string) => APP.findIndex((l) => l.includes(text)) + 1;
 
@@ -230,6 +234,13 @@ test("a callback's member call reaches its owner's member, not a free function o
   const out = await trace({ file: "src/app.ts", line: lineOf("map(() => a.run())") });
   expect(tree(out.text)).toEqual(["<anonymous> (in mixed)", "  Alpha.run", "    deep [leaf]"]);
   expect(out.text.startsWith("Trust: fresh")).toBe(true);
+});
+
+test("a callback's call by a name its owner holds unresolved reads unresolved, not as the owner's member of that name", async () => {
+  const { trace } = setup();
+  const line = lineOf("map(() => peek())");
+  const out = await trace({ file: "src/app.ts", line });
+  expect(tree(out.text)).toEqual(["<anonymous> (in loose)", `  ? peek (unresolved, src/app.ts:${line})`]);
 });
 
 test("a line in an indexed function traces it as trace by entry does", async () => {

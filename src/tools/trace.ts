@@ -351,19 +351,19 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
           (byName && (n.node.name === name || n.node.name === `${name}.constructor`)) ||
           (n.node.kind === "function" && n.node.name.endsWith(`.${name}`)),
       );
+      // A call by a name the owner still holds unresolved reads unresolved, unless a stored call ends where it does.
+      const stored = byName ? ownerUnresolved.find((e) => calleeName(e) === name) : undefined;
       // The one whose stored call ends where this one does, else an exact name, else the only one; two namesakes, say
       // `a.run()` and `b.run()` on two classes, leave the call unresolved rather than guess.
       const hit =
         named.find((n) => !!call.call_end && n.edge.call_end?.line === call.call_end.line && n.edge.call_end.col === call.call_end.col) ??
-        named.find((n) => n.node.name === name) ??
-        (named.length === 1 ? named[0] : undefined);
+        (stored ? undefined : (named.find((n) => n.node.name === name) ?? (named.length === 1 ? named[0] : undefined)));
       if (hit) {
         resolvedEdges.push(hit.edge);
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
       // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
       if (isMemberCall(call.target) && named.length === 0) return [];
-      const stored = ownerUnresolved.find((e) => calleeName(e) === name);
       if (!stored) unindexed.push(`${file}:${name}`);
       return [unresolvedCallee(stored ?? call, file, call)];
     })

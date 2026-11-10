@@ -28,14 +28,16 @@ const span = (n: GraphNode) => (n.end_line ?? n.start_line) - n.start_line;
 /**
  * The node a definition at `loc` declares for a call to `name`: the narrowest function or class in its file named
  * `name` or `<Class>.<name>` whose span holds it, so a decorated member, which starts at its decorator, still does; for
- * a class, its constructor when it declares one.
+ * a class, its constructor when it declares one. Two as narrow, namesakes on one line, are no answer: nodes hold no
+ * column to tell them apart.
  */
 function definedAt(store: GraphStore, loc: { file: string; line: number }, name: string): GraphNode | undefined {
   const nodes = store.getNodesByFile(loc.file);
-  const found = nodes
+  const [found, next] = nodes
     .filter((n) => (n.kind === "function" || n.kind === "class") && (n.name === name || n.name.endsWith(`.${name}`)))
     .filter((n) => n.start_line <= loc.line && loc.line <= (n.end_line ?? n.start_line))
-    .sort((a, b) => span(a) - span(b))[0];
+    .sort((a, b) => span(a) - span(b));
+  if (found && next && span(next) === span(found)) return undefined;
   if (found?.kind !== "class") return found;
   return nodes.find((n) => n.name === `${found.name}.constructor` && found.start_line <= n.start_line && n.start_line <= (found.end_line ?? found.start_line)) ?? found;
 }

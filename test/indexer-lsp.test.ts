@@ -430,3 +430,28 @@ test("a call tree-sitter resolved stays as it is when tsserver's definition name
   expect(store.getEdgesBySource(caller.id).map((e) => [e.target, e.provenance.source])).toEqual([[callee.id, "tree-sitter"]]);
   store.close();
 });
+
+test("a definition on a line holding two namesake members resolves to neither", async () => {
+  const store = new SqliteGraphStore();
+  const files: Record<string, string[]> = {
+    "src/ab.ts": ["export class A { m() {} } export class B { m() {} }"],
+    "src/use.ts": ["export function use(b: B) {", "  b.m();", "}"],
+  };
+  for (const [file, lines] of Object.entries(files)) {
+    const extracted = extractFile(file, lines.join("\n"));
+    store.addNode(extracted.module);
+    for (const node of extracted.nodes) store.addNode(node);
+    for (const edge of extracted.edges) store.addEdge(edge);
+    store.setFileHash(file, extracted.module.content_hash);
+  }
+  const client: ITsServerClient = {
+    definition: async () => ({ file: "src/ab.ts", line: 1, col: 44 }),
+    references: async () => [],
+    implementations: async () => [],
+    shutdown: async () => {},
+  };
+  await runLspIndexStage(store, "/project", client);
+  expect(store.getNeighbors("src/use.ts::use:1", { direction: "out", kind: "calls" })).toEqual([]);
+  expect(store.getEdgesBySource("src/use.ts::use:1").map((e) => e.provenance.evidence)).toEqual(["m:2:5"]);
+  store.close();
+});
