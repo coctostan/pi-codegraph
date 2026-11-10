@@ -1,0 +1,66 @@
+{
+  "cell": "source-snippet-impact__on__anthropic-cc_claude-opus-5-5__r3",
+  "task": "source-snippet-impact",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 3,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:38:01.136Z",
+  "wallMs": 13499,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 3128,
+      "lsp": 4699,
+      "ast-grep": 51,
+      "coverage": 1,
+      "git": 211
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 3,
+  "tokens": {
+    "input": 8,
+    "output": 576,
+    "cacheRead": 12154,
+    "cacheWrite": 3455,
+    "total": 16193
+  },
+  "costUsd": 0.0416228,
+  "toolCalls": {
+    "impact": 1,
+    "grep": 1
+  },
+  "codegraphCalls": 1,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "I ran an impact analysis on `readSourceSnippet` and checked the direct call with a search of `src/`. Only one function calls it directly; three more reach it through that caller.\n\n- **Direct caller (will break):** `renderSymbolSourceSection` in `src/tools/symbol-card.ts:41`.\n- **Two steps away (behaviour may change):** `symbolCard` in `src/tools/symbol-card.ts` and `symbolGraph` in `src/tools/symbol-graph.ts`. Both call `renderSymbolSourceSection`.\n- **Tool entry point (behaviour may change):** `piCodegraph` in `src/index.ts`.\n\nFor tests, 2 files call `readSourceSnippet` directly: `test/read-source-snippet.test.ts` and `test/repro-078-source-truncation-hint.test.ts`. Another 39 test files reach it through these callers, mostly the `tool-symbol-card-*`, `tool-symbol-graph-*` and `extension-*` tests.\n\n<answer>\nrenderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "renderSymbolSourceSection\nsymbolCard\nsymbolGraph\npiCodegraph",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

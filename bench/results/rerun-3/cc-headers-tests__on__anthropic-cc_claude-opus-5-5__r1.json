@@ -1,0 +1,63 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r1",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T12:43:26.505Z",
+  "wallMs": 15037,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 2426,
+      "lsp": 3609,
+      "ast-grep": 72,
+      "coverage": 1,
+      "git": 995
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 1420,
+    "cacheRead": 4230,
+    "cacheWrite": 5345,
+    "total": 11001
+  },
+  "costUsd": 0.07203000000000001,
+  "toolCalls": {
+    "impact": 1
+  },
+  "codegraphCalls": 1,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Five test files call `buildAnthropicCcHeaders` directly, so you should rerun these after your change:\n\n- `tests/anthropicCcAuthModes.test.ts`\n- `tests/anthropicCcBetaComposition.test.ts`\n- `tests/anthropicCcHeaderSuppression.test.ts`\n- `tests/anthropicCcInlineToolsBetaFlags.test.ts`\n- `tests/anthropicCcOAuthBetaComposition.test.ts`\n\nAnother 26 test files reach it indirectly. They go through `buildAnthropicCcRequest`, `buildAnthropicCcRequestFromContext` (both in `src/anthropic-cc/request.ts`) and `streamAnthropicCc` (`src/anthropic-cc/stream.ts`). If you want a full rerun, add these:\n\n- `tests/anthropicCcClaude5AdaptiveEffort.test.ts`\n- `tests/anthropicCcClaude5NoImplicitEffort.test.ts`\n- `tests/anthropicCcClaude5OutputConfigReference.test.ts`\n- `tests/anthropicCcClaude5Prefill.test.ts`\n- `tests/anthropicCcClaude5Sampling.test.ts`\n- `tests/anthropicCcClaude5Thinking.test.ts`\n- `tests/anthropicCcContentBlockStartSeeding.test.ts`\n- `tests/anthropicCcContextClamping.test.ts`\n- `tests/anthropicCcInlineToolsBetaWire.test.ts`\n- `tests/anthropicCcManagedBetaRequest.test.ts`\n- `tests/anthropicCcManagedEffortHistory.test.ts`\n- `tests/anthropicCcOpus55Projection.test.ts`\n- `tests/anthropicCcOpus55Reasoning.test.ts`\n- `tests/anthropicCcPi083CacheCompatibility.test.ts`\n- `tests/anthropicCcPi083StrictTools.test.ts`\n- `tests/anthropicCcPi083StrictToolsUnsupported.test.ts`\n- `tests/anthropicCcPi083Temperature.test.ts`\n- `tests/anthropicCcPi083ThinkingOff.test.ts`\n- `tests/anthropicCcPi099DynamicSystem.test.ts`\n- `tests/anthropicCcPi110ThinkingBounds.test.ts`\n- `tests/anthropicCcResolveCacheControl.test.ts`\n- `tests/anthropicCcSanitizationBoundary.test.ts`\n- `tests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts`\n- `tests/anthropicCcThinkingOffWireBody.test.ts`\n- `tests/anthropicCcTranscriptRequestOverride.test.ts`\n- `tests/anthropicCcTranscriptStreamOverride.test.ts`\n\n`scripts/liveThinkingOffSmoke.ts` also calls it indirectly, but it's a script, not a test.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

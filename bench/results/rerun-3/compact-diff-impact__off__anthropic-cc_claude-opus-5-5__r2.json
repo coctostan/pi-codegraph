@@ -1,0 +1,49 @@
+{
+  "cell": "compact-diff-impact__off__anthropic-cc_claude-opus-5-5__r2",
+  "task": "compact-diff-impact",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:15:48.821Z",
+  "wallMs": 32079,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 10,
+  "tokens": {
+    "input": 22,
+    "output": 2008,
+    "cacheRead": 53058,
+    "cacheWrite": 7379,
+    "total": 62467
+  },
+  "costUsd": 0.1098916,
+  "toolCalls": {
+    "grep": 5,
+    "read": 2,
+    "bash": 3
+  },
+  "codegraphCalls": 0,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "There are two call paths, one through the edit tool and one through the write tool. Both end where the tools are registered in `index.ts`. I left out tests that call the function directly.\n\n**Edit path:**\n- `buildEditResult` (`src/edit.ts:1110`) calls `generateCompactOrFullDiff` at line 1129 and uses the `.diff` field for `buildDiffData`.\n- The edit tool's `execute` method (`src/edit.ts:1210`) calls `buildEditResult` at line 1321, from inside an unnamed function passed to `withFileMutationQueue`.\n- `registerEditTool` (`src/edit.ts:1197`) defines that `execute` method and registers the tool.\n- `piHashlineReadmapExtension` (`index.ts:167`) calls `registerEditTool` at line 184.\n\n**Write path:**\n- `generateWriteDiff` (`src/write.ts:126`) returns the result of `generateCompactOrFullDiff` directly when there was previous content. Its declared return type is `{ diff; firstChangedLine }`, so it has to match the new shape.\n- `executeWrite` (`src/write.ts:195`) calls `generateWriteDiff` at line 324.\n- The write tool's `execute` method (`src/write.ts:368`) calls `executeWrite` at line 410.\n- `registerWriteTool` (`src/write.ts:357`) defines that method and registers the tool at line 568.\n- `piHashlineReadmapExtension` calls `registerWriteTool` at line 193.\n\nThree test files also call `generateCompactOrFullDiff` directly: `tests/diff-data-compact.test.ts`, `tests/edit-compact-diff.test.ts` and `tests/diff-data-inline.test.ts`.\n\n<answer>\nbuildEditResult\nexecute (edit tool, in registerEditTool)\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nexecute (write tool, in registerWriteTool)\nregisterWriteTool\npiHashlineReadmapExtension\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "buildEditResult\nexecute (edit tool, in registerEditTool)\nregisterEditTool\ngenerateWriteDiff\nexecuteWrite\nexecute (write tool, in registerWriteTool)\nregisterWriteTool\npiHashlineReadmapExtension",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

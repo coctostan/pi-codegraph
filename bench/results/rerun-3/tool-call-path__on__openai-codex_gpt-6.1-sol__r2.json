@@ -1,0 +1,68 @@
+{
+  "cell": "tool-call-path__on__openai-codex_gpt-6.1-sol__r2",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "on",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:23:24.575Z",
+  "wallMs": 64701,
+  "exitCode": 0,
+  "index": {
+    "indexed": 225,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [
+      "src/indexer/ast-grep.ts"
+    ],
+    "timings": {
+      "tree-sitter": 3226,
+      "lsp": 4863,
+      "ast-grep": 144,
+      "coverage": 1,
+      "git": 199
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 22910,
+    "output": 1365,
+    "cacheRead": 56832,
+    "cacheWrite": 0,
+    "total": 81107
+  },
+  "costUsd": 0.06515320000000001,
+  "toolCalls": {
+    "ls": 1,
+    "grep": 1,
+    "trace": 7,
+    "read": 10
+  },
+  "codegraphCalls": 7,
+  "traceLineCalls": 3,
+  "stopReason": "stop",
+  "finalText": "<answer>\nAll three tools share this ordered path in `src/index.ts`:\n\n1. **`execute` → `prepare`**\n   - Check cancellation.\n   - **`getOrCreateProject(ctx.cwd)`** opens or reuses `.codegraph/graph.db`. On creation: **`SqliteGraphStore.constructor` → `openDb` → `initSchema`**.\n   - **`setStatus`** displays “indexing…”.\n   - **`ensureIndexed`** starts indexing, or shares an already-running index; **`raceAbort`** waits cancellation-safely.\n\n2. **`ensureIndexed` → `indexProjectImpl`**, normally **`indexProject`** (`src/indexer/pipeline.ts`), runs these stages sequentially:\n   1. **`walkTsFiles` → `walk`** discovers `.ts`/`.tsx` files.\n   2. For each file: **`toPosixPath` → `sha256Hex` → `store.getFileHash`**. Unchanged files are skipped; changed files go through **`extractFile`**, then **`addNode` / `addEdge` / `setFileHash`**. Deleted files are removed with **`deleteFile`**.\n   3. **`TsServerClient.constructor` → `runLspIndexStage`** resolves or confirms call targets through **`client.definition`**, then **`client.shutdown`**.\n   4. **`runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`** adds framework relationships for changed files.\n   5. **`runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`** stores coverage-derived test edges and traces.\n   6. **`runGitCoChangeStage` → `getCurrentHead`**, then, when HEAD changed, **`parseGitLog` → `computeDecayWeight`**, stores co-change edges.\n\n3. Back in **`prepare`**: **`setStatus`** clears or reports indexing failure, then **`ensureHashInit`** initializes anchor hashing.\n\n4. Run the requested tool:\n   - **`symbol_graph`**: **`store.findNodes`**; for one match, **`getClient` → `resolveMissingCallers` → `resolveImplementations`** (interfaces only), awaited through **`raceAbort`**; then **`symbolGraph`** renders.\n   - **`impact`**: **`impact`** computes and renders dependents.\n   - **`trace`**: **`trace`** renders stored coverage when available, otherwise a static call tree.\n\n5. **`finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`** prepares the final text.\n\n6. **`toolResult` → `extractAnchors`** returns text content, lookup-error status, and structured `{ text, anchors, indexingFailed }`.\n\nImportantly, indexing is **lazy, not session-start work**, and is **not limited to the first call**: later calls rerun the incremental pipeline. Concurrent calls share in-flight indexing. Indexing failures are recorded so tools can still answer from existing graph data; cancellation stops waiting without cancelling shared indexing.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "All three tools share this ordered path in `src/index.ts`:\n\n1. **`execute` → `prepare`**\n   - Check cancellation.\n   - **`getOrCreateProject(ctx.cwd)`** opens or reuses `.codegraph/graph.db`. On creation: **`SqliteGraphStore.constructor` → `openDb` → `initSchema`**.\n   - **`setStatus`** displays “indexing…”.\n   - **`ensureIndexed`** starts indexing, or shares an already-running index; **`raceAbort`** waits cancellation-safely.\n\n2. **`ensureIndexed` → `indexProjectImpl`**, normally **`indexProject`** (`src/indexer/pipeline.ts`), runs these stages sequentially:\n   1. **`walkTsFiles` → `walk`** discovers `.ts`/`.tsx` files.\n   2. For each file: **`toPosixPath` → `sha256Hex` → `store.getFileHash`**. Unchanged files are skipped; changed files go through **`extractFile`**, then **`addNode` / `addEdge` / `setFileHash`**. Deleted files are removed with **`deleteFile`**.\n   3. **`TsServerClient.constructor` → `runLspIndexStage`** resolves or confirms call targets through **`client.definition`**, then **`client.shutdown`**.\n   4. **`runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`** adds framework relationships for changed files.\n   5. **`runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`** stores coverage-derived test edges and traces.\n   6. **`runGitCoChangeStage` → `getCurrentHead`**, then, when HEAD changed, **`parseGitLog` → `computeDecayWeight`**, stores co-change edges.\n\n3. Back in **`prepare`**: **`setStatus`** clears or reports indexing failure, then **`ensureHashInit`** initializes anchor hashing.\n\n4. Run the requested tool:\n   - **`symbol_graph`**: **`store.findNodes`**; for one match, **`getClient` → `resolveMissingCallers` → `resolveImplementations`** (interfaces only), awaited through **`raceAbort`**; then **`symbolGraph`** renders.\n   - **`impact`**: **`impact`** computes and renders dependents.\n   - **`trace`**: **`trace`** renders stored coverage when available, otherwise a static call tree.\n\n5. **`finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`** prepares the final text.\n\n6. **`toolResult` → `extractAnchors`** returns text content, lookup-error status, and structured `{ text, anchors, indexingFailed }`.\n\nImportantly, indexing is **lazy, not session-start work**, and is **not limited to the first call**: later calls rerun the incremental pipeline. Concurrent calls share in-flight indexing. Indexing failures are recorded so tools can still answer from existing graph data; cancellation stops waiting without cancelling shared indexing.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

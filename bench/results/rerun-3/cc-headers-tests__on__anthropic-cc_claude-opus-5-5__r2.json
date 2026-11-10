@@ -1,0 +1,63 @@
+{
+  "cell": "cc-headers-tests__on__anthropic-cc_claude-opus-5-5__r2",
+  "task": "cc-headers-tests",
+  "repo": "pi-claude-header",
+  "commit": "4c15f289ff2554777d0f6899747968d0aaf317f8",
+  "arm": "on",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:08:38.195Z",
+  "wallMs": 14577,
+  "exitCode": 0,
+  "index": {
+    "indexed": 251,
+    "skipped": 0,
+    "removed": 0,
+    "errors": 0,
+    "partial": [],
+    "timings": {
+      "tree-sitter": 2389,
+      "lsp": 3492,
+      "ast-grep": 215,
+      "coverage": 1,
+      "git": 1095
+    }
+  },
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "symbol_graph",
+    "impact",
+    "trace"
+  ],
+  "turns": 2,
+  "tokens": {
+    "input": 6,
+    "output": 1258,
+    "cacheRead": 6648,
+    "cacheWrite": 2929,
+    "total": 10841
+  },
+  "costUsd": 0.04994560000000001,
+  "toolCalls": {
+    "impact": 1
+  },
+  "codegraphCalls": 1,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "`impact` finds 5 test files that call `buildAnthropicCcHeaders` directly. Another 26 reach it indirectly, through `buildAnthropicCcRequestFromContext`, `buildAnthropicCcRequest` and `streamAnthropicCc`. Since you're rerunning after a change, run all 31.\n\n**Calls it directly (5):**\n- tests/anthropicCcAuthModes.test.ts\n- tests/anthropicCcBetaComposition.test.ts\n- tests/anthropicCcHeaderSuppression.test.ts\n- tests/anthropicCcInlineToolsBetaFlags.test.ts\n- tests/anthropicCcOAuthBetaComposition.test.ts\n\n**Reaches it through other callers (26):** these are listed in the answer block below.\n\n`scripts/liveThinkingOffSmoke.ts` also calls it indirectly, but it's a smoke script, not a test.\n\n<answer>\ntests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/anthropicCcAuthModes.test.ts\ntests/anthropicCcBetaComposition.test.ts\ntests/anthropicCcHeaderSuppression.test.ts\ntests/anthropicCcInlineToolsBetaFlags.test.ts\ntests/anthropicCcOAuthBetaComposition.test.ts\ntests/anthropicCcClaude5AdaptiveEffort.test.ts\ntests/anthropicCcClaude5NoImplicitEffort.test.ts\ntests/anthropicCcClaude5OutputConfigReference.test.ts\ntests/anthropicCcClaude5Prefill.test.ts\ntests/anthropicCcClaude5Sampling.test.ts\ntests/anthropicCcClaude5Thinking.test.ts\ntests/anthropicCcContentBlockStartSeeding.test.ts\ntests/anthropicCcContextClamping.test.ts\ntests/anthropicCcInlineToolsBetaWire.test.ts\ntests/anthropicCcManagedBetaRequest.test.ts\ntests/anthropicCcManagedEffortHistory.test.ts\ntests/anthropicCcOpus55Projection.test.ts\ntests/anthropicCcOpus55Reasoning.test.ts\ntests/anthropicCcPi083CacheCompatibility.test.ts\ntests/anthropicCcPi083StrictTools.test.ts\ntests/anthropicCcPi083StrictToolsUnsupported.test.ts\ntests/anthropicCcPi083Temperature.test.ts\ntests/anthropicCcPi083ThinkingOff.test.ts\ntests/anthropicCcPi099DynamicSystem.test.ts\ntests/anthropicCcPi110ThinkingBounds.test.ts\ntests/anthropicCcResolveCacheControl.test.ts\ntests/anthropicCcSanitizationBoundary.test.ts\ntests/anthropicCcSystemToolUpdateCacheBreakpoint.test.ts\ntests/anthropicCcThinkingOffWireBody.test.ts\ntests/anthropicCcTranscriptRequestOverride.test.ts\ntests/anthropicCcTranscriptStreamOverride.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

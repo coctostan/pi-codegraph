@@ -1,0 +1,49 @@
+{
+  "cell": "enclosing-sg-symbols-tests__off__anthropic-cc_claude-opus-5-5__r1",
+  "task": "enclosing-sg-symbols-tests",
+  "repo": "pi-hashline-readmap",
+  "commit": "756406f281f96221ae143424f918dbdc02da93b3",
+  "arm": "off",
+  "model": "anthropic-cc/claude-opus-5-5",
+  "thinking": "high",
+  "repeat": 1,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:00:53.592Z",
+  "wallMs": 21865,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 6,
+  "tokens": {
+    "input": 14,
+    "output": 1545,
+    "cacheRead": 24635,
+    "cacheWrite": 5979,
+    "total": 32173
+  },
+  "costUsd": 0.083715,
+  "toolCalls": {
+    "grep": 6,
+    "read": 1,
+    "bash": 1
+  },
+  "codegraphCalls": 0,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "Four test files call `findEnclosingSgSymbols` directly:\n\n- `tests/context-hygiene-sg.test.ts`: imports it along with `registerSgTool`. It calls the function directly, and it also reaches it through the sg tool by setting `PI_CONTEXT_HYGIENE_DEBUG=1`.\n- `tests/issue-234-sql-mapper.test.ts`\n- `tests/json-mapper-root-array-sg.test.ts`\n- `tests/issue-242-sql-boundary-consumers.test.ts`\n\nThe only other caller in the code is the sg tool in `src/sg.ts:415`. It only calls the function when `PI_CONTEXT_HYGIENE_DEBUG === \"1\"`. `tests/context-hygiene-sg.test.ts` is the only test that both turns that on and runs the sg tool, and no global test setup sets it. So no other test reaches the function, even indirectly.\n\nTo rerun them:\n`npx vitest run tests/context-hygiene-sg.test.ts tests/issue-234-sql-mapper.test.ts tests/json-mapper-root-array-sg.test.ts tests/issue-242-sql-boundary-consumers.test.ts`\n\n<answer>\ntests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "tests/context-hygiene-sg.test.ts\ntests/issue-234-sql-mapper.test.ts\ntests/json-mapper-root-array-sg.test.ts\ntests/issue-242-sql-boundary-consumers.test.ts",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}

@@ -1,0 +1,49 @@
+{
+  "cell": "tool-call-path__off__openai-codex_gpt-6.1-sol__r2",
+  "task": "tool-call-path",
+  "repo": "pi-codegraph",
+  "commit": "cb5f75f89940af3af4ffc3e8ebbbe53faab5fbf2",
+  "arm": "off",
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "high",
+  "repeat": 2,
+  "codegraphCommit": "dfbcfdf1fede36e285393899cc587f6cd8957a88",
+  "providerCommit": "263ba7e8b86a40c837cbab17cfac9e25aa37ead6",
+  "piVersion": "1.5.0",
+  "startedAt": "2026-11-10T13:24:31.792Z",
+  "wallMs": 54232,
+  "exitCode": 0,
+  "index": null,
+  "offeredTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash"
+  ],
+  "turns": 9,
+  "tokens": {
+    "input": 32241,
+    "output": 1603,
+    "cacheRead": 62720,
+    "cacheWrite": 0,
+    "total": 96564
+  },
+  "costUsd": 0.086784,
+  "toolCalls": {
+    "ls": 2,
+    "read": 16,
+    "grep": 6
+  },
+  "codegraphCalls": 0,
+  "traceLineCalls": 0,
+  "stopReason": "stop",
+  "finalText": "<answer>\nThe normal call order is:\n\n1. **Tool `execute` → `prepare`** (`src/index.ts:261`)\n   - Check cancellation.\n   - **`getOrCreateProject(ctx.cwd)`** opens/reuses the project’s store. On first use: create `.codegraph/`, then **`SqliteGraphStore` → `openDb` → `initSchema`** for `.codegraph/graph.db`.\n   - **`setStatus`** displays “indexing…”.\n   - **`ensureIndexed`** starts indexing, or shares an already-running indexing promise; **`raceAbort`** lets this caller cancel without cancelling shared indexing.\n\n2. **`ensureIndexed` → `indexProjectImpl`**, normally **`indexProject`** (`src/indexer/pipeline.ts`), runs these stages sequentially:\n   1. **`walkTsFiles`** discovers `.ts`/`.tsx` files, excluding `node_modules`, `.megapowers`, and `.git`.\n   2. For each file: read → **`sha256Hex` → `store.getFileHash`**. Skip unchanged files; otherwise **`deleteFile`** if previously indexed → **`extractFile`** (Tree-sitter) → **`addNode` / `addEdge` → `setFileHash`**. Remove indexed files no longer present.\n   3. **`runLspIndexStage`** uses a new **`TsServerClient`**, calling **`definition`** to resolve/confirm call edges; then **`shutdown`**.\n   4. **`runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`** adds route/render relationships for changed files.\n   5. **`runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`** adds test relationships and saved traces from `.codegraph/coverage`.\n   6. **`runGitCoChangeStage` → `getCurrentHead`**, then, if HEAD changed, **`parseGitLog`** builds co-change edges.\n   \n   `ensureIndexed` records/clears indexing errors. `prepare` then calls **`setStatus` → `ensureHashInit`**, initializing anchor hashing.\n\n3. **Tool-specific work** (`src/index.ts:414–519`):\n   - **`symbol_graph`: `findNodes` →**, for exactly one match, **`getClient` → `resolveMissingCallers` → `resolveImplementations`** (interfaces only), awaited through **`raceAbort`** → **`symbolGraph`**.\n   - **`impact`: `impact`**.\n   - **`trace`: `trace`**.\n\n4. **`finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`**. Developer token metadata is added only when enabled.\n\n5. **`toolResult` → `extractAnchors`**, returning text `content`, lookup-failure `isError`, and `structuredContent: { text, anchors, indexingFailed }`.\n\nIndexing is lazy—not performed by `session_start`. Subsequent calls also run the incremental pipeline; only concurrent indexing is deduplicated. Indexing failures generally produce a warning while allowing existing graph data to serve the request.\n</answer>",
+  "grade": {
+    "correct": true,
+    "answer": "The normal call order is:\n\n1. **Tool `execute` → `prepare`** (`src/index.ts:261`)\n   - Check cancellation.\n   - **`getOrCreateProject(ctx.cwd)`** opens/reuses the project’s store. On first use: create `.codegraph/`, then **`SqliteGraphStore` → `openDb` → `initSchema`** for `.codegraph/graph.db`.\n   - **`setStatus`** displays “indexing…”.\n   - **`ensureIndexed`** starts indexing, or shares an already-running indexing promise; **`raceAbort`** lets this caller cancel without cancelling shared indexing.\n\n2. **`ensureIndexed` → `indexProjectImpl`**, normally **`indexProject`** (`src/indexer/pipeline.ts`), runs these stages sequentially:\n   1. **`walkTsFiles`** discovers `.ts`/`.tsx` files, excluding `node_modules`, `.megapowers`, and `.git`.\n   2. For each file: read → **`sha256Hex` → `store.getFileHash`**. Skip unchanged files; otherwise **`deleteFile`** if previously indexed → **`extractFile`** (Tree-sitter) → **`addNode` / `addEdge` → `setFileHash`**. Remove indexed files no longer present.\n   3. **`runLspIndexStage`** uses a new **`TsServerClient`**, calling **`definition`** to resolve/confirm call edges; then **`shutdown`**.\n   4. **`runAstGrepIndexStage` → `loadRules` → `runScan` → `applyRuleMatches`** adds route/render relationships for changed files.\n   5. **`runCoverageIndexStage` → `parseCoverageReports` → `mapCoverageToNodes`** adds test relationships and saved traces from `.codegraph/coverage`.\n   6. **`runGitCoChangeStage` → `getCurrentHead`**, then, if HEAD changed, **`parseGitLog`** builds co-change edges.\n   \n   `ensureIndexed` records/clears indexing errors. `prepare` then calls **`setStatus` → `ensureHashInit`**, initializing anchor hashing.\n\n3. **Tool-specific work** (`src/index.ts:414–519`):\n   - **`symbol_graph`: `findNodes` →**, for exactly one match, **`getClient` → `resolveMissingCallers` → `resolveImplementations`** (interfaces only), awaited through **`raceAbort`** → **`symbolGraph`**.\n   - **`impact`: `impact`**.\n   - **`trace`: `trace`**.\n\n4. **`finalizeReadOnlyOutput` → `suppressFreshTrustHeader` → optional `stripTrustHeader` → `indexingFailedNote` → `appendTokenMetaIfEnabled`**. Developer token metadata is added only when enabled.\n\n5. **`toolResult` → `extractAnchors`**, returning text `content`, lookup-failure `isError`, and `structuredContent: { text, anchors, indexingFailed }`.\n\nIndexing is lazy—not performed by `session_start`. Subsequent calls also run the incremental pipeline; only concurrent indexing is deduplicated. Indexing failures generally produce a warning while allowing existing graph data to serve the request.",
+    "missing": [],
+    "unexpected": []
+  },
+  "stderr": ""
+}
