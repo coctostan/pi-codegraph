@@ -206,10 +206,12 @@ test("traceLineCalls takes the cell's own count, else its transcript's, else non
   expect(traceLineCalls({ ...c, traceLineCalls: undefined })).toBeUndefined();
 });
 
-test("auditCells takes an on cell's line count from its transcript and names one with neither", () => {
+test("auditCells takes an on cell's line count from its transcript, names one with neither, and rejects an ill-typed count", () => {
   const files = fullSet((c) => (c.task === "t1" && c.model === "p/a" ? { ...c, traceLineCalls: undefined } : c));
   expect(auditCells(tasks, thresholds, files, new Map([["t1__on__p_a__r1", lineTranscript]]))).toEqual([]);
   expect(auditCells(tasks, thresholds, files)).toEqual(["t1__on__p_a__r1.json: on arm has no traceLineCalls and no transcript"]);
+  const negative = fullSet((c) => (c.task === "t2" && c.arm === "off" && c.model === "p/b" ? { ...c, traceLineCalls: -1 } : c));
+  expect(auditCells(tasks, thresholds, negative).join("\n")).toContain("t2__off__p_b__r1.json: malformed");
 });
 
 test("decide freezes when a win costs correctness overall, and a cut just under the threshold is no win", () => {
