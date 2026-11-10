@@ -18,7 +18,7 @@ import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-c
 import { ensureHashInit } from "./output/anchoring.js";
 
 const SymbolGraphParams = Type.Object({
-  name: Type.String({ description: "Symbol name." }),
+  name: Type.String({ description: "Symbol name; a method by `Class.method` or its bare name." }),
   file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
   include: Type.Optional(
     Type.Array(
@@ -39,7 +39,7 @@ const SymbolGraphParams = Type.Object({
 
 
 const ImpactParams = Type.Object({
-  symbols: Type.Array(Type.String({ description: "Changed symbol." }), {
+  symbols: Type.Array(Type.String({ description: "Changed symbol; a method by `Class.method` or its bare name." }), {
     description: "Changed symbols.",
   }),
   changeType: Type.Union(
@@ -60,10 +60,10 @@ const ImpactParams = Type.Object({
 });
 
 const TraceParams = Type.Object({
-  entry: Type.Optional(Type.String({ description: "Entry symbol, endpoint, or test case." })),
-  file: Type.Optional(Type.String({ description: "Disambiguating file path." })),
+  entry: Type.Optional(Type.String({ description: "Function, endpoint or test case; a method by `Class.method` or its bare name." })),
+  file: Type.Optional(Type.String({ description: "File holding `line`, or disambiguating `entry`." })),
   line: Type.Optional(
-    Type.Number({ description: "With file: start at the innermost function holding this line, a method or callback included, instead of entry." }),
+    Type.Number({ description: "With file: a line from a grep hit or read; trace starts at the innermost function holding it, a method or callback included, instead of entry." }),
   ),
   suppressTrustHeader: Type.Optional(
     Type.Boolean({ description: "Omit the Trust header." }),
@@ -528,10 +528,10 @@ export default function piCodegraph(pi: ExtensionAPI): void {
     name: "trace",
     label: "Trace",
     description: "Return the call tree below an entry point or the function holding a file line, or, when coverage has one, the functions a covering test's report covered.",
-    promptSnippet: "Trace what runs from a TypeScript function, endpoint, test, or the handler or callback holding a `file` + `line`, as a call tree in call-site order, or list the functions a covering test's report covered",
+    promptSnippet: "Trace what runs from a `file` + `line` (the function, method, handler or callback holding it) or a TypeScript function, `Class.method`, endpoint or test, as a call tree in call-site order, or list the functions a covering test's report covered",
     promptGuidelines: [
       "Use trace when asked what runs, or in what order, from a function, handler or callback onward, or between one point and another, instead of reading each callee by hand.",
-      "Start trace at a function, endpoint or test case by `entry`, or at an object method or anonymous callback the index names no symbol for by `file` and `line`: it starts at the innermost function holding that line.",
+      "Once a grep hit or a read shows the line where that code starts, trace that `file` and `line` before reading the file through: it starts at the innermost function holding that line, a method, handler or anonymous callback included. By `entry`, give a function, endpoint, test case, or a method by `Class.method` or its bare name; an entry tree lists its callbacks' calls as its own, and its closing `→ callbacks` line names each named one by file and line, to trace alone.",
       "trace prints each callee under its caller in call-site order, 3 calls deep: a repeat reads `(see above)`, an unresolved call is a `? name (unresolved, file:line)` line, and `N more omitted beyond depth 3` counts the rest, so trace a deeper callee to continue. When a coverage report covers the entry, it prints instead, under `mode: coverage`, a covering test and then every production function that test's report covered, by file and line, not call order; tests sharing one report get the same list.",
     ],
     parameters: TraceParams,

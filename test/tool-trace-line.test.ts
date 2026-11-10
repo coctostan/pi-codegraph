@@ -167,7 +167,7 @@ test("an entry trace whose root defines named callbacks ends naming each by file
   const { trace } = setup();
   const out = await trace({ entry: "setup", file: "src/app.ts" });
   expect(out.text.trimEnd().split("\n").at(-1)).toBe(
-    `  → callbacks setup defines, their calls in its tree above: run (src/app.ts:${lineOf("run() {")}), onDone (src/app.ts:${lineOf("onDone")}); trace one alone by that \`file\` + \`line\``,
+    `  → callbacks inside: run (src/app.ts:${lineOf("run() {")}), onDone (src/app.ts:${lineOf("onDone")}); trace one alone by \`file\` + \`line\``,
   );
   expect((await trace({ entry: "tail", file: "src/app.ts" })).text).not.toContain("→");
 });

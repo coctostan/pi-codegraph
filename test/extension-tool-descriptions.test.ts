@@ -94,3 +94,19 @@ test("each tool's metadata names the questions it answers", async () => {
   expectClaims("symbol_graph", symbolGraph.claims, [/which tests exercise or cover/, /which to rerun/, /`Test callers \(<n> in <m> files\)`/, /10 files at most/]);
   expectClaims("symbol_graph.promptSnippet", symbolGraph.promptSnippet, [/which tests call it/]);
 });
+
+// Worded against decision 0004's transcripts: each Opus trace cell grepped first, its hits carrying file:line, then read
+// whole files, and its 3 trace calls all passed `entry`.
+test("trace's metadata puts file + line from a grep hit or a read first, and each tool's name parameter takes a method", async () => {
+  const [trace, impact, symbolGraph] = await Promise.all([registeredTool("trace"), registeredTool("impact"), registeredTool("symbol_graph")]);
+  expectClaims("trace", trace.claims, [/grep hit or a read/, /before reading the file/, /`→ callbacks`/], [/the index names no symbol for/]);
+  expectClaims("trace.promptSnippet", trace.promptSnippet, [/^Trace what runs from a `file` \+ `line`/, /`Class\.method`/]);
+  expectClaims("trace.line", trace.parameters.properties.line.description, [/grep hit or read/]);
+  for (const [label, description] of [
+    ["trace.entry", trace.parameters.properties.entry.description],
+    ["symbol_graph.name", symbolGraph.parameters.properties.name.description],
+    ["impact.symbols", impact.parameters.properties.symbols.items.description],
+  ]) {
+    expectClaims(label, description, [/`Class\.method` or its bare name/]);
+  }
+});

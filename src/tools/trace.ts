@@ -451,7 +451,7 @@ function callbackHint(params: TraceParams, root: GraphNode): string {
     .filter((cb) => cb.ownerId === root.id)
     .map((cb) => `${cb.name} (${root.file}:${cb.line})`);
   if (named.length === 0) return "";
-  return `  → callbacks ${root.name} defines, their calls in its tree above: ${named.join(", ")}; trace one alone by that \`file\` + \`line\`\n`;
+  return `  → callbacks inside: ${named.join(", ")}; trace one alone by \`file\` + \`line\`\n`;
 }
 
 /**
