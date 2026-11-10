@@ -17,7 +17,7 @@ Class members are symbols that `symbol_graph`, `trace` and `impact` all answer a
 - [ ] `space/decisions/0005-*.md` records the run's verdict command output verbatim, the Opus pick and `line` counts against their targets, and the spend; on `freeze` or `retire` it supersedes decision 0002 — verified by a read against `bun bench/verdict.ts --results bench/results/rerun-3`'s output
 
 ## Now
-Slice 3 (Resolve member calls through tsserver), active, branch `class-trace/03-member-calls-lsp`. Next action: build it by its plan.
+Slice 3 (Resolve member calls through tsserver), active, branch `class-trace/03-member-calls-lsp` pushed at `c22d8e86`: built, `bun test` 660 pass, `bun bench/probe.ts` 17/17. Review stopped at round 3 of standards, its two high findings fixed and unreviewed; a fourth round is always a stop; spec converged at round 1. Next action: the human rules on landing with round 3's fixes unreviewed, or on another way on.
 
 ## Seams
 - Extraction: `extract`, `extractFile` and `extractFunctionAt` in `src/indexer/tree-sitter.ts`; tests in `test/indexer-extract-file.test.ts` and a new `test/indexer-class-members.test.ts` on inline sources.
