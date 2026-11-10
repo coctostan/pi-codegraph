@@ -13,6 +13,7 @@ test("trace returns stored coverage traces for tests and deterministically selec
 
   const store = new SqliteGraphStore();
   try {
+    store.markCoverageIndexed();
     const alpha = { id: "src/app.test.ts::alphaTest:1", kind: "test" as const, name: "alphaTest", file: "src/app.test.ts", start_line: 1, end_line: 1, content_hash: "h-test" };
     const beta = { id: "src/app.test.ts::betaTest:2", kind: "test" as const, name: "betaTest", file: "src/app.test.ts", start_line: 2, end_line: 2, content_hash: "h-test" };
     const prod = { id: "src/app.ts::prod:1", kind: "function" as const, name: "prod", file: "src/app.ts", start_line: 1, end_line: 1, content_hash: "h-app" };
@@ -46,7 +47,8 @@ test("trace returns stored coverage traces for tests and deterministically selec
     const byProd = traceResult({ entry: "prod", file: "src/app.ts", store, projectRoot }).text;
 
     expect(direct).toMatch(/^mode: coverage \(the test, then every function its report covered, by file and line, not call order\)( \[stale\])?$/m);
-    expect(direct).toMatch(/src\/app\.test\.ts  1:[0-9a-f]{3}/);
+    // The test case's own line: its report covered functions, and a test takes no coverage tag.
+    expect(direct).toMatch(/^src\/app\.test\.ts  1:[0-9a-f]{3}  alphaTest  test( \[stale\])?$/m);
     expect(direct).toMatch(/src\/app\.ts  1:[0-9a-f]{3}/);
     expect(direct).toMatch(/src\/app\.ts  2:[0-9a-f]{3}/);
     expect(direct).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
