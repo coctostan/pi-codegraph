@@ -23,6 +23,7 @@ const APP = [
   "      function inner() { return deep(); }",
   "      return inner();",
   "    },",
+  "    quiet() { function f() { return deep(); } return f; },",
   "    onDone: (n: number) => helper(),",
   "  });",
   "}",

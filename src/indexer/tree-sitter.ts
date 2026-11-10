@@ -742,8 +742,9 @@ function extract(
       // The entry's calls are those the index files under its owner: a nested callback's, not a nested named function's.
       if (callee && inEntry && nextFunctionId === entryOwner) pushEntryEdge(callEdge(entryId, callee, n));
 
-      const name = FUNCTION_TYPES.has(n.type) && nextFunctionId && ownNodeId(n) === null ? functionName(n) : "<anonymous>";
-      const cb = name === "<anonymous>" ? null : { name, line: n.startPosition.row + 1, ownerId: nextFunctionId!, calls: false };
+      // A callback: a named function whose calls the index files under the node enclosing it.
+      const name = FUNCTION_TYPES.has(n.type) && ownNodeId(n) === null ? functionName(n) : "<anonymous>";
+      const cb = nextFunctionId && name !== "<anonymous>" ? { name, line: n.startPosition.row + 1, ownerId: nextFunctionId, calls: false } : null;
       if (cb) {
         callbacks.push(cb);
         open.push(cb);
@@ -783,7 +784,7 @@ export function extractFile(file: string, content: string): ExtractionResult {
   return result;
 }
 
-/** Every named callback in the file, in source order. */
+/** Every named callback in the file that makes calls, in source order. */
 export function extractCallbacks(file: string, content: string): NamedCallback[] {
   return extract(file, content).callbacks;
 }
