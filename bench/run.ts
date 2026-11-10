@@ -47,6 +47,8 @@ export interface TranscriptMetrics {
   costUsd: number;
   toolCalls: Record<string, number>;
   codegraphCalls: number;
+  /** `trace` calls that passed `line`. */
+  traceLineCalls: number;
   stopReason: string | null;
   finalText: string;
 }
@@ -70,6 +72,7 @@ export function parseTranscript(jsonl: string): TranscriptMetrics {
     costUsd: 0,
     toolCalls: {},
     codegraphCalls: 0,
+    traceLineCalls: 0,
     stopReason: null,
     finalText: "",
   };
@@ -97,6 +100,7 @@ export function parseTranscript(jsonl: string): TranscriptMetrics {
       if (block.type !== "toolCall") continue;
       m.toolCalls[block.name] = (m.toolCalls[block.name] ?? 0) + 1;
       if (CODEGRAPH_TOOLS.includes(block.name)) m.codegraphCalls++;
+      if (block.name === "trace" && block.arguments?.line != null) m.traceLineCalls++;
     }
     m.stopReason = msg.stopReason ?? null;
     m.finalText = content.filter((b) => b.type === "text").map((b) => b.text).join("\n");

@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cellId, type Arm, type Task } from "../bench/run.js";
-import { auditCells, decide, type Thresholds } from "../bench/verdict.js";
+import { auditCells, decide, traceLineCalls, type Thresholds } from "../bench/verdict.js";
 
 const thresholds: Thresholds = { models: ["p/a", "p/b"], repeats: 1, minCut: 0.25, keepWinFraction: 0.5 };
 const tasks: Task[] = ["t1", "t2"].map((id) => ({
@@ -34,6 +34,7 @@ function cell(task: Task, arm: Arm, model: string, repeat: number, opts: { token
     turns: opts.turns ?? 4,
     tokens: { total: opts.tokens ?? 1000 },
     codegraphCalls: arm === "on" ? 1 : 0,
+    traceLineCalls: 0 as number | undefined,
     finalText,
     grade: { correct, answer: correct ? "yes" : "no", missing: correct ? [] : ["yes"], unexpected: correct ? [] : ["no"] },
   };
@@ -179,6 +180,43 @@ test("decide counts a pair's on cells that called codegraph", () => {
   expect(d.pooled.perTask.map((p) => p.picks)).toEqual([1, 2]);
 });
 
+test("decide counts a pair's on cells whose trace calls passed line", () => {
+  const cells = parsed(fullSet((c) => (c.task === "t1" && c.arm === "on" && c.model === "p/a" ? { ...c, traceLineCalls: 2 } : c)));
+  const d = decide(tasks, thresholds, cells);
+  expect(d.perPair.map((p) => `${p.lines}/${p.onCells}`)).toEqual(["1/1", "0/1", "0/1", "0/1"]);
+  expect(d.pooled.perTask.map((p) => `${p.lines}/${p.onCells}`)).toEqual(["1/2", "0/2"]);
+});
+
+/** A recorded transcript of one turn calling `trace` by `line` and once by `entry`. */
+const lineTranscript = JSON.stringify({
+  type: "message_end",
+  message: {
+    role: "assistant",
+    content: [
+      { type: "toolCall", id: "1", name: "trace", arguments: { file: "src/a.ts", line: 3 } },
+      { type: "toolCall", id: "2", name: "trace", arguments: { entry: "a" } },
+    ],
+  },
+});
+
+test("traceLineCalls takes the cell's own valid count, else its transcript's, else none", () => {
+  const c = cell(tasks[0]!, "on", "p/a", 1);
+  expect(traceLineCalls({ ...c, traceLineCalls: 3 }, lineTranscript)).toBe(3);
+  expect(traceLineCalls({ ...c, traceLineCalls: undefined }, lineTranscript)).toBe(1);
+  expect(traceLineCalls({ ...c, traceLineCalls: undefined })).toBeUndefined();
+  expect(traceLineCalls({ ...c, traceLineCalls: -1 }, lineTranscript)).toBe(1);
+  expect(traceLineCalls({ ...c, traceLineCalls: null as unknown as number })).toBeUndefined();
+});
+
+test("auditCells takes an on cell's line count from its transcript when it lacks a valid one, names one with neither, and skips off cells", () => {
+  const files = fullSet((c) => (c.task === "t1" && c.model === "p/a" ? { ...c, traceLineCalls: undefined } : c));
+  expect(auditCells(tasks, thresholds, files, new Map([["t1__on__p_a__r1", lineTranscript]]))).toEqual([]);
+  expect(auditCells(tasks, thresholds, files)).toEqual(["t1__on__p_a__r1.json: on arm has no traceLineCalls and no transcript"]);
+  const invalid = fullSet((c) => (c.task === "t2" && c.model === "p/b" ? { ...c, traceLineCalls: -1 } : c));
+  expect(auditCells(tasks, thresholds, invalid, new Map([["t2__on__p_b__r1", lineTranscript]]))).toEqual([]);
+  expect(auditCells(tasks, thresholds, invalid)).toEqual(["t2__on__p_b__r1.json: on arm has no traceLineCalls and no transcript"]);
+});
+
 test("decide freezes when a win costs correctness overall, and a cut just under the threshold is no win", () => {
   const lossy = parsed(
     fullSet((c) => {
@@ -249,14 +287,15 @@ test("the CLI skips pilot/, exits 1 listing problems, and prints the verdict on 
   expect(empty.stderr).toContain("8 problems");
   expect(empty.stderr).not.toContain("stray");
 
-  const files = fullSet((c) => (c.arm === "on" ? { ...c, tokens: { total: 600 } } : c));
+  const files = fullSet((c) => (c.arm === "on" ? { ...c, tokens: { total: 600 }, traceLineCalls: c.task === "t1" && c.model === "p/a" ? undefined : 0 } : c));
   for (const [name, body] of files) writeFileSync(join(results, name), body);
-  writeFileSync(join(results, "t1__on__p_a__r1.transcript.jsonl"), "\n");
+  writeFileSync(join(results, "t1__on__p_a__r1.transcript.jsonl"), lineTranscript + "\n");
   const clean = run();
   expect(clean.stderr).toBe("");
   expect(clean.status).toBe(0);
-  expect(clean.stdout).toContain("t1  p/a  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  win");
-  expect(clean.stdout).toContain("pooled  t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 2/2  win");
+  expect(clean.stdout).toContain("t1  p/a  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  lines 1/1  win");
+  expect(clean.stdout).toContain("t1  p/b  correct on 1 off 1  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 1/1  lines 0/1  win");
+  expect(clean.stdout).toContain("pooled  t1  correct on 2 off 2  tokens on 600 off 1000 cut 40%  turns on 4 off 4 cut 0%  picks 2/2  lines 1/2  win");
   expect(clean.stdout.trim().split("\n").slice(-3)).toEqual(["pooled wins 2/2 keep", "wins 4/4", "keep"]);
 });
 
