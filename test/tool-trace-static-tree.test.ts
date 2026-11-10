@@ -129,7 +129,7 @@ test("static trace prints each unresolved callee on its own line, at its call si
     ]),
   ).toEqual([
     "@ run",
-    "  @ a [leaf]",
+    "  @ a",
     "    ? helper (unresolved, src/t.ts:2)",
     "  ? indexProjectImpl (unresolved, src/t.ts:1)",
     "  @ b [leaf]",

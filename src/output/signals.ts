@@ -9,6 +9,7 @@ export interface NodeSignals {
   tested: boolean;
   frameworkMediated: boolean;
   isExported: boolean;
+  /** Whether the node takes a `tested`/`untested` tag: a coverage report was indexed and the node is no test. */
   coverageKnown: boolean;
 }
 
@@ -55,11 +56,15 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
         const tested = store.getNeighbors(nodeId, { direction: "out", kind: "tested_by" }).length > 0;
         const frameworkMediated = hasFrameworkMediation(store, nodeId);
         const isExported = Boolean(node.is_exported);
+        // The calls `trace` prints as `?` lines: they leave a node no leaf.
+        const callsUnresolved = store.getEdgesBySource(nodeId).some((e) => e.kind === "calls" && e.target.startsWith("__unresolved__::"));
+        // A test the coverage stage recorded, a test-file helper too: each function its report covered has a `tested_by` edge into it.
+        const coversCode = store.getNeighbors(nodeId, { direction: "in", kind: "tested_by" }).length > 0;
 
         const roles: NodeRole[] = [];
         if (isExported && node.kind !== "module" && fanIn === 0) roles.push("entry-point");
         if (fanIn >= 3 && fanOut >= 3) roles.push("hub");
-        if (fanOut === 0) roles.push("leaf");
+        if (fanOut === 0 && !callsUnresolved && !coversCode) roles.push("leaf");
         if (frameworkMediated) roles.push("framework-mediated");
 
         const built = {
@@ -69,7 +74,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
           tested,
           frameworkMediated,
           isExported,
-          coverageKnown,
+          coverageKnown: coverageKnown && node.kind !== "test" && !coversCode,
         };
         baseSignalsCache.set(nodeId, built);
         return built;

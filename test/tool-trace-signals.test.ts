@@ -55,7 +55,36 @@ test("trace appends inline role tags to coverage and static step lines without c
     expect(output).toMatch(/^mode: coverage \(.*\) \[stale\]$/m);
     expect(lines.some((line) => /src\/app\.ts  1:[0-9a-f]{3}  prod  function \[stale\] \[entry-point, tested\]/.test(line))).toBe(true);
     expect(lines.some((line) => /src\/app\.ts  2:[0-9a-f]{3}  helper  function \[stale\] \[leaf, untested\]/.test(line))).toBe(true);
+    // The test case's own line: its report covered `prod` and `helper`, and a test takes no coverage tag.
+    expect(lines.find((line) => line.includes("  prodTest  test"))).toMatch(/^test\/app\.test\.ts  1:[0-9a-f]{3}  prodTest  test( \[stale\])?$/);
     expect(output).not.toMatch(/src\/app\.ts:1:[0-9a-f]{4}/);
+  } finally {
+    store.close();
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("trace tags no node a leaf when its calls are all unresolved", () => {
+  const projectRoot = join(tmpdir(), `pi-cg-trace-unresolved-leaf-${Date.now()}`);
+  mkdirSync(join(projectRoot, "src"), { recursive: true });
+  writeFileSync(join(projectRoot, "src", "io.ts"), "export function open() { return missing(); }\n");
+
+  const store = new SqliteGraphStore();
+  try {
+    store.addNode({ id: "src/io.ts::open:1", kind: "function", name: "open", file: "src/io.ts", start_line: 1, end_line: 1, content_hash: "h-io", is_exported: true });
+    store.addEdge({
+      source: "src/io.ts::open:1",
+      target: "__unresolved__::missing:0",
+      kind: "calls",
+      provenance: { source: "tree-sitter", confidence: 0.5, evidence: "missing:1:33", content_hash: "h-io" },
+      created_at: 1,
+      call_end: { line: 1, col: 41 },
+    });
+
+    const tree = traceResult({ entry: "open", store, projectRoot }).text.split("\n").filter((line) => /^\s*(src|\?)/.test(line));
+    expect(tree).toHaveLength(2);
+    expect(tree[0]).toMatch(/^src\/io\.ts  1:[0-9a-f]{3}  open( \[stale\])? \[entry-point\]$/);
+    expect(tree[1]).toBe("  ? missing (unresolved, src/io.ts:1)");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });
