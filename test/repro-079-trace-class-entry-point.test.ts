@@ -30,7 +30,7 @@ test("trace does not stop at a class entry point that has methods", () => {
 
     const output = traceResult({ entry: "SqliteGraphStore", file, store, projectRoot }).text;
     expect(output).not.toMatch(/SqliteGraphStore\s+class .*leaf/);
-    expect(output).toMatch(/constructor|class entry:/);
+    expect(output).toContain("→ class entry: trace one of its methods by `entry` `SqliteGraphStore.<method>`, or by a `file` + `line` inside it");
   } finally {
     store.close();
     rmSync(projectRoot, { recursive: true, force: true });

@@ -85,6 +85,7 @@
         "applyAnthropicCcToolPolicy",
         "sanitizeAnthropicCcRequestParams"
       ],
+      "all": ["→ callbacks inside: onPayload (src/anthropic-cc/stream.ts:55)"],
       "maxChars": 5400,
       "none": ["untested"]
     }
