@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { SCHEMA_VERSION } from "../graph/sqlite.js";
 import type { FailedLookup, GraphStore } from "../graph/store.js";
 import { calledName, type GraphEdge, type GraphNode } from "../graph/types.js";
 import { sha256Hex } from "../indexer/tree-sitter.js";
@@ -28,6 +29,8 @@ export interface FreshnessReport {
   failedResolves: string[];
   /** What the last index run couldn't read, extract, remove or write, as `src/c.ts` or `lsp stage`: any result can miss it. */
   indexErrors: string[];
+  /** The index's `schema_version` when a newer codegraph wrote it, so no row is this code's to trust; else null. */
+  newerIndexVersion: number | null;
   message: string;
   recommendation?: string;
 }
@@ -103,6 +106,15 @@ function failedResolves(failures: FailedLookup[], targets: GraphNode[]): string[
 function hashOf(fullPath: string): string | null {
   try {
     return sha256Hex(readFileSync(fullPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function newerIndexVersion(store: GraphStore): number | null {
+  try {
+    const version = store.queryRows<{ version: number }>("SELECT version FROM schema_version LIMIT 1")[0]?.version;
+    return version !== undefined && version > SCHEMA_VERSION ? version : null;
   } catch {
     return null;
   }
@@ -192,14 +204,17 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
   const resolves = failedResolves(failures, params.targetNodes ?? []);
   const indexErrors = [...new Set(failures.filter((f) => f.kind === "index").map((f) => f.source))];
   if (failed > 0 || resolves.length > 0 || indexErrors.length > 0) report.localStale = true;
+  const newerVersion = newerIndexVersion(params.store);
 
-  const status: FreshnessStatus = report.unknown
-    ? "unknown"
-    : report.targetStale
-      ? "stale"
-      : report.localStale
-        ? "partial"
-        : "fresh";
+  const status: FreshnessStatus = newerVersion !== null
+    ? "stale"
+    : report.unknown
+      ? "unknown"
+      : report.targetStale
+        ? "stale"
+        : report.localStale
+          ? "partial"
+          : "fresh";
   const changedFiles = sortedFiles(report.changedFiles);
   const deletedFiles = sortedFiles(report.deletedFiles);
   const affectedSymbols = sortedStrings(report.affectedSymbols);
@@ -216,8 +231,9 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     failedLookups: failed,
     failedResolves: resolves,
     indexErrors,
+    newerIndexVersion: newerVersion,
     message,
-    recommendation: params.recommendation,
+    recommendation: newerVersion !== null ? "restart pi to load the newer codegraph that wrote this index" : params.recommendation,
   };
 }
 
@@ -236,6 +252,9 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
   ].filter((note): note is string => note !== null);
   if (report.status === "fresh") return ["Trust: fresh", ...notes].join("\n");
   const lines = [`Trust: ${report.status}`];
+  if (report.newerIndexVersion !== null) {
+    lines.push(`- index version: ${report.newerIndexVersion}, written by a newer codegraph than this one (${SCHEMA_VERSION})`);
+  }
   const changed = formatFiles("changed files", report.changedFiles);
   const deleted = formatFiles("deleted files", report.deletedFiles);
   if (changed) lines.push(changed);
