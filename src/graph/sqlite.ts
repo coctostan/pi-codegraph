@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import type { FailedLookup, GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
-import type { GraphEdge, GraphNode } from "./types.js";
+import { MEMBER_CALL, UNRESOLVED, type GraphEdge, type GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string, readonly = false): any {
   if ((process.versions as any).bun) {
@@ -43,6 +43,10 @@ const RESOLVER_MARKER_PREFIX = "resolver:";
 /** The `graph_metadata` key marking `symbolId`'s `kind` resolved, so `symbol_graph` asks tsserver once; every one goes when any file is re-extracted or removed. */
 export function resolverMarkerKey(kind: "callers" | "implementations", symbolId: string): string {
   return `${RESOLVER_MARKER_PREFIX}${kind}:${symbolId}`;
+}
+/** SQL true when `column` holds an id under `marker`, `UNRESOLVED` or `MEMBER_CALL`, as `isUnresolved` and `isMemberCall` test. */
+export function markerSql(column: string, marker: typeof UNRESOLVED | typeof MEMBER_CALL): string {
+  return `SUBSTR(${column}, 1, ${marker.length + 2}) = '${marker}::'`;
 }
 const FAILED_LOOKUPS_COLUMNS = "kind TEXT NOT NULL, source TEXT NOT NULL, evidence TEXT NOT NULL, PRIMARY KEY (kind, source, evidence)";
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
@@ -326,7 +330,7 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getUnresolvedEdges(): GraphEdge[] {
-    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE SUBSTR(target, 1, 16) = '__unresolved__::' ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
+    const rows = this.db.prepare(`SELECT source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col FROM edges WHERE ${markerSql("target", UNRESOLVED)} ORDER BY created_at ASC`).all() as Parameters<typeof SqliteGraphStore.edgeFromRow>[0][];
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
@@ -397,7 +401,7 @@ export class SqliteGraphStore implements GraphStore {
     const nodes: Record<string, number> = {};
     for (const row of nodeRows) nodes[row.kind] = row.cnt;
 
-    const edgeRows = this.db.prepare("SELECT kind, provenance_source, COUNT(*) as cnt FROM edges WHERE SUBSTR(target, 1, 12) <> '__member__::' GROUP BY kind, provenance_source").all() as Array<{ kind: string; provenance_source: string; cnt: number }>;
+    const edgeRows = this.db.prepare(`SELECT kind, provenance_source, COUNT(*) as cnt FROM edges WHERE NOT ${markerSql("target", MEMBER_CALL)} GROUP BY kind, provenance_source`).all() as Array<{ kind: string; provenance_source: string; cnt: number }>;
     const edges: Record<string, Record<string, number>> = {};
     for (const row of edgeRows) {
       if (!edges[row.kind]) edges[row.kind] = {};

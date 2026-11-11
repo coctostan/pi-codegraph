@@ -1,5 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
-import type { GraphNode } from "../graph/types.js";
+import { isUnresolved, type GraphNode } from "../graph/types.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { createSignalComputer, formatRoleTags } from "../output/signals.js";
 import { readSourceSnippet } from "../output/source.js";
@@ -47,7 +47,7 @@ export function renderSymbolCardBody(params: ResolvedNodeParams): RenderedSymbol
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
   const allNeighbors = store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !isUnresolved(nr.node.id),
   );
   const lines: string[] = [];
   lines.push(`## ${node.name} (${node.kind})`);
@@ -111,7 +111,7 @@ export function symbolCard(params: SymbolCardParams): string {
   const signalComputer = createSignalComputer(store);
   const signals = signalComputer.compute(node.id);
   const allNeighbors = store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !isUnresolved(nr.node.id),
   );
 
   const lines: string[] = [];

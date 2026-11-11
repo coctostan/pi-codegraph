@@ -1,5 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
-import type { GraphEdge, GraphNode } from "../graph/types.js";
+import { isUnresolved, type GraphEdge, type GraphNode } from "../graph/types.js";
 import {
   computeAnchor,
   rankNeighbors,
@@ -101,7 +101,7 @@ function renderNeighborhoodBody(params: SymbolGraphParams, node: GraphNode): str
   const buckets = new Map<string, NeighborResult[]>();
     const unresolvedResults: NeighborResult[] = [];
   for (const nr of allNeighbors) {
-    if (nr.node.file.startsWith("__unresolved__")) {
+    if (isUnresolved(nr.node.id)) {
       unresolvedResults.push(nr);
       continue;
     }
@@ -151,7 +151,7 @@ function collectVisibleNeighborhoodScope(params: SymbolGraphParams, node: GraphN
   const unresolvedResults: NeighborResult[] = [];
 
   for (const nr of params.store.getNeighbors(node.id)) {
-    if (nr.node.file.startsWith("__unresolved__")) {
+    if (isUnresolved(nr.node.id)) {
       unresolvedResults.push(nr);
       continue;
     }
@@ -184,7 +184,7 @@ function collectVisibleNeighborhoodScope(params: SymbolGraphParams, node: GraphN
 
   return {
     resultNodes: visible
-      .filter((nr) => !nr.node.file.startsWith("__unresolved__"))
+      .filter((nr) => !isUnresolved(nr.node.id))
       .map((nr) => nr.node),
     resultEdges: visible.map((nr) => nr.edge),
   };
@@ -195,7 +195,7 @@ function collectDefaultCardScope(params: SymbolGraphParams, node: GraphNode): {
   resultEdges: GraphEdge[];
 } {
   const allNeighbors = params.store.getNeighbors(node.id).filter(
-    (nr) => !nr.node.file.startsWith("__unresolved__"),
+    (nr) => !isUnresolved(nr.node.id),
   );
   const tests = allNeighbors.filter((nr) => nr.edge.kind === "tested_by" && nr.edge.source === node.id);
   const allCallers = allNeighbors.filter((nr) => nr.edge.kind === "calls" && nr.edge.target === node.id);

@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import type { GraphStore } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
-import { isMemberCall, nodeId } from "../graph/types.js";
+import { isMemberCall, isUnresolved, nodeId } from "../graph/types.js";
 import { extractCallbacks, extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
 import { computeAnchor, formatAnchorLocation } from "../output/anchoring.js";
 import { evaluateFreshness, prependFreshnessHeader } from "../output/freshness.js";
@@ -45,7 +45,6 @@ function resolveCoverageTraceId(store: GraphStore, nodeId: string): string | nul
 
 /** A static trace prints callees down to this many calls below its entry. */
 const STATIC_TRACE_DEPTH = 3;
-const UNRESOLVED = "__unresolved__::";
 
 type CallEnd = GraphEdge["call_end"];
 
@@ -88,7 +87,7 @@ function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
   }
   const unresolved = store
     .getEdgesBySource(caller.id)
-    .filter((edge) => edge.kind === "calls" && edge.target.startsWith(UNRESOLVED))
+    .filter((edge) => edge.kind === "calls" && isUnresolved(edge.target))
     .map((edge) => unresolvedCallee(edge, caller.file));
   return [...byId.values(), ...unresolved].sort(byCallOrder);
 }
@@ -329,7 +328,7 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   };
   const ownerCalls = owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : [];
   const ownerEdges = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls") : [];
-  const ownerUnresolved = ownerEdges.filter((e) => e.target.startsWith(UNRESOLVED));
+  const ownerUnresolved = ownerEdges.filter((e) => isUnresolved(e.target));
   // The `obj.m()` calls the LSP stage left unresolved, by call site: no project call, so they print nothing.
   const hidden = new Map(ownerEdges.filter((e) => isMemberCall(e.target)).map((e) => [e.provenance.evidence, e]));
   const hiddenEdges: GraphEdge[] = [];

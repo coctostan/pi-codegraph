@@ -1,4 +1,5 @@
 import type { GraphStore, NeighborResult } from "../graph/store.js";
+import { isUnresolved } from "../graph/types.js";
 
 export type NodeRole = "entry-point" | "hub" | "leaf" | "framework-mediated";
 
@@ -57,7 +58,7 @@ export function createSignalComputer(store: GraphStore): SignalComputer {
         const frameworkMediated = hasFrameworkMediation(store, nodeId);
         const isExported = Boolean(node.is_exported);
         // The calls `trace` prints as `?` lines: they leave a node no leaf.
-        const callsUnresolved = store.getEdgesBySource(nodeId).some((e) => e.kind === "calls" && e.target.startsWith("__unresolved__::"));
+        const callsUnresolved = store.getEdgesBySource(nodeId).some((e) => e.kind === "calls" && isUnresolved(e.target));
         // A test the coverage stage recorded, a test-file helper too: each function its report covered has a `tested_by` edge into it.
         const coversCode = store.getNeighbors(nodeId, { direction: "in", kind: "tested_by" }).length > 0;
 

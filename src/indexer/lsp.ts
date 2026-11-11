@@ -1,5 +1,5 @@
 import type { GraphEdge, GraphNode } from "../graph/types.js";
-import { isMemberCall } from "../graph/types.js";
+import { isMemberCall, isUnresolved } from "../graph/types.js";
 import type { GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
@@ -15,10 +15,6 @@ function parseEvidence(evidence: string): { name: string; line: number; col: num
 
 function isStartupError(err: unknown): boolean {
   return err instanceof Error && err.message.startsWith("TsServer failed to start:");
-}
-
-function isUnresolvedTarget(target: string): boolean {
-  return target.startsWith("__unresolved__::");
 }
 
 type CallEnd = GraphEdge["call_end"];
@@ -74,7 +70,7 @@ export async function runLspIndexStage(
   for (const file of store.listFiles()) {
     for (const node of store.getNodesByFile(file)) {
       for (const e of store.getEdgesBySource(node.id)) {
-        if (e.kind !== "calls" || e.provenance.source !== "tree-sitter" || isUnresolvedTarget(e.target)) continue;
+        if (e.kind !== "calls" || e.provenance.source !== "tree-sitter" || isUnresolved(e.target)) continue;
         if (!isMemberCall(e.target)) confirmed.push(e);
         else if (memberNames.has(parseEvidence(e.provenance.evidence)?.name ?? "")) members.push(e);
       }
@@ -113,7 +109,7 @@ export async function runLspIndexStage(
     if (!loc) continue;
     const target = definedAt(store, loc, parsed.name);
     // A call tree-sitter resolved stays put unless tsserver agrees on its target.
-    const pending = isUnresolvedTarget(edge.target) || isMemberCall(edge.target);
+    const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
     if (!target || (!pending && target.id !== edge.target)) continue;
     try {
       // Add before delete: a failed add keeps the call for the next run to resolve. Of a caller's calls to one target,
