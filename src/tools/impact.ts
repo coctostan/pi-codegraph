@@ -138,7 +138,7 @@ export function impactResult(params: ImpactParams): { text: string; resolved: bo
         targetNodes,
         resultNodes,
         resultEdges,
-        recommendation: "impact may be incomplete; refresh index before relying on this result",
+        caveat: "impact may be incomplete",
       }),
     ),
     resolved,

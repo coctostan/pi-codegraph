@@ -32,7 +32,7 @@ export interface FreshnessReport {
   /** The index's `schema_version` when a newer codegraph wrote it, so no row is this code's to trust; else null. */
   newerIndexVersion: number | null;
   message: string;
-  recommendation?: string;
+  recommendation: string;
 }
 
 export interface FreshnessEvaluationParams {
@@ -42,7 +42,8 @@ export interface FreshnessEvaluationParams {
   resultNodes?: GraphNode[];
   resultEdges?: GraphEdge[];
   unresolvedItems?: string[];
-  recommendation?: string;
+  /** The tool's own warning, as `trace path may be unreliable`, put before the recommended action. */
+  caveat?: string;
 }
 
 interface MutableReport {
@@ -220,6 +221,12 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
   const deletedFiles = sortedFiles(report.deletedFiles);
   const affectedSymbols = sortedStrings(report.affectedSymbols);
   const message = status === "fresh" ? "result is fresh" : `${status} result freshness`;
+  // Every call re-runs the index, so a gap no other line explains is a file the run can't take in until it's fixed.
+  const onlyIndexErrors = status === "partial" && indexErrors.length > 0 && changedFiles.length === 0 &&
+    deletedFiles.length === 0 && report.staleEdgeCount === 0 && failed === 0 && resolves.length === 0;
+  const action = onlyIndexErrors
+    ? `fix what the last index run lost (${capped(indexErrors).join(", ")}) before relying on this result`
+    : "refresh index before relying on this result";
 
   return {
     status,
@@ -234,7 +241,9 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     indexErrors,
     newerIndexVersion: newerVersion,
     message,
-    recommendation: newerVersion !== null ? "restart pi to load the newer codegraph that wrote this index" : params.recommendation,
+    recommendation: newerVersion !== null
+      ? "restart pi to load the newer codegraph that wrote this index"
+      : params.caveat ? `${params.caveat}; ${action}` : action,
   };
 }
 
@@ -244,6 +253,11 @@ function formatFiles(label: string, files: FreshnessFileDetail[]): string | null
     .map((item) => item.indexedAt === undefined ? item.file : `${item.file} (indexed_at: ${item.indexedAt})`)
     .join(", ");
   return `- ${label}: ${rendered}`;
+}
+
+/** The first 5 of `items`, then a count of the rest. */
+function capped(items: string[]): string[] {
+  return items.length > 5 ? [...items.slice(0, 5), `+${items.length - 5} more`] : items;
 }
 
 export function formatFreshnessHeader(report: FreshnessReport): string {
@@ -267,11 +281,9 @@ export function formatFreshnessHeader(report: FreshnessReport): string {
     ...report.failedResolves,
   ];
   if (failedNotes.length > 0) lines.push(`- lookups failed: ${failedNotes.join(", ")} (tsserver timed out or errored)`);
-  const indexErrors = report.indexErrors.slice(0, 5);
-  if (report.indexErrors.length > 5) indexErrors.push(`+${report.indexErrors.length - 5} more`);
-  if (indexErrors.length > 0) lines.push(`- index errors: ${indexErrors.join(", ")}`);
+  if (report.indexErrors.length > 0) lines.push(`- index errors: ${capped(report.indexErrors).join(", ")}`);
   lines.push(...notes);
-  lines.push(`- recommendation: ${report.recommendation ?? "refresh index before relying on this result"}`);
+  lines.push(`- recommendation: ${report.recommendation}`);
   return lines.join("\n");
 }
 
