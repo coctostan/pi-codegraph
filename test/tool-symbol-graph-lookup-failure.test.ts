@@ -186,6 +186,6 @@ test("a references answer clears the failed definition records of the calls it f
     use(answering(async () => [A_CALLS_B, yAt(3), yAt(13)]));
     expect(await card("b")).toStartWith("Trust: fresh");
     const y = store().findNodes("y", "src/other.ts")[0]!;
-    expect(store().getFailedLookups().map((f) => [f.source, f.evidence])).toEqual([[y.id, "d:2:8"]]);
+    expect(store().getFailures().map((f) => [f.source, f.evidence])).toEqual([[y.id, "d:2:8"]]);
   }, timingOut);
 });

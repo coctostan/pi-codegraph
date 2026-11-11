@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { calledName, isUnresolved, UNRESOLVED, type GraphNode } from "../graph/types.js";
 import { resolverMarkerKey } from "../graph/sqlite.js";
-import type { FailedLookup, GraphStore } from "../graph/store.js";
+import type { GraphStore, RecordedFailure } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
 
 type ResolverKind = "callers" | "implementations";
@@ -12,13 +12,13 @@ function hasMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode): bo
 }
 
 /** The tsserver lookup `kind` makes for `symbol`, at the column it asks. */
-function queryLookup(kind: ResolverKind, symbol: GraphNode, col: number): FailedLookup {
+function queryLookup(kind: ResolverKind, symbol: GraphNode, col: number): RecordedFailure {
   return { kind: kind === "callers" ? "references" : "implementations", source: symbol.id, evidence: `${symbol.file}:${symbol.start_line}:${col}` };
 }
 
 function setMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode, col: number): void {
   store.setMetadata(resolverMarkerKey(kind, symbol.id), "1");
-  store.setLookupFailed(queryLookup(kind, symbol, col), false);
+  store.setFailed(queryLookup(kind, symbol, col), false);
 }
 
 /**
@@ -27,7 +27,7 @@ function setMarker(store: GraphStore, kind: ResolverKind, symbol: GraphNode, col
  */
 function recordFailure(store: GraphStore, kind: ResolverKind, symbol: GraphNode, col: number, err: unknown): void {
   if (err instanceof Error && err.message.startsWith("TsServer failed to start:")) setMarker(store, kind, symbol, col);
-  else store.setLookupFailed(queryLookup(kind, symbol, col), true);
+  else store.setFailed(queryLookup(kind, symbol, col), true);
 }
 
 /**
@@ -103,7 +103,7 @@ export async function resolveMissingCallers(
     // edges already capture the same information honestly.
     return;
   }
-  const failedCalls = store.getFailedLookups().filter((f) => f.kind === "definition");
+  const failedCalls = store.getFailures().filter((f) => f.kind === "definition");
   const bare = calledName(node);
   for (const ref of refs) {
     // The innermost node holding the reference, by the narrowest span: a method, not its class. An interface's member
@@ -115,7 +115,7 @@ export async function resolveMissingCallers(
     if (!callerNode) continue;
     // tsserver located this call, so a failed `definition` lookup on it hides no caller.
     for (const f of failedCalls) {
-      if (f.source === callerNode.id && f.evidence === `${bare}:${ref.line}:${ref.col}`) store.setLookupFailed(f, false);
+      if (f.source === callerNode.id && f.evidence === `${bare}:${ref.line}:${ref.col}`) store.setFailed(f, false);
     }
     if (callerNode.id === node.id) continue; // self reference/declaration
 

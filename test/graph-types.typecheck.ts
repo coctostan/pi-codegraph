@@ -80,8 +80,9 @@ const validStore: GraphStore = {
   markCoverageIndexed: () => {},
   getMetadata: () => null,
   setMetadata: () => {},
-  getFailedLookups: () => [],
-  setLookupFailed: () => {},
+  getFailures: () => [],
+  getIndexErrors: () => [],
+  setFailed: () => {},
   close: () => {},
 };
 

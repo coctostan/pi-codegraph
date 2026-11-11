@@ -51,7 +51,7 @@ test("a timed-out definition lookup reads partial on the caller's trace and the 
       expect(text).not.toContain("lookups failed");
     }
     expect(trace(root, store, "a")).not.toContain("unresolved");
-    expect(store.getFailedLookups()).toEqual([]);
+    expect(store.getFailures()).toEqual([]);
   });
 });
 
@@ -63,7 +63,7 @@ test("an errored lookup counts as failed, a tsserver that never started does not
   await withRepo(async (root, store) => {
     await indexProject(root, store, { lspClientFactory: throwing("TsServer failed to start: tsserver") });
     expect(card(root, store, "b")).toStartWith("Trust: fresh");
-    expect(store.getFailedLookups()).toEqual([]);
+    expect(store.getFailures()).toEqual([]);
   });
 });
 
@@ -93,7 +93,7 @@ test("a failed lookup whose call is edited away leaves no record", async () => {
     await indexProject(root, store, { lspClientFactory: timingOut });
     writeFileSync(join(root, "src", "main.ts"), SOURCE.replace("  b();\n", ""));
     await indexProject(root, store, { lspClientFactory: timingOut });
-    expect(store.getFailedLookups()).toEqual([]);
+    expect(store.getFailures()).toEqual([]);
     expect(card(root, store, "b")).toStartWith("Trust: fresh");
   });
 });
@@ -125,13 +125,13 @@ test("an unchanged project's run writes no lookup record", async () => {
   for (const client of [throwing("TsServer request timed out: definition"), fakeClient(async () => null)]) {
     await withRepo(async (root, store) => {
       await indexProject(root, store, { lspClientFactory: client });
-      const records = store.getFailedLookups();
+      const records = store.getFailures();
       const writes: unknown[] = [];
-      const write = store.setLookupFailed.bind(store);
-      store.setLookupFailed = (...args) => { writes.push(args); write(...args); };
+      const write = store.setFailed.bind(store);
+      store.setFailed = (...args) => { writes.push(args); write(...args); };
       expect((await indexProject(root, store, { lspClientFactory: client })).errors).toBe(0);
       expect(writes).toEqual([]);
-      expect(store.getFailedLookups()).toEqual(records);
+      expect(store.getFailures()).toEqual(records);
     });
   }
 });
@@ -141,13 +141,13 @@ test("an index run leaves a failed references or implementations record alone", 
     await indexProject(root, store, { lspClientFactory: answering });
     const b = store.findNodes("b", "src/main.ts")[0]!;
     const lookup = { kind: "references", source: b.id, evidence: "src/main.ts:4:17" } as const;
-    store.setLookupFailed(lookup, true);
+    store.setFailed(lookup, true);
     const writes: unknown[] = [];
-    const write = store.setLookupFailed.bind(store);
-    store.setLookupFailed = (...args) => { writes.push(args); write(...args); };
+    const write = store.setFailed.bind(store);
+    store.setFailed = (...args) => { writes.push(args); write(...args); };
     await indexProject(root, store, { lspClientFactory: answering });
     expect(writes).toEqual([]);
-    expect(store.getFailedLookups()).toEqual([lookup]);
+    expect(store.getFailures()).toEqual([lookup]);
     expect(card(root, store, "b")).toContain("- lookups failed: callers of b (tsserver timed out or errored)");
   });
 });

@@ -134,16 +134,17 @@ test.each(["deleteFile", "clearFile"] as const)("%s on one file drops every reso
   try {
     const kept = "src/kept.ts::shared:1";
     for (const kind of ["callers", "implementations"] as const) store.setMetadata(resolverMarkerKey(kind, kept), "1");
-    for (const kind of ["references", "implementations"] as const) store.setLookupFailed({ kind, source: kept, evidence: "src/kept.ts:1:17" }, true);
+    for (const kind of ["references", "implementations"] as const) store.setFailed({ kind, source: kept, evidence: "src/kept.ts:1:17" }, true);
     const call = { kind: "definition", source: kept, evidence: "b:2:3" } as const;
-    store.setLookupFailed(call, true);
+    store.setFailed(call, true);
     const lost = { kind: "index", source: "src/lost.ts", evidence: "read" } as const;
-    store.setLookupFailed(lost, true);
+    store.setFailed(lost, true);
     store.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     store[method]("src/other.ts");
     expect(store.queryRows("SELECT key, value FROM graph_metadata WHERE key <> 'schema_version'")).toEqual([{ key: GIT_HEAD_METADATA_KEY, value: "abc" }]);
     // A `definition` record names one call, which the next index run asks again; an `index` one waits for the run's end.
-    expect(store.getFailedLookups()).toEqual([call, lost]);
+    expect(store.getFailures()).toEqual([call, lost]);
+    expect(store.getIndexErrors()).toEqual([lost]);
   } finally {
     store.close();
   }
@@ -153,10 +154,10 @@ test("a failed lookup of each kind is kept apart, and cleared alone", () => {
   const store = new SqliteGraphStore();
   try {
     const at = { source: "src/x.ts::I:1", evidence: "src/x.ts:1:18" };
-    store.setLookupFailed({ kind: "references", ...at }, true);
-    store.setLookupFailed({ kind: "implementations", ...at }, true);
-    store.setLookupFailed({ kind: "references", ...at }, false);
-    expect(store.getFailedLookups()).toEqual([{ kind: "implementations", ...at }]);
+    store.setFailed({ kind: "references", ...at }, true);
+    store.setFailed({ kind: "implementations", ...at }, true);
+    store.setFailed({ kind: "references", ...at }, false);
+    expect(store.getFailures()).toEqual([{ kind: "implementations", ...at }]);
   } finally {
     store.close();
   }

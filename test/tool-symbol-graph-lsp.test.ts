@@ -103,7 +103,7 @@ test("resolveMissingCallers takes no interface's member declaration as a caller,
   const iface = node("src/api.ts", "Api", "interface", 1, 3);
   const caller = node("src/use.ts", "use", "function", 1, 3);
   for (const n of [target, iface, caller]) store.addNode(n);
-  store.setLookupFailed({ kind: "definition", source: caller.id, evidence: "add:2:5" }, true);
+  store.setFailed({ kind: "definition", source: caller.id, evidence: "add:2:5" }, true);
   const client: ITsServerClient = {
     references: async () => [{ file: "src/api.ts", line: 2, col: 3 }, { file: "src/use.ts", line: 2, col: 5 }],
     definition: async () => null,
@@ -112,7 +112,7 @@ test("resolveMissingCallers takes no interface's member declaration as a caller,
   };
   await resolveMissingCallers(target, store, "/project", client);
   expect(store.getNeighbors(target.id, { direction: "in", kind: "calls" }).map((n) => n.node.name)).toEqual(["use"]);
-  expect(store.getFailedLookups().filter((f) => f.kind === "definition")).toEqual([]);
+  expect(store.getFailures().filter((f) => f.kind === "definition")).toEqual([]);
   store.close();
 });
 test("resolveMissingCallers ignores self-reference at declaration location", async () => {

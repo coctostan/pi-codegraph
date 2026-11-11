@@ -95,7 +95,7 @@ test("a legacy DB lacking graph_metadata migrates on open and reads as one witho
       expect(store.getEdgesBySource("src/a.ts::f:1").map((e) => [e.target, e.call_end])).toEqual([["src/a.ts::g:2", undefined]]);
       expect(store.getUnresolvedEdges()).toEqual([]);
       expect(store.getNeighbors("src/a.ts::g:2", { direction: "in" }).map((n) => n.node.id)).toEqual(["src/a.ts::f:1"]);
-      expect(store.getFailedLookups()).toEqual([]);
+      expect(store.getFailures()).toEqual([]);
     } finally {
       store.close();
     }
@@ -112,15 +112,15 @@ test("a failed_lookups table from before lookup kinds keeps its rows as failed d
     raw.close();
     const store = new SqliteGraphStore(dbPath);
     try {
-      expect(store.getFailedLookups()).toEqual([{ kind: "definition", source: "src/a.ts::f:1", evidence: "g:1:20" }]);
+      expect(store.getFailures()).toEqual([{ kind: "definition", source: "src/a.ts::f:1", evidence: "g:1:20" }]);
       // The rebuilt table keys on the kind, so a query lookup at the same source and evidence is a row of its own.
-      store.setLookupFailed({ kind: "references", source: "src/a.ts::f:1", evidence: "g:1:20" }, true);
-      expect(store.getFailedLookups().map((f) => f.kind)).toEqual(["definition", "references"]);
+      store.setFailed({ kind: "references", source: "src/a.ts::f:1", evidence: "g:1:20" }, true);
+      expect(store.getFailures().map((f) => f.kind)).toEqual(["definition", "references"]);
     } finally {
       store.close();
     }
     const reopened = new SqliteGraphStore(dbPath);
-    expect(reopened.getFailedLookups()).toHaveLength(2);
+    expect(reopened.getFailures()).toHaveLength(2);
     reopened.close();
   });
 });

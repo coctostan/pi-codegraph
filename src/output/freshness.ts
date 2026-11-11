@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { SCHEMA_VERSION } from "../graph/sqlite.js";
-import type { FailedLookup, GraphStore } from "../graph/store.js";
+import type { GraphStore, RecordedFailure } from "../graph/store.js";
 import { calledName, type GraphEdge, type GraphNode } from "../graph/types.js";
 import { sha256Hex } from "../indexer/tree-sitter.js";
 
@@ -85,7 +85,7 @@ function partialFiles(store: GraphStore, targets: GraphNode[], touched: GraphNod
   return [...targetFiles, ...pick(touched, targetFiles)];
 }
 
-function failedCalls(failures: FailedLookup[], targets: GraphNode[], edges: GraphEdge[]): number {
+function failedCalls(failures: RecordedFailure[], targets: GraphNode[], edges: GraphEdge[]): number {
   const rendered = new Set(edges.map((edge) => `${edge.source}\0${edge.provenance.evidence}`));
   const targetNames = new Set(targets.map(calledName));
   // A call's evidence is `<callee>:<line>:<col>`, so a call to a target stays countable while it reads unresolved.
@@ -94,7 +94,7 @@ function failedCalls(failures: FailedLookup[], targets: GraphNode[], edges: Grap
     .filter((f) => rendered.has(`${f.source}\0${f.evidence}`) || targetNames.has(f.evidence.split(":")[0]!)).length;
 }
 
-function failedResolves(failures: FailedLookup[], targets: GraphNode[]): string[] {
+function failedResolves(failures: RecordedFailure[], targets: GraphNode[]): string[] {
   return targets.flatMap((node) =>
     ([["references", "callers"], ["implementations", "implementations"]] as const)
       .filter(([kind]) => failures.some((f) => f.kind === kind && f.source === node.id))
@@ -200,10 +200,10 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
     report.unknown = true;
     report.localStale = true;
   }
-  const failures = params.store.getFailedLookups();
+  const failures = params.store.getFailures();
   const failed = failedCalls(failures, params.targetNodes ?? [], params.resultEdges ?? []);
   const resolves = failedResolves(failures, params.targetNodes ?? []);
-  const indexErrors = [...new Set(failures.filter((f) => f.kind === "index").map((f) => f.source))];
+  const indexErrors = [...new Set(params.store.getIndexErrors().map((f) => f.source))];
   if (failed > 0 || resolves.length > 0 || indexErrors.length > 0) report.localStale = true;
   const newerVersion = newerIndexVersion(params.store);
 

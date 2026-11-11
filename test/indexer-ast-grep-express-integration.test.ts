@@ -129,12 +129,12 @@ test("a failed route write is written by the next run, its index record kept unt
     };
     await indexProject(root, store, { lspClientFactory: () => fakeClient });
     SqliteGraphStore.prototype.addEdge = addEdge;
-    expect(store.getFailedLookups()).toEqual([{ kind: "index", source: "ast-grep stage", evidence: "write" }]);
+    expect(store.getFailures()).toEqual([{ kind: "index", source: "ast-grep stage", evidence: "write" }]);
 
     await indexProject(root, store, { lspClientFactory: () => fakeClient });
     const handler = store.findNodes("handler", "src/api.ts")[0]!;
     expect(store.getNeighbors(handler.id, { direction: "out", kind: "routes_to" }).map((r) => r.node.id)).toEqual(["endpoint:GET:/users"]);
-    expect(store.getFailedLookups()).toEqual([]);
+    expect(store.getFailures()).toEqual([]);
   } finally {
     SqliteGraphStore.prototype.addEdge = addEdge;
     store.close();
