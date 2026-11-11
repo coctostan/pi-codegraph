@@ -94,7 +94,7 @@ export const EDITS: Edit[] = [
 const dbOf = (dir: string) => join(dir, ".codegraph", "graph.db");
 
 /** Back to the commit's tree, keeping the index and installed deps. */
-function reset(dir: string): void {
+export function reset(dir: string): void {
   sh("git", ["reset", "-q", "--hard"], dir);
   sh("git", ["clean", "-fdq", "-e", ".codegraph", "-e", "node_modules"], dir);
 }
