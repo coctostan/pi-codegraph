@@ -100,8 +100,8 @@ interface ProjectState {
   store: GraphStore;
   /** Where the store works when codegraph can't write `.codegraph/graph.db`, or a newer one wrote it: a temp dir holding its copy, or `:memory:`. */
   workingCopy: string | null;
-  /** The `schema_version` `graph.db` held at open; above `SCHEMA_VERSION`, a newer codegraph wrote it. */
-  indexVersion: number;
+  /** The `schema_version` `graph.db` held at open, null when unread; above `SCHEMA_VERSION`, a newer codegraph wrote it. */
+  indexVersion: number | null;
   client: ITsServerClient | null;
   indexing: Promise<void> | null;
   /** In-flight LSP resolutions by node id, so concurrent calls for one symbol share the work. */
@@ -208,13 +208,14 @@ function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "wo
   } catch {
     writable = false;
   }
-  let indexVersion = 0;
+  // null: unread, so a newer codegraph may have written it.
+  let indexVersion: number | null = 0;
   try {
     if (existsSync(dbPath)) indexVersion = readSchemaVersion(dbPath);
   } catch {
-    // Unreadable, or from before the version table: no newer codegraph wrote it.
+    indexVersion = null;
   }
-  if (writable && indexVersion <= SCHEMA_VERSION) return { store: new SqliteGraphStore(dbPath), workingCopy: null, indexVersion };
+  if (writable && indexVersion !== null && indexVersion <= SCHEMA_VERSION) return { store: new SqliteGraphStore(dbPath), workingCopy: null, indexVersion };
   let copyDir: string | null = null;
   try {
     copyDir = mkdtempSync(join(tmpdir(), "codegraph-"));
@@ -403,7 +404,10 @@ function formatStatus(projectRoot: string, state: ProjectState | undefined): { t
   ];
   if (state.workingCopy === ":memory:") lines.push("db: in memory, since codegraph can't write or copy .codegraph/graph.db");
   else if (state.workingCopy) {
-    const why = state.indexVersion > SCHEMA_VERSION ? "a newer codegraph wrote" : "codegraph can't write";
+    const why =
+      state.indexVersion === null ? "codegraph can't read the version in"
+      : state.indexVersion > SCHEMA_VERSION ? "a newer codegraph wrote"
+      : "codegraph can't write";
     lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since ${why} .codegraph/graph.db`);
   }
   const indexErrors = state.store.getFailedLookups().filter((f) => f.kind === "index");

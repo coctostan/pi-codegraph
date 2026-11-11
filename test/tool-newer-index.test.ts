@@ -24,8 +24,8 @@ afterEach(() => {
 
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
 
-/** A repo indexed once, its `schema_version` then set to `version` (a newer codegraph's by default), and `fresh2` added. */
-async function newerIndexRepo(version = SCHEMA_VERSION + 1): Promise<{ root: string; dbPath: string }> {
+/** A repo indexed once, its `schema_version` then set to `version` (a newer codegraph's by default; null drops the table, as before it existed), and `fresh2` added. */
+async function newerIndexRepo(version: number | null = SCHEMA_VERSION + 1): Promise<{ root: string; dbPath: string }> {
   const root = mkdtempSync(join(tmpdir(), "pi-cg-newer-index-"));
   const dbPath = join(root, ".codegraph", "graph.db");
   mkdirSync(join(root, "src"), { recursive: true });
@@ -36,7 +36,8 @@ async function newerIndexRepo(version = SCHEMA_VERSION + 1): Promise<{ root: str
   store.close();
   const { Database } = createRequire(import.meta.url)("bun:sqlite");
   const raw = new Database(dbPath);
-  raw.prepare("UPDATE schema_version SET version = ?").run(version);
+  if (version === null) raw.exec("DROP TABLE schema_version");
+  else raw.prepare("UPDATE schema_version SET version = ?").run(version);
   raw.close();
   appendFileSync(join(root, "src", "a.ts"), "export function fresh2() {}\n");
   cleanup = () => {
@@ -89,12 +90,30 @@ test("a graph.db a newer codegraph wrote keeps its bytes through a tool call ove
   expect(sha256(dbPath)).toBe(before);
 });
 
-test("a graph.db at the code's own version is indexed in place", async () => {
-  const { root, dbPath } = await newerIndexRepo(SCHEMA_VERSION);
+test("a graph.db whose version codegraph can't read, a writer holding it locked, keeps its bytes", async () => {
+  const { root, dbPath } = await newerIndexRepo();
   const before = sha256(dbPath);
+  const { Database } = createRequire(import.meta.url)("bun:sqlite");
+  const writer = new Database(dbPath);
+  writer.exec("BEGIN EXCLUSIVE");
   const ext = loadExtension(root);
 
-  expect((await ext.symbolGraph("fresh2")).isError).toBe(false);
-  expect(await ext.status()).not.toContain("db: ");
-  expect(sha256(dbPath)).not.toBe(before);
-});
+  const { text, isError } = await ext.symbolGraph("fresh2");
+  writer.exec("ROLLBACK");
+  writer.close();
+  expect(isError, text).toBe(false);
+  expect(await ext.status()).toMatch(/^db: a temp copy at \S+, since codegraph can't read the version in \.codegraph\/graph\.db$/m);
+  expect(sha256(dbPath)).toBe(before);
+}, 15_000);
+
+for (const [label, version] of [["at the code's own version", SCHEMA_VERSION], ["from before the version table", null]] as const) {
+  test(`a graph.db ${label} is indexed in place`, async () => {
+    const { root, dbPath } = await newerIndexRepo(version);
+    const before = sha256(dbPath);
+    const ext = loadExtension(root);
+
+    expect((await ext.symbolGraph("fresh2")).isError).toBe(false);
+    expect(await ext.status()).not.toContain("db: ");
+    expect(sha256(dbPath)).not.toBe(before);
+  });
+}

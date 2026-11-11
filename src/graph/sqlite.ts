@@ -23,10 +23,13 @@ function openDb(path: string, readonly = false): any {
  * through classes).
  */
 export const SCHEMA_VERSION = 5;
-/** The `schema_version` the index at `dbPath` records, read on a read-only connection so its bytes stay as they are. */
+/** The `schema_version` the index at `dbPath` records, 0 for one from before the table, read on a read-only connection so its bytes stay as they are. */
 export function readSchemaVersion(dbPath: string): number {
   const db = openDb(dbPath, true);
   try {
+    // Wait out another session's commit rather than fail.
+    db.exec("PRAGMA busy_timeout = 2000");
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_version'").get()) return 0;
     return (db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | undefined)?.version ?? 0;
   } finally {
     db.close();
