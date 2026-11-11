@@ -105,6 +105,19 @@ test("a failed lookup beside a lost file keeps the refresh", async () => {
   expect(recommendation(text)).toContain("refresh index");
 });
 
+test("a failed callers lookup beside a lost file keeps the refresh", async () => {
+  const call = fixture(["c.ts"], {
+    ...answering,
+    references: async () => {
+      throw new Error("TsServer request timed out: references");
+    },
+  });
+  const text = await call("symbol_graph", { name: "owner" });
+  expect(text).toContain("\n- lookups failed: callers of owner ");
+  expect(text).toContain("\n- index errors: src/c.ts\n");
+  expect(recommendation(text)).toContain("refresh index");
+});
+
 test("the recommendation names 5 lost files, then counts the rest, as the index-errors line does", async () => {
   const call = fixture(["c1.ts", "c2.ts", "c3.ts", "c4.ts", "c5.ts", "c6.ts", "c7.ts"]);
   const rec = recommendation(await call("trace", { entry: "owner" }));
