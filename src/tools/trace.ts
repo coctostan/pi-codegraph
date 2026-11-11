@@ -224,6 +224,8 @@ function formatModeHeader(mode: "coverage" | "static", stale = false): string {
   return `${base}${stale ? " [stale]" : ""}`;
 }
 
+const TRACE_CAVEAT = "trace path may be unreliable";
+
 function traceFreshness(
   params: TraceParams,
   targetNode: GraphNode | null,
@@ -242,7 +244,7 @@ function traceFreshness(
     resultNodes: targetNode ? [targetNode, ...resultNodes] : resultNodes,
     resultEdges,
     unresolvedItems,
-    recommendation: "trace path may be unreliable; refresh index before relying on this result",
+    caveat: TRACE_CAVEAT,
   });
 }
 
@@ -265,7 +267,7 @@ const traceMiss = (params: TraceParams, text: string) => ({
     evaluateFreshness({
       store: params.store,
       projectRoot: params.projectRoot,
-      recommendation: "trace path may be unreliable; refresh index before relying on this result",
+      caveat: TRACE_CAVEAT,
     }),
   ),
   resolved: false,
@@ -374,7 +376,7 @@ function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
   const emptyFreshness = evaluateFreshness({
     store: params.store,
     projectRoot: params.projectRoot,
-    recommendation: "trace path may be unreliable; refresh index before relying on this result",
+    caveat: TRACE_CAVEAT,
   });
 
   if (resolved.kind === "ambiguous") {
@@ -388,7 +390,7 @@ function renderTrace(params: EntryParams, resolved: SymbolResolution): string {
           store: params.store,
           projectRoot: params.projectRoot,
           resultNodes: unscopedMatches,
-          recommendation: "trace path may be unreliable; refresh index before relying on this result",
+          caveat: TRACE_CAVEAT,
         });
         return prependFreshnessHeader(
           formatFileScopedMiss(params.entry, params.file, unscopedMatches, params.projectRoot),
