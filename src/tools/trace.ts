@@ -225,6 +225,7 @@ function formatModeHeader(mode: "coverage" | "static", stale = false): string {
 }
 
 const TRACE_CAVEAT = "trace path may be unreliable";
+
 function traceFreshness(
   params: TraceParams,
   targetNode: GraphNode | null,
