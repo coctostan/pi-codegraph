@@ -71,7 +71,8 @@ test("a db indexed before file_hashes.partial re-extracts its unchanged files an
     old.setMetadata(GIT_HEAD_METADATA_KEY, "abc");
     old.close();
     const raw = new Database(dbPath);
-    // Such a db predates schema_version 2, which landed after file_hashes.partial.
+    // Such a db predates schema_version 2, which landed after file_hashes.partial, and the extractor version stamp.
+    raw.run("ALTER TABLE file_hashes DROP COLUMN extractor_version");
     raw.run("ALTER TABLE file_hashes DROP COLUMN partial");
     raw.run("UPDATE schema_version SET version = 1");
     raw.close();
