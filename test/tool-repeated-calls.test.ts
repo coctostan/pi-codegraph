@@ -103,7 +103,7 @@ test("symbol_graph's neighborhood lists each caller calling from several sites o
 test("impact lists a dependent calling from four sites once, and a test case calling twice as one case", async () => {
   const call = fixture();
   expect(await call("impact", { symbols: ["run"], changeType: "behavior_change" })).toEndWith(
-    "\nsrc/main.ts  3:6a1  repeat  behavioral  depth:1\n\nTests reached directly (1 case in 1 file):\nsrc/main.test.ts\n",
+    "\n- coverage: unknown, no coverage report indexed\nsrc/main.ts  3:6a1  repeat  behavioral  depth:1\n\nTests reached directly (1 case in 1 file):\nsrc/main.test.ts\n",
   );
 });
 
