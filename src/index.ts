@@ -98,7 +98,7 @@ const CODEGRAPH_NAMESPACE = {
 
 interface ProjectState {
   store: GraphStore;
-  /** Where the store works when codegraph can't write `.codegraph/graph.db`: a temp dir holding its copy, or `:memory:`. */
+  /** Where the store works when codegraph can't write `.codegraph/graph.db`, or a newer one wrote it: a temp dir holding its copy, or `:memory:`. */
   workingCopy: string | null;
   /** The `schema_version` `graph.db` held at open; above `SCHEMA_VERSION`, a newer codegraph wrote it. */
   indexVersion: number;
