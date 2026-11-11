@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { diffGraphs, snapshotGraph } from "../bench/index-parity.js";
-import { SqliteGraphStore } from "../src/graph/sqlite.js";
+import { SCHEMA_VERSION, SqliteGraphStore } from "../src/graph/sqlite.js";
 import { resolveMissingCallers } from "../src/indexer/lsp-resolver.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import type { ITsServerClient } from "../src/indexer/tsserver-client.js";
@@ -183,6 +184,41 @@ test("a covered test that moves re-extracts no file it covers", async () => {
   };
   expect(indexedAt(db("incremental"))).toEqual(indexedAt(db("baseline")));
 });
+
+test("a file an older extractor wrote re-extracts though its hash matches; one at SCHEMA_VERSION keeps its rows", async () => {
+  reset();
+  copyFileSync(db("baseline"), db("incremental"));
+  // An older extractor's write: each file loses a symbol it never knew, src/lib.ts stamped below SCHEMA_VERSION,
+  // src/use.ts's row written as `setFileHash` wrote it before version-skew (Indexes stay honest across versions).
+  const older = new Database(db("incremental"));
+  try {
+    for (const id of ["src/lib.ts::other:5", "src/use.ts::useIt:3"]) {
+      expect(older.prepare("SELECT id FROM nodes WHERE id = ?").get(id)).toEqual({ id });
+      older.run("DELETE FROM edges WHERE source = ? OR target = ?", [id, id]);
+      older.run("DELETE FROM nodes WHERE id = ?", [id]);
+    }
+    older.run("UPDATE file_hashes SET extractor_version = ? WHERE file = 'src/lib.ts'", [SCHEMA_VERSION - 1]);
+    older.run("INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at, partial) SELECT file, hash, indexed_at, partial FROM file_hashes WHERE file = 'src/use.ts'");
+  } finally {
+    older.close();
+  }
+  await index(db("incremental"));
+  rmSync(db("fresh"), { force: true });
+  await index(db("fresh"));
+  expect(diffGraphs(snapshotGraph(db("incremental")), snapshotGraph(db("fresh")))).toEqual([]);
+  const appRows = (path: string) => {
+    const store = new SqliteGraphStore(path);
+    try {
+      return [
+        ...store.queryRows("SELECT indexed_at FROM file_hashes WHERE file = 'src/app.ts'"),
+        ...store.queryRows("SELECT e.source, e.target, e.kind, e.created_at FROM edges e JOIN nodes n ON n.id = e.source WHERE n.file = 'src/app.ts' AND e.provenance_source <> 'coverage' ORDER BY 1, 2, 3"),
+      ];
+    } finally {
+      store.close();
+    }
+  };
+  expect(appRows(db("incremental"))).toEqual(appRows(db("baseline")));
+}, 60_000);
 
 test.each(EDITS)("an incremental re-index after %s equals a fresh index", async (_name, apply) => {
   reset();

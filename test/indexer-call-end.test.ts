@@ -66,7 +66,8 @@ test("a db indexed before edges.call_end gains the columns and re-extracts every
     old.setFileHash("src/x.ts", "h");
     old.close();
     const raw = new Database(dbPath);
-    // Such a db predates schema_version 2, which landed after edges.call_end.
+    // Such a db predates schema_version 2, which landed after edges.call_end, and the extractor version stamp.
+    raw.run("ALTER TABLE file_hashes DROP COLUMN extractor_version");
     raw.run("ALTER TABLE edges DROP COLUMN call_end_line");
     raw.run("ALTER TABLE edges DROP COLUMN call_end_col");
     raw.run("UPDATE schema_version SET version = 1");
@@ -78,7 +79,7 @@ test("a db indexed before edges.call_end gains the columns and re-extracts every
       const columns = (after.prepare("PRAGMA table_info(edges)").all() as Array<{ name: string }>).map((c) => c.name);
       expect(columns).toContain("call_end_line");
       expect(columns).toContain("call_end_col");
-      expect(after.prepare("SELECT hash FROM file_hashes").all()).toEqual([{ hash: "" }]);
+      expect(after.prepare("SELECT hash, extractor_version FROM file_hashes").all()).toEqual([{ hash: "h", extractor_version: 0 }]);
     } finally {
       after.close();
     }

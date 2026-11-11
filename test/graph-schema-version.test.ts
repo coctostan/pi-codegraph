@@ -64,15 +64,51 @@ test("a db above SCHEMA_VERSION, written by a newer release, keeps its hashes an
     expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION + 1 }]);
   });
 });
+test("a row stamped below SCHEMA_VERSION, or one an INSERT naming no stamp wrote, reads unindexed; one at it keeps its hash", () => {
+  withDb((dbPath) => {
+    seed(dbPath, [
+      "INSERT INTO file_hashes (file, hash, indexed_at) VALUES ('src/current.ts', 'h', 0)",
+      `UPDATE file_hashes SET extractor_version = ${SCHEMA_VERSION} WHERE file = 'src/current.ts'`,
+      `UPDATE file_hashes SET extractor_version = ${SCHEMA_VERSION - 1} WHERE file = 'src/x.ts'`,
+      // As `setFileHash` wrote it before version-skew (Indexes stay honest across versions).
+      "INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at, partial) VALUES ('src/pre.ts', 'h', 0, 0)",
+    ]);
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      expect(store.getFileHash("src/x.ts")).toBeNull();
+      expect(store.getFileHash("src/pre.ts")).toBeNull();
+      expect(store.getFileHash("src/current.ts")).toBe("h");
+      expect(store.listFiles()).toEqual(["src/current.ts", "src/pre.ts", "src/x.ts"]);
+      store.setFileHash("src/x.ts", "h2");
+      expect(store.getFileHash("src/x.ts")).toBe("h2");
+    } finally {
+      store.close();
+    }
+  });
+});
+
+test("a db at SCHEMA_VERSION from before the stamp re-extracts every file, keeping its git head", () => {
+  withDb((dbPath) => {
+    seed(dbPath, ["ALTER TABLE file_hashes DROP COLUMN extractor_version"]);
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      expect(store.getFileHash("src/x.ts")).toBeNull();
+      expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBe("abc");
+    } finally {
+      store.close();
+    }
+  });
+});
+
 for (const [label, sql] of [
-  ["below SCHEMA_VERSION", [`UPDATE schema_version SET version = ${SCHEMA_VERSION - 1}`]],
-  ["with no schema_version row", ["DELETE FROM schema_version"]],
+  ["below SCHEMA_VERSION", [`UPDATE schema_version SET version = ${SCHEMA_VERSION - 1}`, `UPDATE file_hashes SET extractor_version = ${SCHEMA_VERSION - 1}`]],
+  ["with no schema_version row", ["DELETE FROM schema_version", "UPDATE file_hashes SET extractor_version = 0"]],
 ] as const) {
   test(`a db ${label} re-extracts every file once, then keeps its hashes`, () => {
     withDb((dbPath) => {
       seed(dbPath, [...sql]);
       const upgraded = new SqliteGraphStore(dbPath);
-      expect(upgraded.getFileHash("src/x.ts")).toBe("");
+      expect(upgraded.getFileHash("src/x.ts")).toBeNull();
       expect(upgraded.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
       upgraded.setFileHash("src/x.ts", "h2");
       upgraded.close();
@@ -87,30 +123,31 @@ for (const [label, sql] of [
 
 test("a version-2 db, written before index-parity (An incremental index matches a fresh one), re-extracts once", () => {
   withDb((dbPath) => {
-    seed(dbPath, ["UPDATE schema_version SET version = 2"]);
+    seed(dbPath, ["UPDATE schema_version SET version = 2", "UPDATE file_hashes SET extractor_version = 0"]);
     const store = new SqliteGraphStore(dbPath);
-    expect(store.getFileHash("src/x.ts")).toBe("");
+    expect(store.getFileHash("src/x.ts")).toBeNull();
     expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
     store.close();
     expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION }]);
   });
 });
 
-test("the re-extraction rolls back whole, so a failed one reruns on the next open", () => {
+test("the bump rolls back whole, so a failed one reruns on the next open", () => {
   withDb((dbPath) => {
     seed(dbPath, [
       `UPDATE schema_version SET version = ${SCHEMA_VERSION - 1}`,
-      "CREATE TRIGGER fail_update BEFORE UPDATE ON file_hashes BEGIN SELECT RAISE(ABORT, 'interrupted'); END",
+      "CREATE TRIGGER fail_delete BEFORE DELETE ON graph_metadata BEGIN SELECT RAISE(ABORT, 'interrupted'); END",
     ]);
     expect(() => new SqliteGraphStore(dbPath)).toThrow(/interrupted/);
     expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION - 1 }]);
     const raw = new Database(dbPath);
-    raw.run("DROP TRIGGER fail_update");
+    raw.run("DROP TRIGGER fail_delete");
     raw.close();
 
     const store = new SqliteGraphStore(dbPath);
-    expect(store.getFileHash("src/x.ts")).toBe("");
+    expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
     store.close();
+    expect(readVersions(dbPath)).toEqual([{ version: SCHEMA_VERSION }]);
   });
 });
 

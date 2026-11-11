@@ -60,7 +60,7 @@ test("a db from before the arc moves the git head to graph_metadata and drops it
       expect(sentinelRows(store)).toEqual([]);
       expect(store.getMetadata(GIT_HEAD_METADATA_KEY)).toBe("abc");
       expect(store.listFiles()).toEqual(["src/x.ts"]);
-      expect(store.getFileHash("src/x.ts")).toBe("h");
+      expect(store.queryRows("SELECT hash FROM file_hashes WHERE file = 'src/x.ts'")).toEqual([{ hash: "h" }]);
       expect(store.getNodesByFile("src/x.ts").map((n) => n.id)).toEqual(["src/x.ts::x:1"]);
     } finally {
       store.close();

@@ -132,10 +132,12 @@ test("a db at schema_version 1 re-extracts every file once, then keeps its hashe
     old.close();
     const raw = new Database(dbPath);
     raw.run("UPDATE schema_version SET version = 1");
+    // It predates the extractor version stamp too.
+    raw.run("ALTER TABLE file_hashes DROP COLUMN extractor_version");
     raw.close();
 
     const upgraded = new SqliteGraphStore(dbPath);
-    expect(upgraded.getFileHash("src/x.ts")).toBe("");
+    expect(upgraded.getFileHash("src/x.ts")).toBeNull();
     expect(upgraded.getMetadata(GIT_HEAD_METADATA_KEY)).toBeNull();
     upgraded.setFileHash("src/x.ts", "h2");
     upgraded.close();
