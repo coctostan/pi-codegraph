@@ -44,6 +44,7 @@ export interface GraphStore {
   clearFile(file: string): void;
   /** The indexed files. */
   listFiles(): string[];
+  /** `file`'s content hash as this extractor version indexed it; null when unindexed or an older one wrote its rows, so indexing re-extracts it. */
   getFileHash(file: string): string | null;
   /** `partial` records that tree-sitter parsed the file with errors. */
   setFileHash(file: string, hash: string, partial?: boolean): void;

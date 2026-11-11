@@ -15,8 +15,9 @@ function openDb(path: string): any {
 }
 
 /**
- * The extractor's output version. Bump it with any change to what indexing writes for unchanged source, so an
- * existing index re-extracts once on its next open; `test/graph-schema-version.test.ts` pins `extractFile` to it.
+ * The extractor's output version. Bump it with any change to what indexing writes for unchanged source: each
+ * `file_hashes` row carries the version that wrote it, and a row below this one re-extracts on the next index run;
+ * `test/graph-schema-version.test.ts` pins `extractFile` to it.
  * 3 re-extracts indexes whose incremental runs, before index-parity (An incremental index matches a fresh one), kept
  * stale edges or dropped live ones. 4 adds class members and 5 their `obj.m()` calls, from class-trace (Agents trace
  * through classes).
@@ -96,7 +97,8 @@ export class SqliteGraphStore implements GraphStore {
         file TEXT PRIMARY KEY,
         hash TEXT NOT NULL,
         indexed_at INTEGER NOT NULL,
-        partial INTEGER NOT NULL DEFAULT 0
+        partial INTEGER NOT NULL DEFAULT 0,
+        extractor_version INTEGER NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS test_trace_steps (
@@ -129,6 +131,9 @@ export class SqliteGraphStore implements GraphStore {
       ["nodes", "is_exported", "INTEGER NOT NULL DEFAULT 0"],
       ["nodes", "signature", "TEXT"],
       ["file_hashes", "partial", "INTEGER NOT NULL DEFAULT 0"],
+      // 0, below every version: rows from before version-skew (Indexes stay honest across versions), and those its
+      // older code writes, naming no stamp, re-extract.
+      ["file_hashes", "extractor_version", "INTEGER NOT NULL DEFAULT 0"],
       ["edges", "call_end_line", "INTEGER"],
       ["edges", "call_end_col", "INTEGER"],
     ];
@@ -181,16 +186,15 @@ export class SqliteGraphStore implements GraphStore {
       }
     }
 
-    // Below SCHEMA_VERSION, an older extractor wrote the rows: re-extract every file once, and rerun the git stage (its
-    // head key), whose edges the re-extraction drops. In one transaction: a version bumped without the invalidation
-    // would skip it on every later open.
+    // Below SCHEMA_VERSION, an older extractor wrote the rows, each stamped below it, so each re-extracts; rerun the
+    // git stage too (its head key), whose edges the re-extraction drops. In one transaction: a version bumped without
+    // the reset would skip it on every later open.
     const existing = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | null;
     if ((existing?.version ?? 0) >= SCHEMA_VERSION) return;
     this.db.exec("BEGIN");
     try {
       this.db.prepare("DELETE FROM schema_version").run();
       this.db.prepare("INSERT INTO schema_version(version) VALUES (?)").run(SCHEMA_VERSION);
-      this.db.prepare("UPDATE file_hashes SET hash = ''").run();
       this.db.prepare("DELETE FROM graph_metadata WHERE key = ?").run(GIT_HEAD_METADATA_KEY);
       this.db.exec("COMMIT");
     } catch (error) {
@@ -368,12 +372,12 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   getFileHash(file: string): string | null {
-    const row = this.db.prepare(`SELECT hash FROM file_hashes WHERE file = ?`).get(file) as { hash: string } | null;
+    const row = this.db.prepare(`SELECT hash FROM file_hashes WHERE file = ? AND extractor_version >= ?`).get(file, SCHEMA_VERSION) as { hash: string } | null;
     return row?.hash ?? null;
   }
 
   setFileHash(file: string, hash: string, partial = false): void {
-    this.db.prepare(`INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at, partial) VALUES (?, ?, ?, ?)`).run(file, hash, Date.now(), partial ? 1 : 0);
+    this.db.prepare(`INSERT OR REPLACE INTO file_hashes (file, hash, indexed_at, partial, extractor_version) VALUES (?, ?, ?, ?, ?)`).run(file, hash, Date.now(), partial ? 1 : 0, SCHEMA_VERSION);
   }
 
   getStatistics(projectRoot?: string): GraphStatistics {
