@@ -16,6 +16,7 @@ import { appendTokenMetaIfEnabled, resetSession } from "./tools/token-tracker.js
 import { findSymbolNodes } from "./tools/symbol-resolution.js";
 import { suppressFreshTrustHeader, stripTrustHeader } from "./output/read-only-ceremony.js";
 import { ensureHashInit } from "./output/anchoring.js";
+import { newerIndexVersion } from "./output/freshness.js";
 
 const SymbolGraphParams = Type.Object({
   name: Type.String({ description: "Symbol name; a method by `Class.method` or its bare name." }),
@@ -110,6 +111,8 @@ interface ProjectState {
 
 /** One entry per project root; a session can move between roots, so nothing is keyed on the first cwd. */
 const projects = new Map<string, ProjectState>();
+/** States replaced mid-session, closed at shutdown so a call still holding one isn't closed under. */
+const retired: ProjectState[] = [];
 let sharedStore: GraphStore | null = null;
 
 interface IndexErrorRecord {
@@ -151,7 +154,7 @@ export function setTsServerClientFactoryForTesting(fn: TsServerClientFactory): v
 
 /** Close every store and tsserver. Idempotent: cancellation, reload and exit can all land here. */
 async function closeAllProjects(): Promise<void> {
-  const states = [...projects.values()];
+  const states = [...projects.values(), ...retired.splice(0)];
   projects.clear();
   sharedStore = null;
   // Let an in-flight index finish briefly rather than closing the database underneath it.
@@ -167,7 +170,7 @@ async function closeAllProjects(): Promise<void> {
 }
 
 export function resetStoreForTesting(): void {
-  for (const s of projects.values()) {
+  for (const s of [...projects.values(), ...retired.splice(0)]) {
     closeStore(s);
     void s.client?.shutdown().catch(() => {});
   }
@@ -182,11 +185,13 @@ export function resetStoreForTesting(): void {
 
 function getOrCreateProject(projectRoot: string): ProjectState {
   const existing = projects.get(projectRoot);
-  if (existing) {
+  // A newer codegraph can write graph.db after this session opened it in place: from then on, work on a copy.
+  if (existing && (existing.workingCopy !== null || newerIndexVersion(existing.store) === null)) {
     sharedStore = existing.store;
     return existing;
   }
-  const state: ProjectState = { ...openProjectStore(projectRoot), client: null, indexing: null, resolving: new Map() };
+  const state: ProjectState = { ...openProjectStore(projectRoot), client: existing?.client ?? null, indexing: null, resolving: new Map() };
+  if (existing) retired.push(existing);
   projects.set(projectRoot, state);
   sharedStore = state.store;
   return state;
