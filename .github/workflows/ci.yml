@@ -30,7 +30,8 @@ jobs:
           bun-version: "1.4.4" # the version that writes bun.lock; pi-latest stays on latest
 
       - name: Install build tools
-        run: sudo apt-get install -y build-essential python3
+        # The runner image ships a toolchain; apt only fills a gap, as its mirrors can be unreachable (2026-11-11).
+        run: command -v cc && command -v c++ && command -v make && command -v python3 || sudo apt-get install -y build-essential python3
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -70,7 +71,7 @@ jobs:
           bun-version: latest
 
       - name: Install build tools
-        run: sudo apt-get install -y build-essential python3
+        run: command -v cc && command -v c++ && command -v make && command -v python3 || sudo apt-get install -y build-essential python3
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
