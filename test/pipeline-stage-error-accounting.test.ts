@@ -49,13 +49,13 @@ describe("RC-A accounting: stage write failures bump result.errors", () => {
       expect(result).toBeDefined();
       // Every failed guarded write bumps errors.
       expect(result.errors).toBeGreaterThanOrEqual(lspWrites);
-      expect(store.getFailedLookups()).toEqual([{ kind: "index", source: "lsp stage", evidence: "write" }]);
+      expect(store.getFailures()).toEqual([{ kind: "index", source: "lsp stage", evidence: "write" }]);
 
       // The call a failed write left alone resolves on the next run, which clears the record.
       await indexProject(dir, store, { lspClientFactory: () => fakeClient });
       const beta = store.findNodes("beta", "src/hello.ts")[0]!;
       expect(store.getEdgesBySource(beta.id).filter((e) => e.kind === "calls").map((e) => e.provenance.source)).toEqual(["lsp"]);
-      expect(store.getFailedLookups()).toEqual([]);
+      expect(store.getFailures()).toEqual([]);
 
       store.close();
     } finally {
@@ -87,13 +87,13 @@ describe("RC-A accounting: stage write failures bump result.errors", () => {
       SqliteGraphStore.prototype.deleteFile = () => { throw new Error("SQLITE_FULL: database or disk is full"); };
       await indexProject(dir, store, { lspClientFactory: () => client });
       Object.assign(SqliteGraphStore.prototype, { addNode, deleteFile });
-      expect(store.getFailedLookups()).toEqual([
+      expect(store.getFailures()).toEqual([
         { kind: "index", source: "src/a.ts", evidence: "extract" },
         { kind: "index", source: "src/b.ts", evidence: "remove" },
       ]);
 
       await indexProject(dir, store, { lspClientFactory: () => client });
-      expect(store.getFailedLookups()).toEqual([]);
+      expect(store.getFailures()).toEqual([]);
       expect(store.findNodes("a2", "src/a.ts")).toHaveLength(1);
       expect(store.listFiles()).toEqual(["src/a.ts"]);
     } finally {

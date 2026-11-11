@@ -137,7 +137,7 @@ export function setLastIndexErrorForTesting(error: Error | null, setAt: number =
   lastIndexError = error ? { error, setAt } : null;
 }
 
-export function getIndexingFailedNoteForTesting(now: number = Date.now()): string {
+export function indexingFailedNote(now: number = Date.now()): string {
   if (!lastIndexError) return "";
   const ageSeconds = Math.max(0, Math.floor((now - lastIndexError.setAt) / 1000));
   return `indexing-failed (${ageSeconds}s ago): ${lastIndexError.error.message}\n`;
@@ -319,10 +319,6 @@ async function prepare(ctx: ExtensionToolContext, signal: AbortSignal | undefine
   return { projectRoot, state, store: state.store };
 }
 
-function indexingFailedNote(): string {
-  return getIndexingFailedNoteForTesting();
-}
-
 function finalizeReadOnlyOutput(
   toolName: string,
   params: Record<string, unknown>,
@@ -415,9 +411,9 @@ function formatStatus(projectRoot: string, state: ProjectState | undefined): { t
       : "codegraph can't write";
     lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since ${why} .codegraph/graph.db`);
   }
-  const indexErrors = state.store.getFailedLookups().filter((f) => f.kind === "index");
+  const indexErrors = state.store.getIndexErrors();
   if (indexErrors.length > 0) lines.push(`index errors: ${indexErrors.map((f) => `${f.source} (${f.evidence})`).join(", ")}`);
-  if (lastIndexError) lines.push(getIndexingFailedNoteForTesting().trimEnd());
+  if (lastIndexError) lines.push(indexingFailedNote().trimEnd());
   return { text: lines.join("\n"), level: lastIndexError || indexErrors.length > 0 ? "warning" : "info" };
 }
 

@@ -465,7 +465,7 @@ function renderStatic(
 ): string {
   const staticTrace = buildStaticTrace(params.store, entry, params.projectRoot, createSignalComputer(params.store), span?.callees);
   // An `obj.m()` the LSP stage left unresolved prints nothing, so a failed lookup on one reads partial through its edge.
-  const failed = new Set(params.store.getFailedLookups().filter((f) => f.kind === "definition").map((f) => `${f.source}\0${f.evidence}`));
+  const failed = new Set(params.store.getFailures().filter((f) => f.kind === "definition").map((f) => `${f.source}\0${f.evidence}`));
   const failedHidden = [...staticTrace.expanded.flatMap((id) => params.store.getEdgesBySource(id)), ...(span?.hidden ?? [])].filter(
     (edge) => isMemberCall(edge.target) && failed.has(`${edge.source}\0${edge.provenance.evidence}`),
   );

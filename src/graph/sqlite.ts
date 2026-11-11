@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import type { FailedLookup, GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
+import type { GraphStatistics, GraphStore, NeighborOptions, NeighborResult, RecordedFailure, TestTraceRecord, TestTraceStep } from "./store.js";
 import { MEMBER_CALL, UNRESOLVED, type GraphEdge, type GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
 function openDb(path: string, readonly = false): any {
@@ -478,11 +478,15 @@ export class SqliteGraphStore implements GraphStore {
     else this.db.prepare(`INSERT OR REPLACE INTO graph_metadata (key, value) VALUES (?, ?)`).run(key, value);
   }
 
-  getFailedLookups(): FailedLookup[] {
-    return this.db.prepare(`SELECT kind, source, evidence FROM failed_lookups ORDER BY source, evidence, kind`).all() as FailedLookup[];
+  getFailures(): RecordedFailure[] {
+    return this.db.prepare(`SELECT kind, source, evidence FROM failed_lookups ORDER BY source, evidence, kind`).all() as RecordedFailure[];
   }
 
-  setLookupFailed({ kind, source, evidence }: FailedLookup, failed: boolean): void {
+  getIndexErrors(): RecordedFailure[] {
+    return this.db.prepare(`SELECT kind, source, evidence FROM failed_lookups WHERE kind = 'index' ORDER BY source, evidence`).all() as RecordedFailure[];
+  }
+
+  setFailed({ kind, source, evidence }: RecordedFailure, failed: boolean): void {
     if (failed) this.db.prepare(`INSERT OR IGNORE INTO failed_lookups (kind, source, evidence) VALUES (?, ?, ?)`).run(kind, source, evidence);
     else this.db.prepare(`DELETE FROM failed_lookups WHERE kind = ? AND source = ? AND evidence = ?`).run(kind, source, evidence);
   }

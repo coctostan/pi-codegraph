@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-import type { FailedLookup, GraphStore } from "../graph/store.js";
+import type { GraphStore, RecordedFailure } from "../graph/store.js";
 import { markerSql } from "../graph/sqlite.js";
 import { MEMBER_CALL, UNRESOLVED } from "../graph/types.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
@@ -102,7 +102,7 @@ export async function indexProject(
   let skipped = 0;
   let removed = 0;
   let errors = 0;
-  const lost: FailedLookup[] = [];
+  const lost: RecordedFailure[] = [];
   const lose = (source: string, evidence: string, count = 1) => {
     errors += count;
     if (count > 0) lost.push({ kind: "index", source, evidence });
@@ -207,11 +207,11 @@ export async function indexProject(
 
   // This run's failures replace the last run's; a run that throws before here keeps the last run's, and one that
   // throws while replacing keeps more, as this run's go in before the last run's go out.
-  const key = (f: FailedLookup) => `${f.source}\0${f.evidence}`;
+  const key = (f: RecordedFailure) => `${f.source}\0${f.evidence}`;
   const now = new Set(lost.map(key));
-  const before = store.getFailedLookups().filter((f) => f.kind === "index");
-  for (const f of lost) store.setLookupFailed(f, true);
-  for (const f of before) if (!now.has(key(f))) store.setLookupFailed(f, false);
+  const before = store.getIndexErrors();
+  for (const f of lost) store.setFailed(f, true);
+  for (const f of before) if (!now.has(key(f))) store.setFailed(f, false);
 
   return { indexed, skipped, removed, errors, partial, timings };
 }

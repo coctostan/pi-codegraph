@@ -12,7 +12,7 @@ describe("RC-D: indexingFailedNote includes an age", () => {
       mod.setLastIndexErrorForTesting(new Error("transient scan failure"), 1_000);
 
       // `now` is 4_500 ms, `setAt` is 1_000 ms — age is floor(3500/1000) = 3s.
-      const note = mod.getIndexingFailedNoteForTesting(4_500);
+      const note = mod.indexingFailedNote(4_500);
       expect(note).toBe("indexing-failed (3s ago): transient scan failure\n");
       // Back-compat: existing assertions that only look for the prefix must
       // keep matching the new format.
