@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,7 +42,7 @@ afterEach(() => {
   cleanup = null;
 });
 
-/** The extension, on its real tsserver, over the fixture in a temp git repo. */
+/** The extension, on this repo's tsserver, over the fixture in a temp git repo. */
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "pi-cg-repeated-calls-"));
   mkdirSync(join(root, "src"));
@@ -50,6 +50,10 @@ function fixture() {
   writeFileSync(join(root, "src", "main.ts"), MAIN);
   writeFileSync(join(root, "src", "main.test.ts"), TEST);
   writeFileSync(join(root, "tsconfig.json"), '{ "include": ["src"] }\n');
+  writeFileSync(join(root, ".gitignore"), "node_modules\n");
+  // The client takes a project's own tsserver before one on PATH, which CI's runners lack.
+  mkdirSync(join(root, "node_modules", ".bin"), { recursive: true });
+  symlinkSync(join(import.meta.dir, "..", "node_modules", "typescript", "bin", "tsserver"), join(root, "node_modules", ".bin", "tsserver"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: "ignore" });
   git("init", "-q");
   git("add", "-A");
