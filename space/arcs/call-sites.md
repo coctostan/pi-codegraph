@@ -17,7 +17,7 @@ Every call site is its own `calls` row, resolved by tsserver on its own, includi
 - [ ] `bun run check && bun test` passes, `test/pi-host-load.test.ts` included under Bun and Node; `bun bench/index-parity.ts` prints `6/6 edits pass`; a fresh index of a detached worktree of HEAD, timed as AGENTS.md's loader calling `symbol_graph {"name":"indexProject"}`, takes at most 20 s and leaves `.codegraph/graph.db` at most 11 MB — verified by those commands · at shape, 2026-11-11, `953f1468`: index-parity 6/6, the fresh index 13.5 s wall, `graph.db` 7.3 MB with 5399 `calls` rows
 
 ## Now
-Slice 1 (Name the unresolved marker once) active on branch `call-sites/01-name-unresolved-marker`; next action: build it.
+Slice 1 (Name the unresolved marker once) built, reviewed and reconciled on branch `call-sites/01-name-unresolved-marker`, PR #135 open: its CI failed three times on 2026-11-11, each job's `Install build tools` step unable to resolve `archive.ubuntu.com`, no test run. Next action: `gh run rerun 43033015869 --failed`; once `pr-checks 135` exits 0, run `slice` step 8's merge and record.
 
 ## Seams
 - Fixture, written by each test into a temp git repo, and replayed at shape: `src/a.ts` `export function run(): number { return 1; }`; `src/b.ts` the same returning 2; a `tsconfig.json` including `src`; and `src/main.ts`, its lines 1–19: `import { run } from "./a";` · `import * as b from "./b";` · blank · `export function owner(): void {` · `  run();` · `  [1].forEach(() => {` · `    b.run();` · `  });` · `}` · blank · `export function twice(): void {` · `  [1].forEach(() => {` · `    run();` · `  });` · `  [2].forEach(() => {` · `    b.run();` · `    run();` · `  });` · `}`.
