@@ -4,7 +4,7 @@ import Parser from "tree-sitter";
 import ts from "tree-sitter-typescript";
 
 import type { GraphEdge, GraphNode, NodeKind } from "../graph/types.js";
-import { MEMBER_CALL, nodeId } from "../graph/types.js";
+import { MEMBER_CALL, UNRESOLVED, nodeId } from "../graph/types.js";
 import { JS_GLOBALS } from "./js-globals.js";
 
 export interface ExtractionResult {
@@ -67,7 +67,7 @@ function walk(node: SyntaxNode, visit: (n: SyntaxNode) => void): void {
 }
 
 function unresolvedId(name: string): string {
-  return nodeId("__unresolved__", name, 0);
+  return nodeId(UNRESOLVED, name, 0);
 }
 
 function isExportedNode(node: SyntaxNode): boolean {

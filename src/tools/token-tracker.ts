@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphStore } from "../graph/store.js";
+import { isUnresolved } from "../graph/types.js";
 import { findSymbolNodes } from "./symbol-resolution.js";
 
 interface SessionStats {
@@ -58,10 +59,10 @@ export function collectNaiveFiles(
       if (!name) break;
       const nodes = findSymbolNodes(store, name, file);
       for (const node of nodes) {
-        if (!node.file.startsWith("__unresolved__")) files.add(node.file);
+        if (!isUnresolved(node.id)) files.add(node.file);
         const neighbors = store.getNeighbors(node.id);
         for (const nr of neighbors) {
-          if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
+          if (!isUnresolved(nr.node.id)) files.add(nr.node.file);
         }
       }
       break;
@@ -73,10 +74,10 @@ export function collectNaiveFiles(
       for (const sym of symbols) {
         const nodes = findSymbolNodes(store, sym);
         for (const node of nodes) {
-          if (!node.file.startsWith("__unresolved__")) files.add(node.file);
+          if (!isUnresolved(node.id)) files.add(node.file);
           const neighbors = store.getNeighbors(node.id, { direction: "in" });
           for (const nr of neighbors) {
-            if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
+            if (!isUnresolved(nr.node.id)) files.add(nr.node.file);
           }
         }
       }
@@ -90,7 +91,7 @@ export function collectNaiveFiles(
       const nodes = findSymbolNodes(store, entry, file);
       if (nodes.length === 1) {
         const node = nodes[0]!;
-        if (!node.file.startsWith("__unresolved__")) files.add(node.file);
+        if (!isUnresolved(node.id)) files.add(node.file);
         const seen = new Set<string>([node.id]);
         const stack = [node.id];
         while (stack.length > 0) {
@@ -99,7 +100,7 @@ export function collectNaiveFiles(
           for (const nr of callees) {
             if (!seen.has(nr.node.id)) {
               seen.add(nr.node.id);
-              if (!nr.node.file.startsWith("__unresolved__")) files.add(nr.node.file);
+              if (!isUnresolved(nr.node.id)) files.add(nr.node.file);
               stack.push(nr.node.id);
             }
           }

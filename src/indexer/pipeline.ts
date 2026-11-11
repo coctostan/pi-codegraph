@@ -3,6 +3,8 @@ import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 import type { FailedLookup, GraphStore } from "../graph/store.js";
+import { markerSql } from "../graph/sqlite.js";
+import { MEMBER_CALL, UNRESOLVED } from "../graph/types.js";
 import { extractFile, sha256Hex } from "./tree-sitter.js";
 import { runLspIndexStage } from "./lsp.js";
 import { runAstGrepIndexStage } from "./ast-grep.js";
@@ -169,7 +171,7 @@ export async function indexProject(
   // resolves that call anew. Its node ids come back the same, so no edge into it dangles in turn. The coverage stage
   // rewrites its own edges.
   const dangling = store.queryRows<{ file: string }>(
-    "SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source <> 'coverage' AND SUBSTR(e.target, 1, 16) <> '__unresolved__::' AND SUBSTR(e.target, 1, 12) <> '__member__::' AND e.target NOT IN (SELECT id FROM nodes)",
+    `SELECT DISTINCT n.file FROM edges e JOIN nodes n ON n.id = e.source WHERE e.provenance_source <> 'coverage' AND NOT ${markerSql("e.target", UNRESOLVED)} AND NOT ${markerSql("e.target", MEMBER_CALL)} AND e.target NOT IN (SELECT id FROM nodes)`,
   );
   for (const { file } of dangling) {
     const content = read(file);

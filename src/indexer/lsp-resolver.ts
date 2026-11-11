@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { calledName, type GraphNode } from "../graph/types.js";
+import { calledName, isUnresolved, UNRESOLVED, type GraphNode } from "../graph/types.js";
 import { resolverMarkerKey } from "../graph/sqlite.js";
 import type { FailedLookup, GraphStore } from "../graph/store.js";
 import type { ITsServerClient } from "./tsserver-client.js";
@@ -47,8 +47,8 @@ function findSymbolColumn(projectRoot: string, file: string, line: number, symbo
 }
 
 function unresolvedNameFromTarget(target: string): string | null {
-  if (!target.startsWith("__unresolved__::")) return null;
-  return target.slice("__unresolved__::".length).split(":")[0] ?? null;
+  if (!isUnresolved(target)) return null;
+  return target.slice(`${UNRESOLVED}::`.length).split(":")[0] ?? null;
 }
 
 function escapeRegex(s: string): string {

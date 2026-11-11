@@ -125,12 +125,12 @@ test("a failed_lookups table from before lookup kinds keeps its rows as failed d
   });
 });
 
-// pi's host runs on Node, whose node:sqlite runs the migration too.
+// pi's host runs on Node, whose node:sqlite runs the migration too; it loads `src/` through jiti, which maps `./x.js` to `x.ts`.
 test.skipIf(!Bun.which("node"))("SqliteGraphStore migrates a legacy DB under Node", () => {
   withLegacyDb((dbPath) => {
-    const script = `const { SqliteGraphStore } = await import(process.argv[1]); const s = new SqliteGraphStore(process.argv[2]); console.log(s.hasCoverageData()); s.close();`;
+    const script = `const { createJiti } = await import("jiti"); const { SqliteGraphStore } = await createJiti(process.argv[1]).import(process.argv[1]); const s = new SqliteGraphStore(process.argv[2]); console.log(s.hasCoverageData()); s.close();`;
     const sqliteUrl = new URL("../src/graph/sqlite.ts", import.meta.url).href;
-    const run = spawnSync("node", ["--input-type=module", "-e", script, sqliteUrl, dbPath], { encoding: "utf8" });
+    const run = spawnSync("node", ["--input-type=module", "-e", script, sqliteUrl, dbPath], { encoding: "utf8", cwd: new URL("..", import.meta.url).pathname });
     expect(run.stderr).not.toContain("Error");
     expect(run.stdout.trim()).toBe("false");
   });
