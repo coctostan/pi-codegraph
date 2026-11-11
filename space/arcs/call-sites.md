@@ -1,0 +1,51 @@
+---
+status: active
+---
+# Each call resolves on its own
+
+When one function calls the same name twice, or calls `run()` from one module and `b.run()` from another, codegraph keeps one record for both and resolves them together. So `trace` started on a callback line names the wrong function, and a call to a namespace's function goes missing. Separately, `impact` can't see callers that reach a class method through an interface, such as every indexer stage writing through `GraphStore`. This arc records each call by where it sits and resolves it alone, after three cleanups that clear the code it touches.
+
+## Destination
+Every call site is its own `calls` row, resolved by tsserver on its own, including a call through an interface-typed receiver, and `trace` reads a callback's calls by site rather than by name. Before that, the unresolved-target marker is named once, the index-error records are named for what they hold, and an index-error result stops recommending a refresh.
+
+## Done when
+- [ ] On the fixture below, `twice` stores one `calls` row per call site (3), and `trace {"entry":"owner"}` lists both `src/a.ts run` and `src/b.ts run` — verified by `bun test test/indexer-call-sites.test.ts`, and by AGENTS.md's loader command run on the fixture · at shape, 2026-11-11, the loader on the fixture: `edges` holds one `calls` row for `twice` (`call_end` 13:9) and one for `owner`, and `owner`'s trace lists `src/a.ts run` alone, `b.run()` having no row, since tree-sitter targets both calls at `__unresolved__::run:0` (`src/indexer/tree-sitter.ts:70`)
+- [ ] On the fixture, `trace {"file":"src/main.ts","line":7}` lists `src/b.ts run` alone, and `trace {"file":"src/main.ts","line":16}` lists `src/b.ts run` then `src/a.ts run` — verified by `bun test test/tool-trace-call-sites.test.ts`, and by AGENTS.md's loader command run on the fixture · at shape, 2026-11-11: each lists `src/a.ts run` alone
+- [ ] On this repo, `impact {"symbols":["SqliteGraphStore.addEdge"],"changeType":"behavior_change","maxDepth":1}` lists a dependent in each of the 6 `src/indexer/` files calling `store.addEdge` on a `GraphStore` (`git.ts`, `ast-grep.ts`, `lsp-resolver.ts`, `coverage.ts`, `lsp.ts`, `pipeline.ts`); in a fixture with one interface, two classes implementing it and a caller typed by the interface, `impact` on each class's member lists that caller — verified by `bun test test/indexer-interface-calls.test.ts`, and by AGENTS.md's loader command with those params · at shape, 2026-11-11: no dependent outside `test/`, and `symbol_graph {"name":"GraphStore.addEdge"}` reads `not found`
+- [ ] On the fixture with an unreadable `src/c.ts` added, `trace` and `impact` read `Trust: partial` and `- index errors: src/c.ts` with a recommendation that names the file and doesn't say `refresh index`; a result partial from a failed tsserver lookup still recommends a refresh — verified by `bun test test/output-index-error-recommendation.test.ts` · at shape, 2026-11-11, the loader with `src/c.ts` at mode 000: `- recommendation: trace path may be unreliable; refresh index before relying on this result`, and `impact may be incomplete; refresh index …`
+- [ ] `grep -rnE '__unresolved__|__member__' src | grep -v '^src/graph/types.ts:'` and `grep -rnE 'FailedLookup|getFailedLookups|setLookupFailed|getIndexingFailedNoteForTesting|kind === "index"' src` both print nothing — verified by those commands · at shape, 2026-11-11: 21 lines in 10 files, and 31 lines
+- [ ] `bun run check && bun test` passes, `test/pi-host-load.test.ts` included under Bun and Node; `bun bench/index-parity.ts` prints `6/6 edits pass`; a fresh index of a detached worktree of HEAD, timed as AGENTS.md's loader calling `symbol_graph {"name":"indexProject"}`, takes at most 20 s and leaves `.codegraph/graph.db` at most 11 MB — verified by those commands · at shape, 2026-11-11, `953f1468`: index-parity 6/6, the fresh index 13.5 s wall, `graph.db` 7.3 MB with 5399 `calls` rows
+
+## Now
+Slice 1 (Name the unresolved marker once) is next, no branch yet; next action: run `slice`.
+
+## Seams
+- Fixture, written by each test into a temp git repo, and replayed at shape: `src/a.ts` `export function run(): number { return 1; }`; `src/b.ts` the same returning 2; a `tsconfig.json` including `src`; and `src/main.ts`, its lines 1–19: `import { run } from "./a";` · `import * as b from "./b";` · blank · `export function owner(): void {` · `  run();` · `  [1].forEach(() => {` · `    b.run();` · `  });` · `}` · blank · `export function twice(): void {` · `  [1].forEach(() => {` · `    run();` · `  });` · `  [2].forEach(() => {` · `    b.run();` · `    run();` · `  });` · `}`.
+- Graph identity: `nodeId`, `MEMBER_CALL` and the new `isUnresolved` in `src/graph/types.ts`; the `edges` key and `initSchema` in `src/graph/sqlite.ts` behind `GraphStore` in `src/graph/store.ts`; tests in `test/graph-store.test.ts` and `test/graph-schema-version.test.ts` on temp dbs.
+- Extraction: `extractFile`'s `calleeOf`/`callEdge` in `src/indexer/tree-sitter.ts`; tests in a new `test/indexer-call-sites.test.ts` through `indexProject`.
+- Resolution: the LSP stage in `src/indexer/lsp.ts` and `src/indexer/lsp-resolver.ts`, its tsserver client injected by `setTsServerClientFactoryForTesting`; tests beside `test/indexer-lsp.test.ts`, the interface case in a new `test/indexer-interface-calls.test.ts` on a real tsserver.
+- Trace: `renderSpanTrace` and `orderedCallees` in `src/tools/trace.ts`, reached through the registered tool's `execute()`; tests in a new `test/tool-trace-call-sites.test.ts`.
+- Trust: `evaluateFreshness` and `formatFreshnessHeader` in `src/output/freshness.ts`, with the `trace` and `impact` recommendation overrides; tests in a new `test/output-index-error-recommendation.test.ts` through the tools.
+- Real artifact: AGENTS.md's Prove loader command, on this repo and, with `cwd` set to it, on the fixture.
+
+## Slices
+1. **Name the unresolved marker once** — delivers `isUnresolved` beside `isMemberCall` in `src/graph/types.ts`, the two SQL filters and every `startsWith("__unresolved__")` built from `types.ts`' constants, so check 5's first grep prints nothing · proof `bun run check && bun test` green before and after; that grep from 21 lines to 0 · blocked-by — · status next
+2. **Name index-error records for any failure** — delivers `FailedLookup`, `getFailedLookups` and `setLookupFailed` renamed for any failure an index run records, one store read of index errors replacing the three `kind === "index"` filters (`src/indexer/pipeline.ts`, `src/index.ts`, `src/output/freshness.ts`), and `getIndexingFailedNoteForTesting` named for production, the `failed_lookups` table name kept · proof `bun run check && bun test` green; check 5's second grep from 31 lines to 0 · blocked-by — · status next
+3. **Recommend fixing a file the index lost** — delivers a result whose only gap is index errors recommending a fix to the named files instead of a refresh, in `formatFreshnessHeader`'s default and the `trace` and `impact` overrides, a stale or failed-lookup result keeping its refresh · proof `bun test test/output-index-error-recommendation.test.ts` red → green; the loader on the fixture with `src/c.ts` at mode 000 · blocked-by 2 · status next
+4. **Pin tool output on repeated calls** — delivers tests pinning, as today's code prints them, `symbol_graph`'s callees and callers, `impact`'s dependents and `trace`'s tree for a function calling one target from several sites, so slice 5 keeps one line per target · proof the pins green on today's code, and red when a reader is made to print each stored row · blocked-by — · status next
+5. **Store one call edge per call site** — delivers each call's own `calls` row, kept apart from tree-sitter's unresolved target through the LSP stage's resolved row, under a `SCHEMA_VERSION` bump; `b.run()` then resolves to `src/b.ts run` · proof `bun test test/indexer-call-sites.test.ts` red → green; slice 4's pins green; `bun bench/index-parity.ts` 6/6; the fresh-index time and size of check 6 · blocked-by 1, 4 · status next
+6. **Read a callback's calls by call site** — delivers `renderSpanTrace` matching each call it reads to the owner's stored row at the same site, its by-name matching (`named`, `byName`, `stored`) removed · proof `bun test test/tool-trace-call-sites.test.ts` red → green; the loader on the fixture at lines 7 and 16 · blocked-by 5 · status next
+7. **Resolve interface member calls to implementations** — delivers an `obj.m()` whose receiver is typed by a project interface resolved to each project class member implementing `m`, so `impact` on one reaches the caller; README's `impact` section says so · proof `bun test test/indexer-interface-calls.test.ts` red → green; the loader's `impact` on `SqliteGraphStore.addEdge` on this repo · blocked-by 5 · status next
+
+## Not yet specified
+- Whether interface members become symbols of their own (`GraphStore.addEdge`), or a call through one links straight to the class members; slice 7 (Resolve interface member calls to implementations)'s plan settles it.
+- Whether a site is keyed by the call's start, as tree-sitter's evidence is, or by its end, as `call_end` is; slice 5 (Store one call edge per call site)'s plan settles it.
+
+## Out of scope
+- Moving `newerIndexVersion` beside `readSchemaVersion`, and dropping `bench/verdict.ts`' transcript fallback: they stay in `NOW.md`.
+- A bench rerun, and whether `trace`'s `line` pays at all.
+- Two anonymous functions on one line, which need a `column` parameter.
+- Overloaded methods, and members of abstract classes and class expressions.
+- Python.
+
+## Decisions
