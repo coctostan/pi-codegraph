@@ -115,6 +115,34 @@ test("every tool's answer over a graph.db a newer codegraph wrote, a miss includ
   }
 });
 
+test("a graph.db a newer codegraph writes mid-session keeps its bytes through the next call over an edited tree, which reads stale", async () => {
+  const { root, dbPath } = await newerIndexRepo(SCHEMA_VERSION);
+  const ext = loadExtension(root);
+  expect((await ext.symbolGraph("fresh2")).text).toStartWith("Trust: fresh");
+  expect(await ext.status()).not.toContain("db: ");
+
+  const { Database } = createRequire(import.meta.url)("bun:sqlite");
+  const newer = new Database(dbPath);
+  newer.prepare("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION + 1);
+  newer.close();
+  appendFileSync(join(root, "src", "a.ts"), "export function fresh3() {}\n");
+  const before = sha256(dbPath);
+
+  const { text, isError } = await ext.symbolGraph("fresh3");
+  expect(isError, text).toBe(false);
+  expect(sha256(dbPath)).toBe(before);
+  expect(text.split("\n")[0], text).toBe("Trust: stale");
+  for (const line of GAP_LINES) expect(text.split("\n")).toContain(line);
+  const copyLine = /^db: a temp copy at \S+, since a newer codegraph wrote \.codegraph\/graph\.db$/m;
+  const copy = copyLine.exec(await ext.status())?.[0];
+  expect(copy).toBeDefined();
+  // The next call keeps that copy rather than making another.
+  await ext.symbolGraph("fresh3");
+  expect(copyLine.exec(await ext.status())?.[0]).toBe(copy);
+  await ext.shutdown();
+  expect(sha256(dbPath)).toBe(before);
+});
+
 test("a graph.db whose version codegraph can't read, a writer holding it locked, keeps its bytes", async () => {
   const { root, dbPath } = await newerIndexRepo();
   const before = sha256(dbPath);

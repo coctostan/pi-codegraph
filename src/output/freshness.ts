@@ -111,7 +111,8 @@ function hashOf(fullPath: string): string | null {
   }
 }
 
-function newerIndexVersion(store: GraphStore): number | null {
+/** The store's `schema_version` when a newer codegraph wrote it, else null, unread included. */
+export function newerIndexVersion(store: GraphStore): number | null {
   try {
     const version = store.queryRows<{ version: number }>("SELECT version FROM schema_version LIMIT 1")[0]?.version;
     return version !== undefined && version > SCHEMA_VERSION ? version : null;
