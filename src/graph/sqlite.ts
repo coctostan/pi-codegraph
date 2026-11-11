@@ -5,13 +5,13 @@ import { join } from "node:path";
 import type { FailedLookup, GraphStatistics, GraphStore, NeighborOptions, NeighborResult, TestTraceRecord, TestTraceStep } from "./store.js";
 import type { GraphEdge, GraphNode } from "./types.js";
 const _require = createRequire(import.meta.url);
-function openDb(path: string): any {
+function openDb(path: string, readonly = false): any {
   if ((process.versions as any).bun) {
     const { Database } = _require("bun:sqlite");
-    return new Database(path);
+    return readonly ? new Database(path, { readonly: true }) : new Database(path);
   }
   const { DatabaseSync } = _require("node:sqlite");
-  return new DatabaseSync(path);
+  return new DatabaseSync(path, { readOnly: readonly });
 }
 
 /**
@@ -23,6 +23,15 @@ function openDb(path: string): any {
  * through classes).
  */
 export const SCHEMA_VERSION = 5;
+/** The `schema_version` the index at `dbPath` records, read on a read-only connection so its bytes stay as they are. */
+export function readSchemaVersion(dbPath: string): number {
+  const db = openDb(dbPath, true);
+  try {
+    return (db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version: number } | undefined)?.version ?? 0;
+  } finally {
+    db.close();
+  }
+}
 /** The `graph_metadata` key holding the git stage's last-seen HEAD. */
 export const GIT_HEAD_METADATA_KEY = "git_cochange_head";
 /** The `graph_metadata` key `markCoverageIndexed` sets once a coverage report maps to a node. */

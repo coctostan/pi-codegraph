@@ -4,7 +4,7 @@ import { accessSync, chmodSync, constants, copyFileSync, existsSync, mkdirSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GraphStore } from "./graph/store.js";
-import { SqliteGraphStore } from "./graph/sqlite.js";
+import { readSchemaVersion, SCHEMA_VERSION, SqliteGraphStore } from "./graph/sqlite.js";
 import { indexProject } from "./indexer/pipeline.js";
 import { resolveMissingCallers, resolveImplementations } from "./indexer/lsp-resolver.js";
 import { TsServerClient, type ITsServerClient } from "./indexer/tsserver-client.js";
@@ -100,6 +100,8 @@ interface ProjectState {
   store: GraphStore;
   /** Where the store works when codegraph can't write `.codegraph/graph.db`: a temp dir holding its copy, or `:memory:`. */
   workingCopy: string | null;
+  /** The `schema_version` `graph.db` held at open; above `SCHEMA_VERSION`, a newer codegraph wrote it. */
+  indexVersion: number;
   client: ITsServerClient | null;
   indexing: Promise<void> | null;
   /** In-flight LSP resolutions by node id, so concurrent calls for one symbol share the work. */
@@ -191,10 +193,11 @@ function getOrCreateProject(projectRoot: string): ProjectState {
 }
 
 /**
- * Rule a project's store once, at open: `graph.db` in place when codegraph can write it and its directory; else a
- * temp copy of it, with any `-wal` and `-shm`, removed at shutdown; else, when even the copy fails, memory.
+ * Rule a project's store once, at open: `graph.db` in place when codegraph can write it and its directory and no newer
+ * codegraph wrote it; else a temp copy of it, with any `-wal` and `-shm`, removed at shutdown; else, when even the copy
+ * fails, memory.
  */
-function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "workingCopy"> {
+function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "workingCopy" | "indexVersion"> {
   const dbDir = join(projectRoot, ".codegraph");
   const dbPath = join(dbDir, "graph.db");
   let writable = true;
@@ -205,7 +208,13 @@ function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "wo
   } catch {
     writable = false;
   }
-  if (writable) return { store: new SqliteGraphStore(dbPath), workingCopy: null };
+  let indexVersion = 0;
+  try {
+    if (existsSync(dbPath)) indexVersion = readSchemaVersion(dbPath);
+  } catch {
+    // Unreadable, or from before the version table: no newer codegraph wrote it.
+  }
+  if (writable && indexVersion <= SCHEMA_VERSION) return { store: new SqliteGraphStore(dbPath), workingCopy: null, indexVersion };
   let copyDir: string | null = null;
   try {
     copyDir = mkdtempSync(join(tmpdir(), "codegraph-"));
@@ -216,10 +225,10 @@ function openProjectStore(projectRoot: string): Pick<ProjectState, "store" | "wo
       // The copy keeps the original's read-only mode.
       chmodSync(copy, 0o600);
     }
-    return { store: new SqliteGraphStore(join(copyDir, "graph.db")), workingCopy: copyDir };
+    return { store: new SqliteGraphStore(join(copyDir, "graph.db")), workingCopy: copyDir, indexVersion };
   } catch {
     if (copyDir) rmSync(copyDir, { recursive: true, force: true });
-    return { store: new SqliteGraphStore(":memory:"), workingCopy: ":memory:" };
+    return { store: new SqliteGraphStore(":memory:"), workingCopy: ":memory:", indexVersion };
   }
 }
 
@@ -393,7 +402,10 @@ function formatStatus(projectRoot: string, state: ProjectState | undefined): { t
     state.indexing ? "indexing: in progress" : "indexing: idle",
   ];
   if (state.workingCopy === ":memory:") lines.push("db: in memory, since codegraph can't write or copy .codegraph/graph.db");
-  else if (state.workingCopy) lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since codegraph can't write .codegraph/graph.db`);
+  else if (state.workingCopy) {
+    const why = state.indexVersion > SCHEMA_VERSION ? "a newer codegraph wrote" : "codegraph can't write";
+    lines.push(`db: a temp copy at ${join(state.workingCopy, "graph.db")}, since ${why} .codegraph/graph.db`);
+  }
   const indexErrors = state.store.getFailedLookups().filter((f) => f.kind === "index");
   if (indexErrors.length > 0) lines.push(`index errors: ${indexErrors.map((f) => `${f.source} (${f.evidence})`).join(", ")}`);
   if (lastIndexError) lines.push(getIndexingFailedNoteForTesting().trimEnd());
