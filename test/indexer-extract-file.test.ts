@@ -223,7 +223,7 @@ test("extractFile extracts calls edges for bare calls + constructors, a method c
 
   // obj.method() waits on the LSP stage as a hidden member call; this.method() outside a class is no class's.
   expect(calls.filter((e) => e.target.includes("::method:")).map((e) => e.target)).toEqual([
-    nodeId("__member__", "method", content.indexOf("method")),
+    nodeId("__member__", "method", 0),
   ]);
 });
 

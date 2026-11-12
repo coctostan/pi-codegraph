@@ -134,15 +134,15 @@ test("another object's member call is a hidden member call per call site; a pack
     "  }",
     "}",
   ].join("\n");
-  const member = (name: string, from: number) => nodeId("__member__", name, src.indexOf(name, from));
+  const member = (name: string) => nodeId("__member__", name, 0);
   const edges = extractFile(FILE, src).edges.filter((e) => e.kind === "calls");
   expect(edges.map((e) => [e.target, e.provenance.evidence])).toEqual([
-    [member("get", 0), "get:5:11"],
-    [member("close", 0), "close:6:19"],
-    [member("get", src.indexOf("get(2)")), "get:6:11"],
-    [member("prepare", 0), "prepare:7:13"],
-    [member("run", src.indexOf("super")), "run:8:11"],
-    [member("load", 0), "load:9:17"],
+    [member("get"), "get:5:11"],
+    [member("close"), "close:6:19"],
+    [member("get"), "get:6:11"],
+    [member("prepare"), "prepare:7:13"],
+    [member("run"), "run:8:11"],
+    [member("load"), "load:9:17"],
     [unresolved("Store"), "Store:9:9"],
   ]);
 });

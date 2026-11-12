@@ -321,7 +321,7 @@ function traceAtLine(params: TraceParams, file: string, line: number): { text: s
 
 /**
  * A function the graph holds no node for, an object method or a callback: its calls, read from the file now, each
- * resolved as its owner's stored call to that name resolves; a name the owner's stored calls lack prints unresolved.
+ * printed as its owner's stored call at that site reads; a call the owner holds no row for prints unresolved.
  */
 function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owner: GraphNode | null): string {
   const { store } = params;
@@ -337,45 +337,34 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
     content_hash: source?.content_hash ?? "",
     is_exported: false,
   };
-  const ownerCalls = owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : [];
-  const ownerEdges = owner ? store.getEdgesBySource(owner.id).filter((e) => e.kind === "calls") : [];
-  const ownerUnresolved = ownerEdges.filter((e) => isUnresolved(e.target));
-  // The `obj.m()` calls the LSP stage left unresolved, by call site: no project call, so they print nothing.
-  const hidden = new Map(ownerEdges.filter((e) => isMemberCall(e.target)).map((e) => [e.provenance.evidence, e]));
+  // The owner's stored calls by the site they end at, each a row of its own.
+  const site = (end: CallEnd) => (end ? `${end.line}:${end.col}` : "");
+  const resolvedAt = new Map(owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }).map((n) => [site(n.edge.call_end), n]) : []);
+  const leftAt = new Map(
+    owner
+      ? store
+          .getEdgesBySource(owner.id)
+          .filter((e) => e.kind === "calls" && (isUnresolved(e.target) || isMemberCall(e.target)))
+          .map((e) => [site(e.call_end), e])
+      : [],
+  );
   const hiddenEdges: GraphEdge[] = [];
   const resolvedEdges: GraphEdge[] = [];
   const unindexed: string[] = [];
   const callees = fn.calls
     .flatMap((call): Callee[] => {
-      const left = isMemberCall(call.target) ? hidden.get(call.provenance.evidence) : undefined;
-      if (left) {
-        hiddenEdges.push(left);
-        return [];
-      }
-      const name = calleeName(call);
-      // The owner's callees this call may have resolved to: a member's `Class.<name>`, and for a call by name, that name
-      // or a `new`'s constructor; an `obj.m()` reaches no free function `m`.
-      const byName = !isMemberCall(call.target);
-      const named = ownerCalls.filter(
-        (n) =>
-          (byName && (n.node.name === name || n.node.name === `${name}.constructor`)) ||
-          (n.node.kind === "function" && n.node.name.endsWith(`.${name}`)),
-      );
-      // A call by a name the owner still holds unresolved reads unresolved, unless a stored call ends where it does.
-      const stored = byName ? ownerUnresolved.find((e) => calleeName(e) === name) : undefined;
-      // The one whose stored call ends where this one does, else an exact name, else the only one; two namesakes, say
-      // `a.run()` and `b.run()` on two classes, leave the call unresolved rather than guess.
-      const hit =
-        named.find((n) => !!call.call_end && n.edge.call_end?.line === call.call_end.line && n.edge.call_end.col === call.call_end.col) ??
-        (stored ? undefined : (named.find((n) => n.node.name === name) ?? (named.length === 1 ? named[0] : undefined)));
+      const hit = call.call_end ? resolvedAt.get(site(call.call_end)) : undefined;
       if (hit) {
         resolvedEdges.push(hit.edge);
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
-      // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
-      if (isMemberCall(call.target) && named.length === 0) return [];
-      if (!stored) unindexed.push(`${file}:${name}`);
-      return [unresolvedCallee(stored ?? call, file, call)];
+      const left = call.call_end ? leftAt.get(site(call.call_end)) : undefined;
+      // An `obj.m()` the LSP stage left unresolved has no project call, so it prints nothing; at module level the index
+      // stores no call, so one there is one tsserver never resolved.
+      if (left && isMemberCall(left.target)) hiddenEdges.push(left);
+      if (isMemberCall(call.target)) return [];
+      if (!left) unindexed.push(`${file}:${calleeName(call)}`);
+      return [unresolvedCallee(left ?? call, file, call)];
     });
   return renderStatic(params, entry, source, { callees: firstPerTarget(callees), edges: resolvedEdges, hidden: hiddenEdges, unindexed: [...new Set(unindexed)] });
 }

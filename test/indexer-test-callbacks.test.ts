@@ -37,7 +37,7 @@ test("a call inside the callback is attributed to its test node, the test( call 
   const testId = nodeId(file, `${file} > adds one`, 1);
 
   expect(callsFrom(testId, content).sort()).toEqual([
-    nodeId("__member__", "toBe", content.indexOf("toBe")),
+    nodeId("__member__", "toBe", 0),
     "__unresolved__::add:0",
     "__unresolved__::add:0",
     "__unresolved__::expect:0",
