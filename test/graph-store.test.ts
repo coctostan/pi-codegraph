@@ -432,6 +432,46 @@ test("getEdgesBySource returns all edges for a source ordered by created_at ASC"
   store.close();
 });
 
+test("getNeighbors lists a node's edges in the order they were written, not by target", () => {
+  const store = new SqliteGraphStore();
+  const fn = (file: string, name: string) => ({ id: `${file}::${name}:1`, kind: "function" as const, name, file, start_line: 1, end_line: 2, content_hash: "h" });
+  const caller = fn("src/m.ts", "caller");
+  for (const node of [caller, fn("src/z.ts", "zed"), fn("src/a.ts", "ay")]) store.addNode(node);
+  for (const [target, line] of [["src/z.ts::zed:1", 2], ["src/a.ts::ay:1", 3]] as const) {
+    store.addEdge({
+      source: caller.id,
+      target,
+      kind: "calls",
+      provenance: { source: "lsp", confidence: 0.9, evidence: "e", content_hash: "h" },
+      created_at: 1,
+      call_end: { line, col: 5 },
+    });
+  }
+
+  expect(store.getNeighbors(caller.id).map((n) => n.node.name)).toEqual(["zed", "ay"]);
+  expect(store.getNeighbors(caller.id, { direction: "out", kind: "calls" }).map((n) => n.node.name)).toEqual(["zed", "ay"]);
+
+  store.close();
+});
+
+test("deleteEdge with a call end removes that call alone, not a same-named call beside it on its line", () => {
+  const store = new SqliteGraphStore();
+  const call = (col: number) => ({
+    source: "src/a.ts::f:1",
+    target: "__unresolved__::run:0",
+    kind: "calls" as const,
+    provenance: { source: "tree-sitter" as const, confidence: 0.5, evidence: `run:2:${col - 4}`, content_hash: "h" },
+    created_at: 1,
+    call_end: { line: 2, col },
+  });
+  store.addEdge(call(7));
+  store.addEdge(call(16));
+
+  store.deleteEdge("src/a.ts::f:1", "__unresolved__::run:0", "calls", "tree-sitter", { line: 2, col: 7 });
+
+  expect(store.getEdgesBySource("src/a.ts::f:1").map((e) => e.call_end)).toEqual([{ line: 2, col: 16 }]);
+  store.close();
+});
 test("deleteEdge removes only the matching (source, target, kind, provenanceSource) row", () => {
   const store = new SqliteGraphStore();
 

@@ -39,6 +39,7 @@ test("a call inside the callback is attributed to its test node, the test( call 
   expect(callsFrom(testId, content).sort()).toEqual([
     nodeId("__member__", "toBe", content.indexOf("toBe")),
     "__unresolved__::add:0",
+    "__unresolved__::add:0",
     "__unresolved__::expect:0",
   ]);
   expect(extractFile(file, content).edges.filter((e) => e.kind === "calls" && e.source !== testId)).toEqual([]);

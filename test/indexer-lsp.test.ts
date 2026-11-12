@@ -337,6 +337,7 @@ test("member calls resolve to members: obj.m(), an inherited this.m(), new X() t
     ["Plain", "lsp", 5],
     ["Store.constructor", "lsp", 4],
     ["Store.load", "lsp", 3],
+    ["Store.load", "lsp", 8],
   ]);
   expect(callees("src/store.ts::Store.run:9")).toEqual([["Base.m", "lsp", 9]]);
   // The calls no project node answers stay hidden: no unresolved line, no edge a reader joins to a node.

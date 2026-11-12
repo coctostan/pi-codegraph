@@ -20,9 +20,9 @@ function openDb(path: string, readonly = false): any {
  * `test/graph-schema-version.test.ts` pins `extractFile` to it.
  * 3 re-extracts indexes whose incremental runs, before index-parity (An incremental index matches a fresh one), kept
  * stale edges or dropped live ones. 4 adds class members and 5 their `obj.m()` calls, from class-trace (Agents trace
- * through classes).
+ * through classes). 6 stores each call site's own `calls` row, from call-sites (Each call resolves on its own).
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 /** The `schema_version` the index at `dbPath` records, 0 for one from before the table, read on a read-only connection so its bytes stay as they are. */
 export function readSchemaVersion(dbPath: string): number {
   const db = openDb(dbPath, true);
@@ -49,6 +49,11 @@ export function markerSql(column: string, marker: typeof UNRESOLVED | typeof MEM
   return `SUBSTR(${column}, 1, ${marker.length + 2}) = '${marker}::'`;
 }
 const FAILED_LOOKUPS_COLUMNS = "kind TEXT NOT NULL, source TEXT NOT NULL, evidence TEXT NOT NULL, PRIMARY KEY (kind, source, evidence)";
+const EDGES_COLUMNS = `source TEXT NOT NULL, target TEXT NOT NULL, kind TEXT NOT NULL, provenance_source TEXT NOT NULL,
+  confidence REAL NOT NULL, evidence TEXT NOT NULL, content_hash TEXT NOT NULL, created_at INTEGER NOT NULL,
+  call_end_line INTEGER, call_end_col INTEGER`;
+/** An edge's key: a call's own site among it, so each call is a row of its own; a siteless edge's site reads 0. */
+const EDGE_KEY = "source, target, kind, provenance_source, IFNULL(call_end_line, 0), IFNULL(call_end_col, 0)";
 /** Where the git stage kept its HEAD before index-honesty (The index says when it lost data): a `file_hashes` row. */
 const LEGACY_GIT_HEAD_FILE = "__git_cochange_head__";
 
@@ -95,19 +100,7 @@ export class SqliteGraphStore implements GraphStore {
         is_exported INTEGER NOT NULL DEFAULT 0
       );
 
-      CREATE TABLE IF NOT EXISTS edges (
-        source TEXT NOT NULL,
-        target TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        provenance_source TEXT NOT NULL,
-        confidence REAL NOT NULL,
-        evidence TEXT NOT NULL,
-        content_hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        call_end_line INTEGER,
-        call_end_col INTEGER,
-        PRIMARY KEY (source, target, kind, provenance_source)
-      );
+      CREATE TABLE IF NOT EXISTS edges (${EDGES_COLUMNS});
 
       CREATE TABLE IF NOT EXISTS file_hashes (
         file TEXT PRIMARY KEY,
@@ -135,12 +128,6 @@ export class SqliteGraphStore implements GraphStore {
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER NOT NULL
       );
-
-      CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file);
-      CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
-      CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
-      CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
-      CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
     `);
 
     const columns: Array<[table: string, name: string, type: string]> = [
@@ -201,6 +188,33 @@ export class SqliteGraphStore implements GraphStore {
         throw error;
       }
     }
+    // Before call-sites (Each call resolves on its own), the edges' primary key held no call site, so a caller's calls
+    // to one target shared a row; a key can't change in place, so the table is rebuilt, `idx_edges_key` its key.
+    const edgeColumns = this.db.prepare("PRAGMA table_info(edges)").all() as Array<{ pk: number }>;
+    if (edgeColumns.some((column) => column.pk > 0)) {
+      const names = "source, target, kind, provenance_source, confidence, evidence, content_hash, created_at, call_end_line, call_end_col";
+      this.db.exec("BEGIN");
+      try {
+        this.db.exec(`
+          ALTER TABLE edges RENAME TO edges_v1;
+          CREATE TABLE edges (${EDGES_COLUMNS});
+          INSERT INTO edges (${names}) SELECT ${names} FROM edges_v1;
+          DROP TABLE edges_v1;
+        `);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file);
+      CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
+      CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
+      CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
+      CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_key ON edges(${EDGE_KEY});
+    `);
 
     // Below SCHEMA_VERSION, an older extractor wrote the rows, each stamped below it, so each re-extracts; rerun the
     // git stage too (its head key), whose edges the re-extraction drops. In one transaction: a version bumped without
@@ -287,7 +301,8 @@ export class SqliteGraphStore implements GraphStore {
       FROM edges e
       JOIN nodes n ON n.id = ${joinOn}
       WHERE ${whereField} = ?`;
-    const sql = kind ? `${baseSQL} AND e.kind = ?` : baseSQL;
+    // In the order the rows were written, which no index on `edges` holds: `idx_edges_key` reads them by target.
+    const sql = `${kind ? `${baseSQL} AND e.kind = ?` : baseSQL} ORDER BY e.rowid`;
     const rows = (kind ? this.db.prepare(sql).all(nodeId, kind) : this.db.prepare(sql).all(nodeId)) as NeighborRow[];
     return rows.map((row) => {
       const node: GraphNode = {
@@ -339,8 +354,10 @@ export class SqliteGraphStore implements GraphStore {
     return rows.map(SqliteGraphStore.edgeFromRow);
   }
 
-  deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void {
-    this.db.prepare(`DELETE FROM edges WHERE source = ? AND target = ? AND kind = ? AND provenance_source = ?`).run(source, target, kind, provenanceSource);
+  deleteEdge(source: string, target: string, kind: string, provenanceSource: string, callEnd?: GraphEdge["call_end"]): void {
+    const key = [source, target, kind, provenanceSource];
+    const site = callEnd ? " AND call_end_line = ? AND call_end_col = ?" : "";
+    this.db.prepare(`DELETE FROM edges WHERE source = ? AND target = ? AND kind = ? AND provenance_source = ?${site}`).run(...key, ...(callEnd ? [callEnd.line, callEnd.col] : []));
   }
 
   getNodesByFile(file: string): GraphNode[] {

@@ -311,7 +311,7 @@ export interface FunctionAt {
   ownerId: string | null;
   /** True when `ownerId` is the function's own node. */
   own: boolean;
-  /** Its calls, each callee once at its first call to end, sourced at `nodeId(file, name, startLine)`. */
+  /** Its calls, one per call site, sourced at `nodeId(file, name, startLine)`. */
   calls: GraphEdge[];
 }
 
@@ -329,22 +329,14 @@ export interface NamedCallback {
   ownerId: string;
 }
 
-/** A push that keeps one edge per source, target, kind and provenance; of a callee's calls, the first to end, the first to run. */
+/** A push that keeps one edge per source, target, kind, provenance and evidence: a call's evidence is its site, so every call. */
 function edgeSink(edges: GraphEdge[]): (edge: GraphEdge) => void {
-  const edgeIndex = new Map<string, number>();
+  const seen = new Set<string>();
   return (edge) => {
-    const key = edge.call_end
-      ? `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}`
-      : `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
-    const at = edgeIndex.get(key);
-    if (at === undefined) {
-      edgeIndex.set(key, edges.length);
-      edges.push(edge);
-      return;
-    }
-    const end = edge.call_end;
-    const kept = edges[at]!.call_end;
-    if (end && kept && (end.line < kept.line || (end.line === kept.line && end.col < kept.col))) edges[at] = edge;
+    const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.provenance.source}|${edge.provenance.evidence}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    edges.push(edge);
   };
 }
 
