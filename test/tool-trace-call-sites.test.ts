@@ -97,7 +97,7 @@ test("a callback's call through a re-exported namespace traces where its owner's
   expect(await trace({ file: "src/main.ts", line: 5 })).toEqual(["src/main.ts  <anonymous> (in viaNs)", "  src/b.ts  run [leaf]", ""]);
 });
 
-test("a callback's member call its owner holds no row for prints unresolved, not dropped", () => {
+test("a callback's member call its owner holds no row for prints unresolved and reads unknown, not dropped", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-trace-call-sites-norow-"));
   mkdirSync(join(projectRoot, "src"));
   writeFileSync(join(projectRoot, "src", "main.ts"), "export function owner(obj: { m(): void }) {\n  [1].map(() => obj.m());\n}\n");
@@ -110,5 +110,6 @@ test("a callback's member call its owner holds no row for prints unresolved, not
   store.addNode({ id: "src/main.ts::owner:1", kind: "function", name: "owner", file: "src/main.ts", start_line: 1, end_line: 3, content_hash: "old", is_exported: true });
   const { text } = traceResult({ file: "src/main.ts", line: 2, store, projectRoot });
   expect(text).toContain("<anonymous> (in owner) [stale]\n  ? m (unresolved, src/main.ts:2)\n");
-  expect(text.startsWith("Trust: fresh")).toBe(false);
+  // Unknown, not just stale: the call the index lacks outranks the owner's changed hash.
+  expect(text.startsWith("Trust: unknown")).toBe(true);
 });
