@@ -1,7 +1,7 @@
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { isMemberCall, isUnresolved } from "../graph/types.js";
 import type { GraphStore } from "../graph/store.js";
-import type { ITsServerClient } from "./tsserver-client.js";
+import type { ITsServerClient, LspLocation } from "./tsserver-client.js";
 
 function parseEvidence(evidence: string): { name: string; line: number; col: number } | null {
   const parts = evidence.split(":");
@@ -36,6 +36,12 @@ function definedAt(store: GraphStore, loc: { file: string; line: number }, name:
   return nodes.find((n) => n.name === `${found.name}.constructor` && found.start_line <= n.start_line && n.start_line <= (found.end_line ?? found.start_line)) ?? found;
 }
 
+/** Whether `loc` sits inside an interface the index holds: a definition there is a member's declaration. */
+function inInterface(store: GraphStore, loc: LspLocation): boolean {
+  return store.getNodesByFile(loc.file).some((n) => n.kind === "interface" && n.start_line <= loc.line && loc.line <= (n.end_line ?? n.start_line));
+}
+
+const sameEnd = (a: GraphEdge["call_end"], b: GraphEdge["call_end"]) => a?.line === b?.line && a?.col === b?.col;
 function makeLspEdge(from: GraphEdge, target: string, evidence: string, contentHash: string): GraphEdge {
   return {
     source: from.source,
@@ -90,14 +96,22 @@ export async function runLspIndexStage(
   };
   const asked = new Set(work.map((e) => key(e.source, e.provenance.evidence)));
   for (const f of recorded) if (!asked.has(key(f.source, f.evidence))) recordLookup(f.source, f.evidence, false);
+  // An interface member's implementations, asked once per member a run reaches.
+  const implementations = new Map<string, Promise<LspLocation[]>>();
   for (const edge of work) {
     const sourceNode = store.getNode(edge.source);
     if (!sourceNode) continue;
     const parsed = parseEvidence(edge.provenance.evidence);
     if (!parsed) continue;
     let loc;
+    let implemented: LspLocation[] | null = null;
     try {
       loc = await client.definition(sourceNode.file, parsed.line, parsed.col);
+      if (loc && isMemberCall(edge.target) && inInterface(store, loc)) {
+        const at = `${loc.file}:${loc.line}:${loc.col}`;
+        if (!implementations.has(at)) implementations.set(at, client.implementations(loc.file, loc.line, loc.col));
+        implemented = await implementations.get(at)!;
+      }
     } catch (err) {
       if (isStartupError(err)) return errors;
       recordLookup(edge.source, edge.provenance.evidence, true);
@@ -105,6 +119,25 @@ export async function runLspIndexStage(
     }
     recordLookup(edge.source, edge.provenance.evidence, false);
     if (!loc) continue;
+    if (implemented) {
+      // A call through an interface reaches each class member implementing it. Its member row stays, so every run asks
+      // again and a class that stops implementing it drops its row here.
+      const targets = new Map<string, LspLocation>();
+      for (const impl of implemented) {
+        const target = definedAt(store, impl, parsed.name);
+        if (target?.kind === "function") targets.set(target.id, impl);
+      }
+      try {
+        const atSite = store.getEdgesBySource(edge.source).filter((e) => e.kind === "calls" && e.provenance.source === "lsp" && sameEnd(e.call_end, edge.call_end));
+        for (const [id, impl] of targets) {
+          if (!atSite.some((e) => e.target === id)) store.addEdge(makeLspEdge(edge, id, `${impl.file}:${impl.line}:${impl.col}`, sourceNode.content_hash));
+        }
+        for (const e of atSite) if (!targets.has(e.target)) store.deleteEdge(e.source, e.target, e.kind, "lsp", e.call_end);
+      } catch {
+        errors++;
+      }
+      continue;
+    }
     const target = definedAt(store, loc, parsed.name);
     // A call tree-sitter resolved stays put unless tsserver agrees on its target.
     const pending = isUnresolved(edge.target) || isMemberCall(edge.target);

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { GraphStore } from "../graph/store.js";
+import type { GraphStore, NeighborResult } from "../graph/store.js";
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { isMemberCall, isUnresolved, nodeId } from "../graph/types.js";
 import { extractCallbacks, extractFunctionAt, type FunctionAt } from "../indexer/tree-sitter.js";
@@ -337,9 +337,13 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
     content_hash: source?.content_hash ?? "",
     is_exported: false,
   };
-  // The owner's stored calls by the site they end at, each a row of its own.
+  // The owner's stored calls by the site they end at, each a row of its own; a call through an interface holds one per
+  // class member implementing it.
   const site = (end: CallEnd) => (end ? `${end.line}:${end.col}` : "");
-  const resolvedAt = new Map(owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }).map((n) => [site(n.edge.call_end), n]) : []);
+  const resolvedAt = new Map<string, NeighborResult[]>();
+  for (const n of owner ? store.getNeighbors(owner.id, { direction: "out", kind: "calls" }) : []) {
+    resolvedAt.set(site(n.edge.call_end), [...(resolvedAt.get(site(n.edge.call_end)) ?? []), n]);
+  }
   const leftAt = new Map(
     owner
       ? store
@@ -353,10 +357,10 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   const unindexed: string[] = [];
   const callees = fn.calls
     .flatMap((call): Callee[] => {
-      const hit = call.call_end ? resolvedAt.get(site(call.call_end)) : undefined;
-      if (hit) {
-        resolvedEdges.push(hit.edge);
-        return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
+      const hits = call.call_end ? resolvedAt.get(site(call.call_end)) : undefined;
+      if (hits) {
+        resolvedEdges.push(...hits.map((hit) => hit.edge));
+        return hits.map((hit) => ({ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }));
       }
       const left = call.call_end ? leftAt.get(site(call.call_end)) : undefined;
       // An `obj.m()` the LSP stage left unresolved has no project call, so it prints nothing.
