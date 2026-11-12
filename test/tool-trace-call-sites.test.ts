@@ -4,7 +4,9 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import piCodegraph, { resetStoreForTesting } from "../src/index.js";
+import { traceResult } from "../src/tools/trace.js";
 
 // The arc's fixture: `owner` calls `run()` from ./a and `b.run()` from ./b; `twice` calls `run()`, `b.run()`, `run()`.
 const MAIN = [
@@ -93,4 +95,20 @@ test("a callback's call through a re-exported namespace traces where its owner's
     "src/main.ts": ['import { b2 } from "./ns";', "", "export function viaNs(): void {", "  [1].forEach(() => {", "    b2.run();", "  });", "}", ""].join("\n"),
   });
   expect(await trace({ file: "src/main.ts", line: 5 })).toEqual(["src/main.ts  <anonymous> (in viaNs)", "  src/b.ts  run [leaf]", ""]);
+});
+
+test("a callback's member call its owner holds no row for prints unresolved, not dropped", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-trace-call-sites-norow-"));
+  mkdirSync(join(projectRoot, "src"));
+  writeFileSync(join(projectRoot, "src", "main.ts"), "export function owner(obj: { m(): void }) {\n  [1].map(() => obj.m());\n}\n");
+  const store = new SqliteGraphStore();
+  cleanup = () => {
+    store.close();
+    rmSync(projectRoot, { recursive: true, force: true });
+  };
+  // An index older than the file: `owner` is known, its call at line 2 is not.
+  store.addNode({ id: "src/main.ts::owner:1", kind: "function", name: "owner", file: "src/main.ts", start_line: 1, end_line: 3, content_hash: "old", is_exported: true });
+  const { text } = traceResult({ file: "src/main.ts", line: 2, store, projectRoot });
+  expect(text).toContain("<anonymous> (in owner) [stale]\n  ? m (unresolved, src/main.ts:2)\n");
+  expect(text.startsWith("Trust: fresh")).toBe(false);
 });

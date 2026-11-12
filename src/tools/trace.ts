@@ -359,10 +359,13 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
         return [{ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }];
       }
       const left = call.call_end ? leftAt.get(site(call.call_end)) : undefined;
-      // An `obj.m()` the LSP stage left unresolved has no project call, so it prints nothing; at module level the index
-      // stores no call, so one there is one tsserver never resolved.
-      if (left && isMemberCall(left.target)) hiddenEdges.push(left);
-      if (isMemberCall(call.target)) return [];
+      // An `obj.m()` the LSP stage left unresolved has no project call, so it prints nothing.
+      if (left && isMemberCall(left.target)) {
+        hiddenEdges.push(left);
+        return [];
+      }
+      // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
+      if (!owner && isMemberCall(call.target)) return [];
       if (!left) unindexed.push(`${file}:${calleeName(call)}`);
       return [unresolvedCallee(left ?? call, file, call)];
     });
