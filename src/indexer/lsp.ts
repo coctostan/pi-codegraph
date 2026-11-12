@@ -119,20 +119,13 @@ export async function runLspIndexStage(
       continue;
     }
     recordLookup(edge.source, edge.provenance.evidence, false);
-    if (!loc) continue;
-    // A call through an interface reaches each class member implementing it; any other, the node at its definition.
+    // A call through an interface reaches each class member implementing it; any other, the node at its definition. A
+    // call tree-sitter resolved stays put unless tsserver agrees on its target.
+    const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
     const targets = new Map<string, LspLocation>();
-    if (implemented) {
-      for (const impl of implemented) {
-        const target = definedAt(store, impl, parsed.name);
-        if (target?.kind === "function") targets.set(target.id, impl);
-      }
-    } else {
-      const target = definedAt(store, loc, parsed.name);
-      // A call tree-sitter resolved stays put unless tsserver agrees on its target.
-      const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
-      if (!target || (!pending && target.id !== edge.target)) continue;
-      targets.set(target.id, loc);
+    for (const at of implemented ?? (loc ? [loc] : [])) {
+      const target = definedAt(store, at, parsed.name);
+      if (target && (implemented ? target.kind === "function" : pending || target.id === edge.target)) targets.set(target.id, at);
     }
     try {
       // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row, and the
@@ -142,8 +135,8 @@ export async function runLspIndexStage(
         if (!atSite.some((e) => e.target === id)) store.addEdge(makeLspEdge(edge, id, `${at.file}:${at.line}:${at.col}`, sourceNode.content_hash));
       }
       for (const e of atSite) if (!targets.has(e.target)) store.deleteEdge(e.source, e.target, e.kind, "lsp", e.call_end);
-      // A call through an interface keeps its member row, so every run asks it again as classes come and go.
-      if (!implemented) store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
+      // A call through an interface, or one left with no target, keeps its row, so every run asks it again.
+      if (!implemented && targets.size > 0) store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
     } catch {
       errors++;
     }

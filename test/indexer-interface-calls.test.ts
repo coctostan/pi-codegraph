@@ -178,3 +178,21 @@ test("a call whose receiver turns from the interface to one class keeps that cla
     store.close();
   }
 });
+
+test("a call whose receiver turns from the interface to `any` drops the classes it reached, its file unchanged", async () => {
+  const root = fixture();
+  writeFileSync(join(root, "src", "holder.ts"), 'import type { Shape } from "./shape";\nexport interface Holder {\n  shape: Shape;\n}\n');
+  writeFileSync(join(root, "src", "held.ts"), 'import type { Holder } from "./holder";\nexport function held(h: Holder): number {\n  return h.shape.area();\n}\n');
+  const heldRow = /^src\/held\.ts {2}2:[0-9a-f]{3} {2}held {2}behavioral {2}depth:1$/m;
+  const store = new SqliteGraphStore();
+  try {
+    await indexProject(root, store);
+    expect(impact(root, store, "Square.area")).toMatch(heldRow);
+    writeFileSync(join(root, "src", "holder.ts"), "export interface Holder {\n  shape: any;\n}\n");
+    await indexProject(root, store);
+    expect(impact(root, store, "Square.area")).not.toMatch(heldRow);
+    expect(impact(root, store, "Circle.area")).not.toMatch(heldRow);
+  } finally {
+    store.close();
+  }
+});
