@@ -653,11 +653,12 @@ function extract(
         if (obj?.type === "this" && members && prop && MEMBER_NAME_TYPES.has(prop.type)) {
           return { name: prop.text, at: prop, target: members.get(prop.text) };
         }
-        // Another object's member, one target per call site: receivers of one name in a function can differ in type.
+        // Another object's member, its row kept apart from another site's by the edges key: receivers of one name in a
+        // function can differ in type.
         const root = obj && receiverRoot(obj);
         const external = root?.type === "identifier" ? isExternalCallee(root.text) : LITERAL_TYPES.has(root?.type ?? "");
         if (obj && obj.type !== "this" && !external && prop && MEMBER_NAME_TYPES.has(prop.type)) {
-          return { name: prop.text, at: prop, target: nodeId(MEMBER_CALL, prop.text, prop.startIndex) };
+          return { name: prop.text, at: prop, target: nodeId(MEMBER_CALL, prop.text, 0) };
         }
       }
       return null;

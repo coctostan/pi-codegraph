@@ -45,7 +45,7 @@ test("extractFile files a non-namespace member call as a hidden member call, not
   const callEdges = result.edges.filter((e) => e.kind === "calls");
   // obj is no namespace import, so its call waits on the LSP stage; this outside a class is no class's
   expect(callEdges.filter((e) => e.target.includes("::method:")).map((e) => e.target)).toEqual([
-    nodeId("__member__", "method", content.indexOf("method")),
+    nodeId("__member__", "method", 0),
   ]);
   expect(callEdges.find((e) => e.target.includes("::foo:"))).toBeUndefined();
 });

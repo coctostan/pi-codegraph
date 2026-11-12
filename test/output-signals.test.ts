@@ -196,7 +196,7 @@ test("a node whose calls are all unresolved is no leaf, and a test takes no cove
 
     addCall(store, unresolvedOnly.id, "__unresolved__::missing:0");
     // An `obj.m()` the LSP stage left unresolved prints nothing in `trace`, so it leaves a node a leaf.
-    addCall(store, hiddenOnly.id, "__member__::push:12");
+    addCall(store, hiddenOnly.id, "__member__::push:0");
     store.addEdge({
       source: importsOnly.id,
       target: "__unresolved__::gone:0",
