@@ -432,6 +432,28 @@ test("getEdgesBySource returns all edges for a source ordered by created_at ASC"
   store.close();
 });
 
+test("getNeighbors lists a node's edges in the order they were written, not by target", () => {
+  const store = new SqliteGraphStore();
+  const fn = (file: string, name: string) => ({ id: `${file}::${name}:1`, kind: "function" as const, name, file, start_line: 1, end_line: 2, content_hash: "h" });
+  const caller = fn("src/m.ts", "caller");
+  for (const node of [caller, fn("src/z.ts", "zed"), fn("src/a.ts", "ay")]) store.addNode(node);
+  for (const [target, line] of [["src/z.ts::zed:1", 2], ["src/a.ts::ay:1", 3]] as const) {
+    store.addEdge({
+      source: caller.id,
+      target,
+      kind: "calls",
+      provenance: { source: "lsp", confidence: 0.9, evidence: "e", content_hash: "h" },
+      created_at: 1,
+      call_end: { line, col: 5 },
+    });
+  }
+
+  expect(store.getNeighbors(caller.id).map((n) => n.node.name)).toEqual(["zed", "ay"]);
+  expect(store.getNeighbors(caller.id, { direction: "out", kind: "calls" }).map((n) => n.node.name)).toEqual(["zed", "ay"]);
+
+  store.close();
+});
+
 test("deleteEdge removes only the matching (source, target, kind, provenanceSource) row", () => {
   const store = new SqliteGraphStore();
 
