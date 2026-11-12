@@ -301,7 +301,8 @@ export class SqliteGraphStore implements GraphStore {
       FROM edges e
       JOIN nodes n ON n.id = ${joinOn}
       WHERE ${whereField} = ?`;
-    const sql = kind ? `${baseSQL} AND e.kind = ?` : baseSQL;
+    // In the order the rows were written, which no index on `edges` holds: `idx_edges_key` reads them by target.
+    const sql = `${kind ? `${baseSQL} AND e.kind = ?` : baseSQL} ORDER BY e.rowid`;
     const rows = (kind ? this.db.prepare(sql).all(nodeId, kind) : this.db.prepare(sql).all(nodeId)) as NeighborRow[];
     return rows.map((row) => {
       const node: GraphNode = {
