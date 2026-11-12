@@ -20,7 +20,7 @@ const SOURCE = [
   "}",
 ].join("\n");
 
-test("each calls edge carries where its call ends, a repeated callee keeping the call that ends first", () => {
+test("each calls edge carries where its call ends, a repeated callee once per call", () => {
   const calls = extractFile("src/x.ts", SOURCE).edges.filter((e) => e.kind === "calls");
   const rows = calls.map((e) => [e.source.split("::")[1], e.target.split("::")[1], e.provenance.evidence, e.call_end]);
   expect(rows).toEqual([
@@ -28,6 +28,8 @@ test("each calls edge carries where its call ends, a repeated callee keeping the
     ["caller:2", "b:0", "b:3:5", { line: 3, col: 7 }],
     ["caller:2", "C:0", "C:4:7", { line: 4, col: 9 }],
     ["caller:2", "d:0", "d:5:6", { line: 5, col: 8 }],
+    ["caller:2", "a:0", "a:6:3", { line: 6, col: 5 }],
+    ["nested:8", "f:0", "f:9:3", { line: 9, col: 9 }],
     ["nested:8", "f:0", "f:9:5", { line: 9, col: 8 }],
   ]);
 });
@@ -52,7 +54,7 @@ test("the store returns call_end from every edge read, and none for an edge with
     expect(store.getEdgesBySource("src/x.ts::caller:1").map((e) => e.call_end)).toEqual([{ line: 2, col: 9 }, undefined]);
     expect("call_end" in store.getNeighbors("src/x.ts::callee:5", { direction: "in" })[0]!.edge).toBe(false);
     store.addEdge(edge("src/x.ts::callee:5", { line: 3, col: 4 }));
-    expect(store.getNeighbors("src/x.ts::callee:5", { direction: "in" })[0]!.edge.call_end).toEqual({ line: 3, col: 4 });
+    expect(store.getNeighbors("src/x.ts::callee:5", { direction: "in" }).map((n) => n.edge.call_end ?? null).sort()).toEqual([null, { line: 3, col: 4 }].sort());
   } finally {
     store.close();
   }
@@ -68,6 +70,7 @@ test("a db indexed before edges.call_end gains the columns and re-extracts every
     const raw = new Database(dbPath);
     // Such a db predates schema_version 2, which landed after edges.call_end, and the extractor version stamp.
     raw.run("ALTER TABLE file_hashes DROP COLUMN extractor_version");
+    raw.run("DROP INDEX idx_edges_key");
     raw.run("ALTER TABLE edges DROP COLUMN call_end_line");
     raw.run("ALTER TABLE edges DROP COLUMN call_end_col");
     raw.run("UPDATE schema_version SET version = 1");

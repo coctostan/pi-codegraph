@@ -17,8 +17,6 @@ function isStartupError(err: unknown): boolean {
   return err instanceof Error && err.message.startsWith("TsServer failed to start:");
 }
 
-type CallEnd = GraphEdge["call_end"];
-const endsBefore = (a: CallEnd, b: CallEnd): boolean => !!a && (!b || a.line < b.line || (a.line === b.line && a.col < b.col));
 const span = (n: GraphNode) => (n.end_line ?? n.start_line) - n.start_line;
 
 /**
@@ -112,13 +110,9 @@ export async function runLspIndexStage(
     const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
     if (!target || (!pending && target.id !== edge.target)) continue;
     try {
-      // Add before delete: a failed add keeps the call for the next run to resolve. Of a caller's calls to one target,
-      // the first to end places it, as in tree-sitter's edges.
-      const kept = store.getEdgesBySource(edge.source).find((e) => e.target === target.id && e.kind === "calls" && e.provenance.source === "lsp");
-      if (!kept || endsBefore(edge.call_end, kept.call_end)) {
-        store.addEdge(makeLspEdge(edge, target.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
-      }
-      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source);
+      // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row.
+      store.addEdge(makeLspEdge(edge, target.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
+      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
     } catch {
       errors++;
     }

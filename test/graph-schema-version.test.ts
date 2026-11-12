@@ -38,6 +38,7 @@ test("a db at SCHEMA_VERSION gains a missing partial or call_end column without 
   withDb((dbPath) => {
     seed(dbPath, [
       "ALTER TABLE file_hashes DROP COLUMN partial",
+      "DROP INDEX idx_edges_key",
       "ALTER TABLE edges DROP COLUMN call_end_line",
       "ALTER TABLE edges DROP COLUMN call_end_col",
     ]);
@@ -132,6 +133,43 @@ test("a version-2 db, written before index-parity (An incremental index matches 
   });
 });
 
+test("a version-5 db's edges, keyed without the call site, keep their rows, then hold one row per call site", () => {
+  withDb((dbPath) => {
+    const edge = (target: string, provenance: string, end: [number, number] | null) =>
+      `INSERT INTO edges VALUES ('src/x.ts::f:1', '${target}', 'calls', '${provenance}', 0.5, 'e', 'h', 1, ${end ? end.join(", ") : "NULL, NULL"})`;
+    seed(dbPath, [
+      "UPDATE schema_version SET version = 5",
+      "DROP TABLE edges",
+      `CREATE TABLE edges (source TEXT NOT NULL, target TEXT NOT NULL, kind TEXT NOT NULL, provenance_source TEXT NOT NULL,
+        confidence REAL NOT NULL, evidence TEXT NOT NULL, content_hash TEXT NOT NULL, created_at INTEGER NOT NULL,
+        call_end_line INTEGER, call_end_col INTEGER, PRIMARY KEY (source, target, kind, provenance_source))`,
+      edge("src/y.ts::g:1", "agent", null),
+      edge("src/y.ts::h:1", "lsp", [2, 5]),
+    ]);
+    const store = new SqliteGraphStore(dbPath);
+    try {
+      const rows = () => store.getEdgesBySource("src/x.ts::f:1").map((e) => [e.target, e.provenance.source, e.call_end ? `${e.call_end.line}:${e.call_end.col}` : null]);
+      expect(rows().sort()).toEqual([
+        ["src/y.ts::g:1", "agent", null],
+        ["src/y.ts::h:1", "lsp", "2:5"],
+      ]);
+      const call = { source: "src/x.ts::f:1", target: "src/y.ts::h:1", kind: "calls" as const, created_at: 2 };
+      const provenance = { source: "lsp" as const, confidence: 0.9, evidence: "e", content_hash: "h" };
+      store.addEdge({ ...call, provenance, call_end: { line: 3, col: 5 } });
+      store.addEdge({ ...call, provenance: { ...provenance, confidence: 0.8 }, call_end: { line: 2, col: 5 } });
+      store.addEdge({ ...call, target: "src/y.ts::g:1", provenance: { ...provenance, source: "agent" } });
+      expect(rows().sort()).toEqual([
+        ["src/y.ts::g:1", "agent", null],
+        ["src/y.ts::h:1", "lsp", "2:5"],
+        ["src/y.ts::h:1", "lsp", "3:5"],
+      ].sort());
+      expect(store.getEdgesBySource("src/x.ts::f:1").find((e) => e.call_end?.line === 2)!.provenance.confidence).toBe(0.8);
+    } finally {
+      store.close();
+    }
+  });
+});
+
 test("the bump rolls back whole, so a failed one reruns on the next open", () => {
   withDb((dbPath) => {
     seed(dbPath, [
@@ -177,7 +215,7 @@ const FIXTURE: Record<string, string> = {
     "  return JSON.stringify(new Circle(square(2)));",
     "};",
     "",
-    "export default function main() { load(config.path); missing(); }",
+    "export default function main() { load(config.path); missing(); load(config.path); }",
   ].join("\n"),
   "test/fixture.test.ts": [
     'import { expect, test } from "bun:test";',

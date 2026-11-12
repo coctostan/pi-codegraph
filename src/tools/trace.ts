@@ -78,18 +78,25 @@ const byCallOrder = (a: Callee, b: Callee): number =>
   a.line - b.line ||
   (a.node?.id ?? a.unresolved!.line).localeCompare(b.node?.id ?? b.unresolved!.line);
 
+/** `callees` in the order their calls end, each target once, placed by its first call to end; one without a call end last. */
+function firstPerTarget(callees: Callee[]): Callee[] {
+  const seen = new Set<string>();
+  return callees.sort(byCallOrder).filter((callee) => {
+    const target = callee.node?.id ?? callee.unresolved!.edge.target;
+    return !seen.has(target) && !!seen.add(target);
+  });
+}
+
 /** `caller`'s callees in the order their calls end, the first call to end placing a callee; one without a call end last. */
 function orderedCallees(store: GraphStore, caller: GraphNode): Callee[] {
-  const byId = new Map<string, Callee>();
-  for (const { node, edge } of store.getNeighbors(caller.id, { direction: "out", kind: "calls" })) {
-    const kept = byId.get(node.id);
-    if (!kept || endsBefore(edge.call_end, kept.end)) byId.set(node.id, { node, end: edge.call_end, file: node.file, line: node.start_line });
-  }
+  const resolved = store
+    .getNeighbors(caller.id, { direction: "out", kind: "calls" })
+    .map(({ node, edge }): Callee => ({ node, end: edge.call_end, file: node.file, line: node.start_line }));
   const unresolved = store
     .getEdgesBySource(caller.id)
     .filter((edge) => edge.kind === "calls" && isUnresolved(edge.target))
     .map((edge) => unresolvedCallee(edge, caller.file));
-  return [...byId.values(), ...unresolved].sort(byCallOrder);
+  return firstPerTarget([...resolved, ...unresolved]);
 }
 
 interface StaticTrace {
@@ -367,9 +374,8 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
       if (isMemberCall(call.target) && named.length === 0) return [];
       if (!stored) unindexed.push(`${file}:${name}`);
       return [unresolvedCallee(stored ?? call, file, call)];
-    })
-    .sort(byCallOrder);
-  return renderStatic(params, entry, source, { callees, edges: resolvedEdges, hidden: hiddenEdges, unindexed });
+    });
+  return renderStatic(params, entry, source, { callees: firstPerTarget(callees), edges: resolvedEdges, hidden: hiddenEdges, unindexed: [...new Set(unindexed)] });
 }
 
 function renderTrace(params: EntryParams, resolved: SymbolResolution): string {

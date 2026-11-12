@@ -240,12 +240,11 @@ test("a callback's member calls on two namesakes trace each to its own class, it
   expect(out.text.startsWith("Trust: fresh")).toBe(true);
 });
 
-test("a callback's member call its owner makes to two namesakes before it reads unresolved, not a guess", async () => {
+test("a callback's member call reaches the target its owner's call at that site resolved to, among two namesakes", async () => {
   const { trace } = setup();
-  const line = lineOf("map(() => b.run())");
-  const out = await trace({ file: "src/app.ts", line });
-  expect(tree(out.text)).toEqual(["<anonymous> (in twice)", `  ? run (unresolved, src/app.ts:${line})`]);
-  expect(out.text.startsWith("Trust: fresh")).toBe(false);
+  const out = await trace({ file: "src/app.ts", line: lineOf("map(() => b.run())") });
+  expect(tree(out.text)).toEqual(["<anonymous> (in twice)", "  Beta.run", "    other [leaf]"]);
+  expect(out.text.startsWith("Trust: fresh")).toBe(true);
 });
 
 test("a callback's member call reaches its owner's member, not a free function of its name", async () => {

@@ -166,15 +166,15 @@ test("a references answer clears the failed definition records of the calls it f
   // Every tool call re-runs the index, which asks `definition` again, so every client here times out on it.
   const answering = (references?: Lookup) => client({ references, definition: timingOut });
   await withRepo(async ({ root, store, use, card }) => {
-    // `y` calls `b` at the line and column `a` does, then `d` and `b` again on that line; tree-sitter keeps the first `b`.
+    // `y` calls `b` at the line and column `a` does, then `d` and `b` again on that line, each call a lookup of its own.
     writeFileSync(join(root, "src", "other.ts"), ["export function y() {", "  b(); d(); b();", "}", ""].join("\n"));
     const b = node(store(), "b");
 
     // An answer that misses the calls leaves their records.
     use(answering());
-    expect(await card("b")).toContain(note("2 calls"));
+    expect(await card("b")).toContain(note("3 calls"));
 
-    // A reference elsewhere on `y`'s line, as `right.b()` beside a `left.b()` whose lookup failed, clears nothing there.
+    // A reference to `y`'s second `b` clears its record alone, not the first's on that line, as `right.b()` beside a `left.b()`.
     const yAt = (col: number): LspLocation => ({ file: "src/other.ts", line: 2, col });
     store().setMetadata(resolverMarkerKey("callers", b.id), null);
     use(answering(async () => [A_CALLS_B, yAt(13)]));

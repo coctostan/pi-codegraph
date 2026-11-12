@@ -50,7 +50,8 @@ export interface GraphStore {
   setFileHash(file: string, hash: string, partial?: boolean): void;
   getUnresolvedEdges(): GraphEdge[];
   getEdgesBySource(sourceId: string): GraphEdge[];
-  deleteEdge(source: string, target: string, kind: string, provenanceSource: string): void;
+  /** Delete the edge at this key: with `callEnd`, the call at that site alone; without, every site's. */
+  deleteEdge(source: string, target: string, kind: string, provenanceSource: string, callEnd?: GraphEdge["call_end"]): void;
   saveTestTrace(trace: TestTraceRecord): void;
   getTestTrace(testNodeId: string): TestTraceRecord | null;
   /** Delete every `coverage` edge and test trace, so the coverage stage writes only what its reports back; with none, write nothing. */
