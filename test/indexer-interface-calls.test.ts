@@ -8,7 +8,7 @@ import { indexProject } from "../src/indexer/pipeline.js";
 import { TsServerClient } from "../src/indexer/tsserver-client.js";
 import { impactResult } from "../src/tools/impact.js";
 
-// `total` calls `s.area()` on a `Shape`, the interface `Square` and `Circle` implement.
+// `total` calls `s.area()` on a `Shape`, the interface `Square` and `Circle` implement, then `double`.
 const SHAPE = ["export interface Shape {", "  area(): number;", "}", ""].join("\n");
 const shapeClass = (name: string, value: number, implementsShape = true) =>
   [
@@ -25,7 +25,10 @@ const USE = [
   "export function total(shapes: Shape[]): number {",
   "  let sum = 0;",
   "  for (const s of shapes) sum += s.area();",
-  "  return sum;",
+  "  return double(sum);",
+  "}",
+  "export function double(n: number): number {",
+  "  return n * 2;",
   "}",
   "",
 ].join("\n");
@@ -81,7 +84,7 @@ test("a class that starts implementing the interface gains the caller, its calle
   }
 });
 
-test("a class that stops implementing the interface loses the caller, the others keep it", async () => {
+test("a class that stops implementing the interface loses the caller, the others and the caller's other calls kept", async () => {
   const root = fixture();
   const store = new SqliteGraphStore();
   try {
@@ -90,6 +93,7 @@ test("a class that stops implementing the interface loses the caller, the others
     await indexProject(root, store);
     expect(impact(root, store, "Circle.area")).not.toMatch(TOTAL_ROW);
     expect(impact(root, store, "Square.area")).toMatch(TOTAL_ROW);
+    expect(impact(root, store, "double")).toMatch(TOTAL_ROW);
   } finally {
     store.close();
   }
