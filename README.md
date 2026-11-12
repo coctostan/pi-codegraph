@@ -119,7 +119,7 @@ symbol_graph({ name: "validateToken", include: ["neighborhood", "contract", "sou
 ```
 #### `impact`
 Classify blast radius for changed symbols, then list the tests calling them directly before those reached through other callers.
-It follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5). Each row is `<file>  <LINE:HASH>  <name>  <class>  depth:<n>`, by depth then file: a direct dependent of a `signature_change` or `removal` is `breaking`, every other dependent `behavioral`. The test files and test cases reached follow: those calling a changed symbol directly in a `Tests reached directly (<c> cases in <f> files):` list, then the rest in a `Tests reached through other callers (<c> cases in <f> files):` list, each file once per list.
+It follows callers and implementors directly and indirectly up toward the entry points, `maxDepth` levels deep (default 5). A call through an interface, such as `store.addEdge()` on a `GraphStore`, counts as a caller of each project class member implementing it. Each row is `<file>  <LINE:HASH>  <name>  <class>  depth:<n>`, by depth then file: a direct dependent of a `signature_change` or `removal` is `breaking`, every other dependent `behavioral`. The test files and test cases reached follow: those calling a changed symbol directly in a `Tests reached directly (<c> cases in <f> files):` list, then the rest in a `Tests reached through other callers (<c> cases in <f> files):` list, each file once per list.
 Allowed `changeType` values: `"signature_change"`, `"removal"`, `"behavior_change"`, `"addition"`; `"addition"` returns a note, no dependents.
 ```
 impact({ symbols: ["validateToken"], changeType: "signature_change" })

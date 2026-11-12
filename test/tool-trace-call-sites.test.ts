@@ -97,6 +97,22 @@ test("a callback's call through a re-exported namespace traces where its owner's
   expect(await trace({ file: "src/main.ts", line: 5 })).toEqual(["src/main.ts  <anonymous> (in viaNs)", "  src/b.ts  run [leaf]", ""]);
 });
 
+test("a callback's call through an interface traces to each class member implementing it", async () => {
+  const shapeClass = (name: string) => `import type { Shape } from "./shape";\nexport class ${name} implements Shape {\n  area(): number { return 1; }\n}\n`;
+  const trace = fixture({
+    "src/shape.ts": "export interface Shape {\n  area(): number;\n}\n",
+    "src/square.ts": shapeClass("Square"),
+    "src/circle.ts": shapeClass("Circle"),
+    "src/main.ts": ['import type { Shape } from "./shape";', "", "export function sum(shapes: Shape[]): void {", "  shapes.forEach((s) => {", "    s.area();", "  });", "}", ""].join("\n"),
+  });
+  expect(await trace({ file: "src/main.ts", line: 5 })).toEqual([
+    "src/main.ts  <anonymous> (in sum)",
+    "  src/circle.ts  Circle.area [leaf]",
+    "  src/square.ts  Square.area [leaf]",
+    "",
+  ]);
+});
+
 test("a callback's member call its owner holds no row for prints unresolved and reads unknown, not dropped", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-cg-trace-call-sites-norow-"));
   mkdirSync(join(projectRoot, "src"));

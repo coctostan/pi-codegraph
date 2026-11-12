@@ -1,7 +1,7 @@
 import type { GraphEdge, GraphNode } from "../graph/types.js";
 import { isMemberCall, isUnresolved } from "../graph/types.js";
 import type { GraphStore } from "../graph/store.js";
-import type { ITsServerClient } from "./tsserver-client.js";
+import type { ITsServerClient, LspLocation } from "./tsserver-client.js";
 
 function parseEvidence(evidence: string): { name: string; line: number; col: number } | null {
   const parts = evidence.split(":");
@@ -35,6 +35,13 @@ function definedAt(store: GraphStore, loc: { file: string; line: number }, name:
   if (found?.kind !== "class") return found;
   return nodes.find((n) => n.name === `${found.name}.constructor` && found.start_line <= n.start_line && n.start_line <= (found.end_line ?? found.start_line)) ?? found;
 }
+
+/** Whether `loc` sits inside an interface the index holds: a definition there is a member's declaration. */
+function inInterface(store: GraphStore, loc: LspLocation): boolean {
+  return store.getNodesByFile(loc.file).some((n) => n.kind === "interface" && n.start_line <= loc.line && loc.line <= (n.end_line ?? n.start_line));
+}
+
+const sameEnd = (a: GraphEdge["call_end"], b: GraphEdge["call_end"]) => a?.line === b?.line && a?.col === b?.col;
 
 function makeLspEdge(from: GraphEdge, target: string, evidence: string, contentHash: string): GraphEdge {
   return {
@@ -90,29 +97,46 @@ export async function runLspIndexStage(
   };
   const asked = new Set(work.map((e) => key(e.source, e.provenance.evidence)));
   for (const f of recorded) if (!asked.has(key(f.source, f.evidence))) recordLookup(f.source, f.evidence, false);
+  // An interface member's implementations, asked once per member a run reaches.
+  const implementations = new Map<string, Promise<LspLocation[]>>();
   for (const edge of work) {
     const sourceNode = store.getNode(edge.source);
     if (!sourceNode) continue;
     const parsed = parseEvidence(edge.provenance.evidence);
     if (!parsed) continue;
     let loc;
+    let implemented: LspLocation[] | null = null;
     try {
       loc = await client.definition(sourceNode.file, parsed.line, parsed.col);
+      if (loc && isMemberCall(edge.target) && inInterface(store, loc)) {
+        const at = `${loc.file}:${loc.line}:${loc.col}`;
+        if (!implementations.has(at)) implementations.set(at, client.implementations(loc.file, loc.line, loc.col));
+        implemented = await implementations.get(at)!;
+      }
     } catch (err) {
       if (isStartupError(err)) return errors;
       recordLookup(edge.source, edge.provenance.evidence, true);
       continue;
     }
     recordLookup(edge.source, edge.provenance.evidence, false);
-    if (!loc) continue;
-    const target = definedAt(store, loc, parsed.name);
-    // A call tree-sitter resolved stays put unless tsserver agrees on its target.
+    // A call through an interface reaches each class member implementing it; any other, the node at its definition. A
+    // call tree-sitter resolved stays put unless tsserver agrees on its target.
     const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
-    if (!target || (!pending && target.id !== edge.target)) continue;
+    const targets = new Map<string, LspLocation>();
+    for (const at of implemented ?? (loc ? [loc] : [])) {
+      const target = definedAt(store, at, parsed.name);
+      if (target && (implemented ? target.kind === "function" : pending || target.id === edge.target)) targets.set(target.id, at);
+    }
     try {
-      // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row.
-      store.addEdge(makeLspEdge(edge, target.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
-      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
+      // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row, and the
+      // rows an earlier run wrote at it for targets no longer named go.
+      const atSite = store.getEdgesBySource(edge.source).filter((e) => e.kind === "calls" && e.provenance.source === "lsp" && sameEnd(e.call_end, edge.call_end));
+      for (const [id, at] of targets) {
+        if (!atSite.some((e) => e.target === id)) store.addEdge(makeLspEdge(edge, id, `${at.file}:${at.line}:${at.col}`, sourceNode.content_hash));
+      }
+      for (const e of atSite) if (!targets.has(e.target)) store.deleteEdge(e.source, e.target, e.kind, "lsp", e.call_end);
+      // A call through an interface, or one left with no target, keeps its row, so every run asks it again.
+      if (!implemented && targets.size > 0) store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
     } catch {
       errors++;
     }
