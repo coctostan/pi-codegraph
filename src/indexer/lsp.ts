@@ -120,33 +120,30 @@ export async function runLspIndexStage(
     }
     recordLookup(edge.source, edge.provenance.evidence, false);
     if (!loc) continue;
+    // A call through an interface reaches each class member implementing it; any other, the node at its definition.
+    const targets = new Map<string, LspLocation>();
     if (implemented) {
-      // A call through an interface reaches each class member implementing it. Its member row stays, so every run asks
-      // again and a class that stops implementing it drops its row here.
-      const targets = new Map<string, LspLocation>();
       for (const impl of implemented) {
         const target = definedAt(store, impl, parsed.name);
         if (target?.kind === "function") targets.set(target.id, impl);
       }
-      try {
-        const atSite = store.getEdgesBySource(edge.source).filter((e) => e.kind === "calls" && e.provenance.source === "lsp" && sameEnd(e.call_end, edge.call_end));
-        for (const [id, impl] of targets) {
-          if (!atSite.some((e) => e.target === id)) store.addEdge(makeLspEdge(edge, id, `${impl.file}:${impl.line}:${impl.col}`, sourceNode.content_hash));
-        }
-        for (const e of atSite) if (!targets.has(e.target)) store.deleteEdge(e.source, e.target, e.kind, "lsp", e.call_end);
-      } catch {
-        errors++;
-      }
-      continue;
+    } else {
+      const target = definedAt(store, loc, parsed.name);
+      // A call tree-sitter resolved stays put unless tsserver agrees on its target.
+      const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
+      if (!target || (!pending && target.id !== edge.target)) continue;
+      targets.set(target.id, loc);
     }
-    const target = definedAt(store, loc, parsed.name);
-    // A call tree-sitter resolved stays put unless tsserver agrees on its target.
-    const pending = isUnresolved(edge.target) || isMemberCall(edge.target);
-    if (!target || (!pending && target.id !== edge.target)) continue;
     try {
-      // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row.
-      store.addEdge(makeLspEdge(edge, target.id, `${loc.file}:${loc.line}:${loc.col}`, sourceNode.content_hash));
-      store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
+      // Add before delete: a failed add keeps the call for the next run to resolve. Each site is its own row, and the
+      // rows an earlier run wrote at it for targets no longer named go.
+      const atSite = store.getEdgesBySource(edge.source).filter((e) => e.kind === "calls" && e.provenance.source === "lsp" && sameEnd(e.call_end, edge.call_end));
+      for (const [id, at] of targets) {
+        if (!atSite.some((e) => e.target === id)) store.addEdge(makeLspEdge(edge, id, `${at.file}:${at.line}:${at.col}`, sourceNode.content_hash));
+      }
+      for (const e of atSite) if (!targets.has(e.target)) store.deleteEdge(e.source, e.target, e.kind, "lsp", e.call_end);
+      // A call through an interface keeps its member row, so every run asks it again as classes come and go.
+      if (!implemented) store.deleteEdge(edge.source, edge.target, edge.kind, edge.provenance.source, edge.call_end);
     } catch {
       errors++;
     }

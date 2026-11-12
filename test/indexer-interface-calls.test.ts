@@ -7,8 +7,10 @@ import { SqliteGraphStore } from "../src/graph/sqlite.js";
 import { indexProject } from "../src/indexer/pipeline.js";
 import { TsServerClient } from "../src/indexer/tsserver-client.js";
 import { impactResult } from "../src/tools/impact.js";
+import { traceResult } from "../src/tools/trace.js";
 
-// `total` calls `s.area()` on a `Shape`, the interface `Square` and `Circle` implement, then `double`.
+// `total` calls `s.area()` on a `Shape`, the interface `Square` and `Circle` implement, then `double`; `each`'s callback
+// calls `s.area()` too.
 const SHAPE = ["export interface Shape {", "  area(): number;", "}", ""].join("\n");
 const shapeClass = (name: string, value: number, implementsShape = true) =>
   [
@@ -29,6 +31,9 @@ const USE = [
   "}",
   "export function double(n: number): number {",
   "  return n * 2;",
+  "}",
+  "export function each(shapes: Shape[]): void {",
+  "  shapes.forEach((s) => s.area());",
   "}",
   "",
 ].join("\n");
@@ -58,6 +63,14 @@ function fixture(): string {
 
 const impact = (root: string, store: SqliteGraphStore, symbol: string) =>
   impactResult({ symbols: [symbol], changeType: "behavior_change", maxDepth: 1, store, projectRoot: root }).text;
+
+const failingImplementations = (projectRoot: string) => {
+  const client = new TsServerClient(projectRoot);
+  client.implementations = async () => {
+    throw new Error("TsServer request timed out: implementation");
+  };
+  return client;
+};
 
 test("impact on each class member implementing an interface member lists the caller through the interface", async () => {
   const root = fixture();
@@ -102,20 +115,65 @@ test("a class that stops implementing the interface loses the caller, the others
 test("a failed implementations lookup records the call's lookup failed until a run answers", async () => {
   const root = fixture();
   const store = new SqliteGraphStore();
-  const failing = (projectRoot: string) => {
-    const client = new TsServerClient(projectRoot);
-    client.implementations = async () => {
-      throw new Error("TsServer request timed out: implementation");
-    };
-    return client;
-  };
   try {
-    await indexProject(root, store, { lspClientFactory: failing });
-    expect(store.getFailures()).toEqual([{ kind: "definition", source: "src/use.ts::total:2", evidence: "area:4:36" }]);
+    await indexProject(root, store, { lspClientFactory: failingImplementations });
+    expect(store.getFailures()).toEqual([
+      { kind: "definition", source: "src/use.ts::each:10", evidence: "area:11:27" },
+      { kind: "definition", source: "src/use.ts::total:2", evidence: "area:4:36" },
+    ]);
     expect(impact(root, store, "Square.area")).toStartWith("Trust: partial\n");
     await indexProject(root, store);
     expect(store.getFailures()).toEqual([]);
     expect(impact(root, store, "Square.area")).toMatch(TOTAL_ROW);
+  } finally {
+    store.close();
+  }
+});
+
+test("a failed implementations lookup after a good run reads partial on the rows the good run wrote", async () => {
+  const root = fixture();
+  const store = new SqliteGraphStore();
+  try {
+    await indexProject(root, store);
+    await indexProject(root, store, { lspClientFactory: failingImplementations });
+    const callback = traceResult({ file: "src/use.ts", line: 11, store, projectRoot: root }).text;
+    expect(callback).toStartWith("Trust: partial\n");
+    expect(callback).toContain("Square.area");
+    expect(impact(root, store, "Square.area")).toStartWith("Trust: partial\n");
+  } finally {
+    store.close();
+  }
+});
+
+test("when no class implements the interface any more, no class member lists the caller", async () => {
+  const root = fixture();
+  const store = new SqliteGraphStore();
+  try {
+    await indexProject(root, store);
+    writeFileSync(join(root, "src", "circle.ts"), shapeClass("Circle", 3, false));
+    writeFileSync(join(root, "src", "square.ts"), shapeClass("Square", 4, false));
+    await indexProject(root, store);
+    expect(impact(root, store, "Circle.area")).not.toMatch(TOTAL_ROW);
+    expect(impact(root, store, "Square.area")).not.toMatch(TOTAL_ROW);
+    expect(impact(root, store, "double")).toMatch(TOTAL_ROW);
+  } finally {
+    store.close();
+  }
+});
+
+test("a call whose receiver turns from the interface to one class keeps that class alone, its file unchanged", async () => {
+  const root = fixture();
+  writeFileSync(join(root, "src", "holder.ts"), 'import type { Shape } from "./shape";\nexport interface Holder {\n  shape: Shape;\n}\n');
+  writeFileSync(join(root, "src", "held.ts"), 'import type { Holder } from "./holder";\nexport function held(h: Holder): number {\n  return h.shape.area();\n}\n');
+  const heldRow = /^src\/held\.ts {2}2:[0-9a-f]{3} {2}held {2}behavioral {2}depth:1$/m;
+  const store = new SqliteGraphStore();
+  try {
+    await indexProject(root, store);
+    expect(impact(root, store, "Circle.area")).toMatch(heldRow);
+    writeFileSync(join(root, "src", "holder.ts"), 'import type { Square } from "./square";\nexport interface Holder {\n  shape: Square;\n}\n');
+    await indexProject(root, store);
+    expect(impact(root, store, "Circle.area")).not.toMatch(heldRow);
+    expect(impact(root, store, "Square.area")).toMatch(heldRow);
   } finally {
     store.close();
   }

@@ -357,17 +357,17 @@ function renderSpanTrace(params: TraceParams, file: string, fn: FunctionAt, owne
   const unindexed: string[] = [];
   const callees = fn.calls
     .flatMap((call): Callee[] => {
+      const left = call.call_end ? leftAt.get(site(call.call_end)) : undefined;
+      // An `obj.m()`'s member row reads a failed lookup on it, whether the LSP stage left it alone or beside the class
+      // members a call through an interface reached.
+      if (left && isMemberCall(left.target)) hiddenEdges.push(left);
       const hits = call.call_end ? resolvedAt.get(site(call.call_end)) : undefined;
       if (hits) {
         resolvedEdges.push(...hits.map((hit) => hit.edge));
         return hits.map((hit) => ({ node: hit.node, end: call.call_end, file: hit.node.file, line: hit.node.start_line }));
       }
-      const left = call.call_end ? leftAt.get(site(call.call_end)) : undefined;
       // An `obj.m()` the LSP stage left unresolved has no project call, so it prints nothing.
-      if (left && isMemberCall(left.target)) {
-        hiddenEdges.push(left);
-        return [];
-      }
+      if (left && isMemberCall(left.target)) return [];
       // At module level the index stores no call, so an `obj.m()` there is one tsserver never resolved.
       if (!owner && isMemberCall(call.target)) return [];
       if (!left) unindexed.push(`${file}:${calleeName(call)}`);
