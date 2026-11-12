@@ -454,6 +454,24 @@ test("getNeighbors lists a node's edges in the order they were written, not by t
   store.close();
 });
 
+test("deleteEdge with a call end removes that call alone, not a same-named call beside it on its line", () => {
+  const store = new SqliteGraphStore();
+  const call = (col: number) => ({
+    source: "src/a.ts::f:1",
+    target: "__unresolved__::run:0",
+    kind: "calls" as const,
+    provenance: { source: "tree-sitter" as const, confidence: 0.5, evidence: `run:2:${col - 4}`, content_hash: "h" },
+    created_at: 1,
+    call_end: { line: 2, col },
+  });
+  store.addEdge(call(7));
+  store.addEdge(call(16));
+
+  store.deleteEdge("src/a.ts::f:1", "__unresolved__::run:0", "calls", "tree-sitter", { line: 2, col: 7 });
+
+  expect(store.getEdgesBySource("src/a.ts::f:1").map((e) => e.call_end)).toEqual([{ line: 2, col: 16 }]);
+  store.close();
+});
 test("deleteEdge removes only the matching (source, target, kind, provenanceSource) row", () => {
   const store = new SqliteGraphStore();
 

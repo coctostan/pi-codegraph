@@ -83,7 +83,9 @@ function firstPerTarget(callees: Callee[]): Callee[] {
   const seen = new Set<string>();
   return callees.sort(byCallOrder).filter((callee) => {
     const target = callee.node?.id ?? callee.unresolved!.edge.target;
-    return !seen.has(target) && !!seen.add(target);
+    if (seen.has(target)) return false;
+    seen.add(target);
+    return true;
   });
 }
 
