@@ -42,6 +42,7 @@ function inInterface(store: GraphStore, loc: LspLocation): boolean {
 }
 
 const sameEnd = (a: GraphEdge["call_end"], b: GraphEdge["call_end"]) => a?.line === b?.line && a?.col === b?.col;
+
 function makeLspEdge(from: GraphEdge, target: string, evidence: string, contentHash: string): GraphEdge {
   return {
     source: from.source,
